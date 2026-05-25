@@ -75,9 +75,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "MT5 × HERMES — AI Trading Command Center" },
       { name: "description", content: "Retro black-and-white AI trading command center for MT5: Markov, Kelly, self-learning. Read-only monitoring." },
       { property: "og:title", content: "MT5 × HERMES — AI Trading Command Center" },
-      { property: "og:description", content: "Retro AI trading terminal monitoring MT5 over RDP. Read-only." },
+      { property: "og:description", content: "Retro black-and-white AI trading command center for MT5: Markov, Kelly, self-learning. Read-only monitoring." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "MT5 × HERMES — AI Trading Command Center" },
+      { name: "twitter:description", content: "Retro black-and-white AI trading command center for MT5: Markov, Kelly, self-learning. Read-only monitoring." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8d23b942-025a-4bb3-a518-e2cd86d5331a/id-preview-42c34c6f--41680e30-8843-437d-ac5d-4330866b9634.lovable.app-1779752546201.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8d23b942-025a-4bb3-a518-e2cd86d5331a/id-preview-42c34c6f--41680e30-8843-437d-ac5d-4330866b9634.lovable.app-1779752546201.png" },
     ],
     links: [
       {
