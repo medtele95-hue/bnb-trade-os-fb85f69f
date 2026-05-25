@@ -14,7 +14,528 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      account_snapshots: {
+        Row: {
+          balance: number | null
+          created_at: string
+          daily_pnl: number | null
+          equity: number | null
+          free_margin: number | null
+          id: string
+          margin: number | null
+          max_drawdown: number | null
+          open_positions: number | null
+          profit_factor: number | null
+          total_pnl: number | null
+          total_trades: number | null
+          trades_today: number | null
+          win_rate: number | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string
+          daily_pnl?: number | null
+          equity?: number | null
+          free_margin?: number | null
+          id?: string
+          margin?: number | null
+          max_drawdown?: number | null
+          open_positions?: number | null
+          profit_factor?: number | null
+          total_pnl?: number | null
+          total_trades?: number | null
+          trades_today?: number | null
+          win_rate?: number | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string
+          daily_pnl?: number | null
+          equity?: number | null
+          free_margin?: number | null
+          id?: string
+          margin?: number | null
+          max_drawdown?: number | null
+          open_positions?: number | null
+          profit_factor?: number | null
+          total_pnl?: number | null
+          total_trades?: number | null
+          trades_today?: number | null
+          win_rate?: number | null
+        }
+        Relationships: []
+      }
+      ai_decisions: {
+        Row: {
+          blocked_reason: string | null
+          confidence: number | null
+          created_at: string
+          decision: string | null
+          entry: number | null
+          id: string
+          lot_size: number | null
+          market_state: string | null
+          markov_probability: number | null
+          reason: string | null
+          risk_status: string | null
+          signal: string | null
+          sl: number | null
+          strategy: string | null
+          symbol: string | null
+          timeframe: string | null
+          tp: number | null
+        }
+        Insert: {
+          blocked_reason?: string | null
+          confidence?: number | null
+          created_at?: string
+          decision?: string | null
+          entry?: number | null
+          id?: string
+          lot_size?: number | null
+          market_state?: string | null
+          markov_probability?: number | null
+          reason?: string | null
+          risk_status?: string | null
+          signal?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol?: string | null
+          timeframe?: string | null
+          tp?: number | null
+        }
+        Update: {
+          blocked_reason?: string | null
+          confidence?: number | null
+          created_at?: string
+          decision?: string | null
+          entry?: number | null
+          id?: string
+          lot_size?: number | null
+          market_state?: string | null
+          markov_probability?: number | null
+          reason?: string | null
+          risk_status?: string | null
+          signal?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol?: string | null
+          timeframe?: string | null
+          tp?: number | null
+        }
+        Relationships: []
+      }
+      bot_logs: {
+        Row: {
+          created_at: string
+          id: string
+          level: string | null
+          message: string
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string | null
+          message: string
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string | null
+          message?: string
+          source?: string | null
+        }
+        Relationships: []
+      }
+      bot_status: {
+        Row: {
+          component: string
+          id: string
+          last_heartbeat: string | null
+          latency_ms: number | null
+          meta: Json | null
+          status: string
+          updated_at: string
+          uptime: string | null
+        }
+        Insert: {
+          component: string
+          id?: string
+          last_heartbeat?: string | null
+          latency_ms?: number | null
+          meta?: Json | null
+          status: string
+          updated_at?: string
+          uptime?: string | null
+        }
+        Update: {
+          component?: string
+          id?: string
+          last_heartbeat?: string | null
+          latency_ms?: number | null
+          meta?: Json | null
+          status?: string
+          updated_at?: string
+          uptime?: string | null
+        }
+        Relationships: []
+      }
+      execution_events: {
+        Row: {
+          created_at: string
+          id: string
+          lot: number | null
+          magic: number | null
+          mode: string | null
+          payload: Json | null
+          price: number | null
+          result: string | null
+          side: string | null
+          symbol: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          mode?: string | null
+          payload?: Json | null
+          price?: number | null
+          result?: string | null
+          side?: string | null
+          symbol?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          mode?: string | null
+          payload?: Json | null
+          price?: number | null
+          result?: string | null
+          side?: string | null
+          symbol?: string | null
+        }
+        Relationships: []
+      }
+      hermes_agents: {
+        Row: {
+          confidence: number | null
+          id: string
+          latest_signal: string | null
+          meta: Json | null
+          name: string
+          pnl_today: number | null
+          status: string | null
+          symbol: string | null
+          tag: string | null
+          timeframe: string | null
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          id?: string
+          latest_signal?: string | null
+          meta?: Json | null
+          name: string
+          pnl_today?: number | null
+          status?: string | null
+          symbol?: string | null
+          tag?: string | null
+          timeframe?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          id?: string
+          latest_signal?: string | null
+          meta?: Json | null
+          name?: string
+          pnl_today?: number | null
+          status?: string | null
+          symbol?: string | null
+          tag?: string | null
+          timeframe?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kelly_risk: {
+        Row: {
+          created_at: string
+          edge: number | null
+          final_risk: number | null
+          id: string
+          kelly_fraction: number | null
+          lot_size: number | null
+          model_probability: number | null
+          reward_risk: number | null
+          status: string | null
+          symbol: string | null
+        }
+        Insert: {
+          created_at?: string
+          edge?: number | null
+          final_risk?: number | null
+          id?: string
+          kelly_fraction?: number | null
+          lot_size?: number | null
+          model_probability?: number | null
+          reward_risk?: number | null
+          status?: string | null
+          symbol?: string | null
+        }
+        Update: {
+          created_at?: string
+          edge?: number | null
+          final_risk?: number | null
+          id?: string
+          kelly_fraction?: number | null
+          lot_size?: number | null
+          model_probability?: number | null
+          reward_risk?: number | null
+          status?: string | null
+          symbol?: string | null
+        }
+        Relationships: []
+      }
+      market_states: {
+        Row: {
+          created_at: string
+          id: string
+          price: number | null
+          spread: number | null
+          state: string
+          symbol: string
+          timeframe: string
+          trend: string | null
+          volatility: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price?: number | null
+          spread?: number | null
+          state: string
+          symbol: string
+          timeframe: string
+          trend?: string | null
+          volatility?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price?: number | null
+          spread?: number | null
+          state?: string
+          symbol?: string
+          timeframe?: string
+          trend?: string | null
+          volatility?: number | null
+        }
+        Relationships: []
+      }
+      markov_predictions: {
+        Row: {
+          created_at: string
+          current_state: string
+          id: string
+          persistence_bars: number | null
+          predicted_state: string
+          probability: number
+          signal: string | null
+          symbol: string
+          timeframe: string
+          transitions: number | null
+        }
+        Insert: {
+          created_at?: string
+          current_state: string
+          id?: string
+          persistence_bars?: number | null
+          predicted_state: string
+          probability: number
+          signal?: string | null
+          symbol: string
+          timeframe: string
+          transitions?: number | null
+        }
+        Update: {
+          created_at?: string
+          current_state?: string
+          id?: string
+          persistence_bars?: number | null
+          predicted_state?: string
+          probability?: number
+          signal?: string | null
+          symbol?: string
+          timeframe?: string
+          transitions?: number | null
+        }
+        Relationships: []
+      }
+      nightly_reports: {
+        Row: {
+          best_session: string | null
+          best_setup: string | null
+          created_at: string
+          id: string
+          payload: Json | null
+          report_date: string
+          suggestion: string | null
+          summary: string | null
+          trades_reviewed: number | null
+          worst_setup: string | null
+        }
+        Insert: {
+          best_session?: string | null
+          best_setup?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          report_date: string
+          suggestion?: string | null
+          summary?: string | null
+          trades_reviewed?: number | null
+          worst_setup?: string | null
+        }
+        Update: {
+          best_session?: string | null
+          best_setup?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          report_date?: string
+          suggestion?: string | null
+          summary?: string | null
+          trades_reviewed?: number | null
+          worst_setup?: string | null
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      strategy_signals: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          id: string
+          pnl: number | null
+          reason: string | null
+          signal: string | null
+          status: string | null
+          strategy: string
+          symbol: string | null
+          win_rate: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          pnl?: number | null
+          reason?: string | null
+          signal?: string | null
+          status?: string | null
+          strategy: string
+          symbol?: string | null
+          win_rate?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          pnl?: number | null
+          reason?: string | null
+          signal?: string | null
+          status?: string | null
+          strategy?: string
+          symbol?: string | null
+          win_rate?: number | null
+        }
+        Relationships: []
+      }
+      trades: {
+        Row: {
+          closed_at: string | null
+          confidence: number | null
+          created_at: string
+          dir: string
+          entry: number | null
+          id: string
+          lot: number | null
+          magic: number | null
+          opened_at: string | null
+          pnl: number | null
+          reason: string | null
+          result: string | null
+          sl: number | null
+          strategy: string | null
+          symbol: string
+          ticket: number | null
+          tp: number | null
+        }
+        Insert: {
+          closed_at?: string | null
+          confidence?: number | null
+          created_at?: string
+          dir: string
+          entry?: number | null
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          opened_at?: string | null
+          pnl?: number | null
+          reason?: string | null
+          result?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol: string
+          ticket?: number | null
+          tp?: number | null
+        }
+        Update: {
+          closed_at?: string | null
+          confidence?: number | null
+          created_at?: string
+          dir?: string
+          entry?: number | null
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          opened_at?: string | null
+          pnl?: number | null
+          reason?: string | null
+          result?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol?: string
+          ticket?: number | null
+          tp?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
