@@ -72,14 +72,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "MT5 × HERMES — AI Trading Command Center" },
+      { name: "description", content: "Retro black-and-white AI trading command center for MT5: Markov, Kelly, self-learning. Read-only monitoring." },
+      { property: "og:title", content: "MT5 × HERMES — AI Trading Command Center" },
+      { property: "og:description", content: "Retro AI trading terminal monitoring MT5 over RDP. Read-only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
