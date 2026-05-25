@@ -1,7 +1,63 @@
-import { mockCandles } from "@/lib/mock-data";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Waiting } from "./Waiting";
 
-export function CandleChart() {
-  const candles = mockCandles;
+type Candle = {
+  id: string;
+  symbol: string;
+  timeframe: string;
+  candle_time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
+type Props = {
+  symbol?: string;
+  timeframe?: string;
+  limit?: number;
+};
+
+export function CandleChart({ symbol = "BTCUSD", timeframe = "M5", limit = 80 }: Props) {
+  const [candles, setCandles] = useState<Candle[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("market_candles" as any)
+        .select("*")
+        .eq("symbol", symbol)
+        .eq("timeframe", timeframe)
+        .order("candle_time", { ascending: false })
+        .limit(limit);
+      if (cancelled) return;
+      const rows = ((data ?? []) as unknown as Candle[]).slice().reverse();
+      setCandles(rows);
+    };
+    load();
+    const ch = supabase
+      .channel(`live:market_candles:${symbol}:${timeframe}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "market_candles", filter: `symbol=eq.${symbol}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+    };
+  }, [symbol, timeframe, limit]);
+
+  if (candles === null) {
+    return <Waiting label="LOADING CANDLES" />;
+  }
+  if (candles.length === 0) {
+    return <Waiting label="WAITING FOR LIVE CANDLES" />;
+  }
+
   const w = 900;
   const h = 280;
   const padL = 50;
@@ -9,26 +65,19 @@ export function CandleChart() {
   const padT = 12;
   const padB = 20;
   const cw = (w - padL - padR) / candles.length;
-  const allHigh = Math.max(...candles.map((c) => c.h));
-  const allLow = Math.min(...candles.map((c) => c.l));
-  const range = allHigh - allLow;
+  const allHigh = Math.max(...candles.map((c) => Number(c.high)));
+  const allLow = Math.min(...candles.map((c) => Number(c.low)));
+  const range = allHigh - allLow || 1;
   const y = (p: number) => padT + ((allHigh - p) / range) * (h - padT - padB);
 
-  const entry = 77860;
-  const sl = 77450;
-  const tp = 78600;
   const support = allLow + range * 0.15;
   const resistance = allLow + range * 0.85;
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full tick" preserveAspectRatio="none">
-      {/* Horizontal lines */}
       {[
         { p: support, label: "SUPPORT" },
         { p: resistance, label: "RESISTANCE" },
-        { p: entry, label: "ENTRY 77860", dash: "4 2" },
-        { p: sl, label: "SL 77450", dash: "2 2" },
-        { p: tp, label: "TP 78600", dash: "2 2" },
       ].map((l, i) => (
         <g key={i}>
           <line
@@ -38,7 +87,7 @@ export function CandleChart() {
             y2={y(l.p)}
             stroke="currentColor"
             strokeWidth="0.5"
-            strokeDasharray={l.dash || "6 4"}
+            strokeDasharray="6 4"
           />
           <text
             x={w - padR + 4}
@@ -52,15 +101,18 @@ export function CandleChart() {
         </g>
       ))}
 
-      {/* Candles */}
       {candles.map((c, i) => {
         const x = padL + i * cw + cw / 2;
-        const up = c.c >= c.o;
-        const top = y(Math.max(c.o, c.c));
-        const bot = y(Math.min(c.o, c.c));
+        const o = Number(c.open);
+        const cl = Number(c.close);
+        const hi = Number(c.high);
+        const lo = Number(c.low);
+        const up = cl >= o;
+        const top = y(Math.max(o, cl));
+        const bot = y(Math.min(o, cl));
         return (
-          <g key={i}>
-            <line x1={x} x2={x} y1={y(c.h)} y2={y(c.l)} stroke="black" strokeWidth="0.7" />
+          <g key={c.id}>
+            <line x1={x} x2={x} y1={y(hi)} y2={y(lo)} stroke="black" strokeWidth="0.7" />
             <rect
               x={x - cw / 2.6}
               y={top}
@@ -73,26 +125,6 @@ export function CandleChart() {
           </g>
         );
       })}
-
-      {/* Trade annotation */}
-      <g>
-        <circle cx={padL + cw * 40} cy={y(entry)} r="4" fill="black" />
-        <text x={padL + cw * 40 + 8} y={y(entry) - 6} fontSize="9" fontFamily="monospace">
-          ENTER · FILLED · +$47
-        </text>
-        <text x={padL + cw * 55} y={y(entry) - 18} fontSize="9" fontFamily="monospace">
-          EXIT
-        </text>
-        <line
-          x1={padL + cw * 40}
-          x2={padL + cw * 55}
-          y1={y(entry)}
-          y2={y(entry) - 12}
-          stroke="black"
-          strokeWidth="0.7"
-          strokeDasharray="2 2"
-        />
-      </g>
     </svg>
   );
 }

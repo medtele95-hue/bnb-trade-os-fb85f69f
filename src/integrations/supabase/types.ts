@@ -302,6 +302,48 @@ export type Database = {
         }
         Relationships: []
       }
+      market_candles: {
+        Row: {
+          candle_time: string
+          close: number
+          created_at: string
+          high: number
+          id: string
+          low: number
+          open: number
+          spread: number | null
+          symbol: string
+          tick_volume: number | null
+          timeframe: string
+        }
+        Insert: {
+          candle_time: string
+          close: number
+          created_at?: string
+          high: number
+          id?: string
+          low: number
+          open: number
+          spread?: number | null
+          symbol: string
+          tick_volume?: number | null
+          timeframe: string
+        }
+        Update: {
+          candle_time?: string
+          close?: number
+          created_at?: string
+          high?: number
+          id?: string
+          low?: number
+          open?: number
+          spread?: number | null
+          symbol?: string
+          tick_volume?: number | null
+          timeframe?: string
+        }
+        Relationships: []
+      }
       market_states: {
         Row: {
           created_at: string
