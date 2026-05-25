@@ -164,15 +164,15 @@ export const mockJournal = [
 
 export const mockLogs = [
   "[14:11:02] MT5 connected",
-  "[14:11:04] Existing robots detected",
-  "[14:11:07] Robot magic 1001 synced",
+  "[14:11:04] Hermes brain initialized",
+  "[14:11:07] Hermes agent armed",
   "[14:11:08] BTCUSD M5 candles loaded",
   "[14:11:10] Markov state: UP",
   "[14:11:12] Kelly risk approved",
   "[14:11:15] Signal skipped: spread too high",
   "[14:11:20] Dashboard updated",
   "[14:11:24] Telegram alert dispatched",
-  "[14:11:31] Robot magic 1002 opened BUY 0.03 @ 77860",
+  "[14:11:31] Execution agent: BUY 0.03 BTCUSD @ 77860 (magic 909001)",
   "[14:11:42] Heartbeat OK :: RDP=CONNECTED MT5=CONNECTED",
 ];
 
