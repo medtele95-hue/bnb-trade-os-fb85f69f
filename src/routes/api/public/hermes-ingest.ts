@@ -23,7 +23,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "content-type, x-hermes-secret",
 };
 
-export const Route = createFileRoute("/api/hermes-ingest")({
+export const Route = createFileRoute("/api/public/hermes-ingest")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders }),
