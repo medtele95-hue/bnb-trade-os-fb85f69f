@@ -10,7 +10,7 @@ import {
   mockStrategies,
   mockSkipped,
   mockStack,
-  mockRobots,
+  mockAgents,
   mockJournal,
   mockLogs,
 } from "@/lib/mock-data";
