@@ -10,7 +10,7 @@ import {
   mockStrategies,
   mockSkipped,
   mockStack,
-  mockRobots,
+  mockAgents,
   mockJournal,
   mockLogs,
 } from "@/lib/mock-data";
@@ -346,20 +346,24 @@ function Telegram() {
   );
 }
 
-function Robots() {
+function VideoAgents() {
   return (
-    <Panel title="ROBOTS MONITOR" right="MT5 EAS">
+    <Panel title="VIDEO AGENTS" right={`${mockAgents.length} ONLINE`}>
       <div className="grid grid-cols-3 gap-2">
-        {mockRobots.map((r) => (
-          <div key={r.id} className="border border-black p-2">
-            <div className="flex items-center justify-between">
-              <b className="text-[12px]">{r.id}</b>
-              <span className="text-[9px] border border-black px-1">{r.status}</span>
+        {mockAgents.map((a) => (
+          <div key={a.name} className="border border-black p-2">
+            <div className="flex items-center justify-between border-b border-dashed border-black/50 pb-1">
+              <b className="text-[11px]">{a.name}</b>
+              <span className="text-[9px] border border-black px-1">{a.tag}</span>
             </div>
-            <KV k="Magic" v={r.magic} />
-            <KV k="Symbol" v={r.symbol} />
-            <KV k="Open" v={r.trades} />
-            <KV k="PnL" v={`${r.pnl >= 0 ? "+" : ""}$${r.pnl.toFixed(2)}`} accent={r.pnl >= 0 ? "profit" : "loss"} />
+            <div className="mt-1 space-y-0.5">
+              {a.rows.map(([k, v]) => (
+                <KV key={k} k={k} v={v} />
+              ))}
+            </div>
+            <div className="mt-1.5 border border-black bg-foreground text-background text-[10px] tracking-widest text-center py-0.5">
+              {a.status}
+            </div>
           </div>
         ))}
       </div>
@@ -493,7 +497,7 @@ function Dashboard() {
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-8"><SelfLearn /></div>
         <div className="col-span-4 row-span-2"><Telegram /></div>
-        <div className="col-span-8"><Robots /></div>
+        <div className="col-span-8"><VideoAgents /></div>
       </div>
 
       <div className="mt-3"><Journal /></div>

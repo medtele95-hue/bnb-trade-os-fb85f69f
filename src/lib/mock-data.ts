@@ -74,33 +74,105 @@ export const mockStack = [
   { name: "TELEGRAM BOT", desc: "Sends alerts and nightly reports", uptime: "100.00%", health: "OK", latency: "118ms", status: "ONLINE" },
 ];
 
-export const mockRobots = [
-  { id: "ROBOT 1", magic: 1001, status: "RUNNING", symbol: "XAUUSD", trades: 1, pnl: 42.10 },
-  { id: "ROBOT 2", magic: 1002, status: "RUNNING", symbol: "BTCUSD", trades: 2, pnl: 118.40 },
-  { id: "ROBOT 3", magic: 1003, status: "RUNNING", symbol: "EURUSD", trades: 0, pnl: -12.30 },
+export const mockAgents = [
+  {
+    name: "HERMES 5-MIN AGENT",
+    tag: "CORE",
+    status: "RUNNING",
+    rows: [
+      ["Symbol", "BTCUSD"],
+      ["Timeframe", "M5"],
+      ["Latest Signal", "ENTER"],
+      ["Confidence", "74%"],
+      ["PnL Today", "+$312.44"],
+    ] as [string, string][],
+  },
+  {
+    name: "MARKOV STATE AGENT",
+    tag: "PROB",
+    status: "ACTIVE",
+    rows: [
+      ["Current State", "UP"],
+      ["Predicted Next", "UP"],
+      ["Probability", "0.91"],
+      ["Persistence", "6 bars"],
+      ["Transitions", "142"],
+      ["Signal", "ENTER"],
+    ] as [string, string][],
+  },
+  {
+    name: "KELLY RISK AGENT",
+    tag: "RISK",
+    status: "APPROVED",
+    rows: [
+      ["Model Prob", "0.68"],
+      ["Reward / Risk", "2.0"],
+      ["Edge", "13%"],
+      ["Kelly Fraction", "0.25"],
+      ["Final Risk", "0.5%"],
+      ["Lot Size", "0.03"],
+      ["Risk Status", "APPROVED"],
+    ] as [string, string][],
+  },
+  {
+    name: "SELF-LEARNING AGENT",
+    tag: "LEARN",
+    status: "IDLE · 03:00 UTC",
+    rows: [
+      ["Trades Reviewed", "47"],
+      ["Best Setup", "EMA_PULLBACK"],
+      ["Worst Setup", "COUNTER_TREND"],
+      ["Best Session", "LONDON OPEN"],
+      ["Suggestion", "Avoid low-vol breakouts"],
+      ["Nightly Review", "OK · 03:00 UTC"],
+    ] as [string, string][],
+  },
+  {
+    name: "EXECUTION AGENT",
+    tag: "EXEC",
+    status: "READ ONLY",
+    rows: [
+      ["Mode", "READ ONLY"],
+      ["Last Order", "BUY 0.03 BTCUSD"],
+      ["Last Result", "FILLED @ 77860"],
+      ["Safety Lock", "LOCKED"],
+      ["Magic Number", "909001"],
+    ] as [string, string][],
+  },
+  {
+    name: "TELEGRAM REPORT AGENT",
+    tag: "COMMS",
+    status: "ONLINE",
+    rows: [
+      ["Latest Alert", "FILLED · BTCUSD · BUY"],
+      ["Nightly Report", "SENT 03:02 UTC"],
+      ["Bot Status", "ONLINE"],
+      ["Last Message", "14:11:24 UTC"],
+    ] as [string, string][],
+  },
 ];
 
 export const mockJournal = [
-  { time: "14:11:20", magic: 1002, symbol: "BTCUSD", dir: "BUY", entry: 77860, sl: 77450, tp: 78600, lot: 0.03, pnl: 47, result: "WIN", strategy: "EMA_PULLBACK", confidence: 74, reason: "Trend aligned" },
-  { time: "14:02:11", magic: 1001, symbol: "XAUUSD", dir: "SELL", entry: 2384.5, sl: 2390.0, tp: 2374.0, lot: 0.02, pnl: 31, result: "WIN", strategy: "BREAKOUT", confidence: 68, reason: "Resistance rejection" },
-  { time: "13:48:55", magic: 1003, symbol: "EURUSD", dir: "BUY", entry: 1.0842, sl: 1.0825, tp: 1.0875, lot: 0.05, pnl: -12, result: "LOSS", strategy: "SECOND_ENTRY", confidence: 55, reason: "Failed continuation" },
-  { time: "13:30:08", magic: 1002, symbol: "BTCUSD", dir: "BUY", entry: 77640, sl: 77400, tp: 78100, lot: 0.03, pnl: 62, result: "WIN", strategy: "EMA_PULLBACK", confidence: 71, reason: "Higher TF aligned" },
-  { time: "12:55:42", magic: 1001, symbol: "XAUUSD", dir: "BUY", entry: 2378.0, sl: 2372.0, tp: 2388.0, lot: 0.02, pnl: 18, result: "WIN", strategy: "SCALPING", confidence: 61, reason: "Momentum spike" },
-  { time: "12:10:19", magic: 1003, symbol: "EURUSD", dir: "SELL", entry: 1.0861, sl: 1.0878, tp: 1.0834, lot: 0.04, pnl: 28, result: "WIN", strategy: "BREAKOUT", confidence: 66, reason: "Support break" },
-  { time: "11:42:01", magic: 1002, symbol: "BTCUSD", dir: "SELL", entry: 77920, sl: 78150, tp: 77500, lot: 0.03, pnl: -18, result: "LOSS", strategy: "SCALPING", confidence: 48, reason: "Whipsaw" },
+  { time: "14:11:20", magic: 909001, symbol: "BTCUSD", dir: "BUY", entry: 77860, sl: 77450, tp: 78600, lot: 0.03, pnl: 47, result: "WIN", strategy: "EMA_PULLBACK", confidence: 74, reason: "Trend aligned" },
+  { time: "14:02:11", magic: 909001, symbol: "XAUUSD", dir: "SELL", entry: 2384.5, sl: 2390.0, tp: 2374.0, lot: 0.02, pnl: 31, result: "WIN", strategy: "BREAKOUT", confidence: 68, reason: "Resistance rejection" },
+  { time: "13:48:55", magic: 909001, symbol: "EURUSD", dir: "BUY", entry: 1.0842, sl: 1.0825, tp: 1.0875, lot: 0.05, pnl: -12, result: "LOSS", strategy: "SECOND_ENTRY", confidence: 55, reason: "Failed continuation" },
+  { time: "13:30:08", magic: 909001, symbol: "BTCUSD", dir: "BUY", entry: 77640, sl: 77400, tp: 78100, lot: 0.03, pnl: 62, result: "WIN", strategy: "EMA_PULLBACK", confidence: 71, reason: "Higher TF aligned" },
+  { time: "12:55:42", magic: 909001, symbol: "XAUUSD", dir: "BUY", entry: 2378.0, sl: 2372.0, tp: 2388.0, lot: 0.02, pnl: 18, result: "WIN", strategy: "SCALPING", confidence: 61, reason: "Momentum spike" },
+  { time: "12:10:19", magic: 909001, symbol: "EURUSD", dir: "SELL", entry: 1.0861, sl: 1.0878, tp: 1.0834, lot: 0.04, pnl: 28, result: "WIN", strategy: "BREAKOUT", confidence: 66, reason: "Support break" },
+  { time: "11:42:01", magic: 909001, symbol: "BTCUSD", dir: "SELL", entry: 77920, sl: 78150, tp: 77500, lot: 0.03, pnl: -18, result: "LOSS", strategy: "SCALPING", confidence: 48, reason: "Whipsaw" },
 ];
 
 export const mockLogs = [
   "[14:11:02] MT5 connected",
-  "[14:11:04] Existing robots detected",
-  "[14:11:07] Robot magic 1001 synced",
+  "[14:11:04] Hermes brain initialized",
+  "[14:11:07] Hermes agent armed",
   "[14:11:08] BTCUSD M5 candles loaded",
   "[14:11:10] Markov state: UP",
   "[14:11:12] Kelly risk approved",
   "[14:11:15] Signal skipped: spread too high",
   "[14:11:20] Dashboard updated",
   "[14:11:24] Telegram alert dispatched",
-  "[14:11:31] Robot magic 1002 opened BUY 0.03 @ 77860",
+  "[14:11:31] Execution agent: BUY 0.03 BTCUSD @ 77860 (magic 909001)",
   "[14:11:42] Heartbeat OK :: RDP=CONNECTED MT5=CONNECTED",
 ];
 
