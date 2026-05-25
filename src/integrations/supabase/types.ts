@@ -1,0 +1,676 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  public: {
+    Tables: {
+      account_snapshots: {
+        Row: {
+          balance: number | null
+          created_at: string
+          daily_pnl: number | null
+          equity: number | null
+          free_margin: number | null
+          id: string
+          margin: number | null
+          max_drawdown: number | null
+          open_positions: number | null
+          profit_factor: number | null
+          total_pnl: number | null
+          total_trades: number | null
+          trades_today: number | null
+          win_rate: number | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string
+          daily_pnl?: number | null
+          equity?: number | null
+          free_margin?: number | null
+          id?: string
+          margin?: number | null
+          max_drawdown?: number | null
+          open_positions?: number | null
+          profit_factor?: number | null
+          total_pnl?: number | null
+          total_trades?: number | null
+          trades_today?: number | null
+          win_rate?: number | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string
+          daily_pnl?: number | null
+          equity?: number | null
+          free_margin?: number | null
+          id?: string
+          margin?: number | null
+          max_drawdown?: number | null
+          open_positions?: number | null
+          profit_factor?: number | null
+          total_pnl?: number | null
+          total_trades?: number | null
+          trades_today?: number | null
+          win_rate?: number | null
+        }
+        Relationships: []
+      }
+      ai_decisions: {
+        Row: {
+          blocked_reason: string | null
+          confidence: number | null
+          created_at: string
+          decision: string | null
+          entry: number | null
+          id: string
+          lot_size: number | null
+          market_state: string | null
+          markov_probability: number | null
+          reason: string | null
+          risk_status: string | null
+          signal: string | null
+          sl: number | null
+          strategy: string | null
+          symbol: string | null
+          timeframe: string | null
+          tp: number | null
+        }
+        Insert: {
+          blocked_reason?: string | null
+          confidence?: number | null
+          created_at?: string
+          decision?: string | null
+          entry?: number | null
+          id?: string
+          lot_size?: number | null
+          market_state?: string | null
+          markov_probability?: number | null
+          reason?: string | null
+          risk_status?: string | null
+          signal?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol?: string | null
+          timeframe?: string | null
+          tp?: number | null
+        }
+        Update: {
+          blocked_reason?: string | null
+          confidence?: number | null
+          created_at?: string
+          decision?: string | null
+          entry?: number | null
+          id?: string
+          lot_size?: number | null
+          market_state?: string | null
+          markov_probability?: number | null
+          reason?: string | null
+          risk_status?: string | null
+          signal?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol?: string | null
+          timeframe?: string | null
+          tp?: number | null
+        }
+        Relationships: []
+      }
+      bot_logs: {
+        Row: {
+          created_at: string
+          id: string
+          level: string | null
+          message: string
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string | null
+          message: string
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string | null
+          message?: string
+          source?: string | null
+        }
+        Relationships: []
+      }
+      bot_status: {
+        Row: {
+          component: string
+          id: string
+          last_heartbeat: string | null
+          latency_ms: number | null
+          meta: Json | null
+          status: string
+          updated_at: string
+          uptime: string | null
+        }
+        Insert: {
+          component: string
+          id?: string
+          last_heartbeat?: string | null
+          latency_ms?: number | null
+          meta?: Json | null
+          status: string
+          updated_at?: string
+          uptime?: string | null
+        }
+        Update: {
+          component?: string
+          id?: string
+          last_heartbeat?: string | null
+          latency_ms?: number | null
+          meta?: Json | null
+          status?: string
+          updated_at?: string
+          uptime?: string | null
+        }
+        Relationships: []
+      }
+      execution_events: {
+        Row: {
+          created_at: string
+          id: string
+          lot: number | null
+          magic: number | null
+          mode: string | null
+          payload: Json | null
+          price: number | null
+          result: string | null
+          side: string | null
+          symbol: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          mode?: string | null
+          payload?: Json | null
+          price?: number | null
+          result?: string | null
+          side?: string | null
+          symbol?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          mode?: string | null
+          payload?: Json | null
+          price?: number | null
+          result?: string | null
+          side?: string | null
+          symbol?: string | null
+        }
+        Relationships: []
+      }
+      hermes_agents: {
+        Row: {
+          confidence: number | null
+          id: string
+          latest_signal: string | null
+          meta: Json | null
+          name: string
+          pnl_today: number | null
+          status: string | null
+          symbol: string | null
+          tag: string | null
+          timeframe: string | null
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          id?: string
+          latest_signal?: string | null
+          meta?: Json | null
+          name: string
+          pnl_today?: number | null
+          status?: string | null
+          symbol?: string | null
+          tag?: string | null
+          timeframe?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          id?: string
+          latest_signal?: string | null
+          meta?: Json | null
+          name?: string
+          pnl_today?: number | null
+          status?: string | null
+          symbol?: string | null
+          tag?: string | null
+          timeframe?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kelly_risk: {
+        Row: {
+          created_at: string
+          edge: number | null
+          final_risk: number | null
+          id: string
+          kelly_fraction: number | null
+          lot_size: number | null
+          model_probability: number | null
+          reward_risk: number | null
+          status: string | null
+          symbol: string | null
+        }
+        Insert: {
+          created_at?: string
+          edge?: number | null
+          final_risk?: number | null
+          id?: string
+          kelly_fraction?: number | null
+          lot_size?: number | null
+          model_probability?: number | null
+          reward_risk?: number | null
+          status?: string | null
+          symbol?: string | null
+        }
+        Update: {
+          created_at?: string
+          edge?: number | null
+          final_risk?: number | null
+          id?: string
+          kelly_fraction?: number | null
+          lot_size?: number | null
+          model_probability?: number | null
+          reward_risk?: number | null
+          status?: string | null
+          symbol?: string | null
+        }
+        Relationships: []
+      }
+      market_states: {
+        Row: {
+          created_at: string
+          id: string
+          price: number | null
+          spread: number | null
+          state: string
+          symbol: string
+          timeframe: string
+          trend: string | null
+          volatility: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price?: number | null
+          spread?: number | null
+          state: string
+          symbol: string
+          timeframe: string
+          trend?: string | null
+          volatility?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price?: number | null
+          spread?: number | null
+          state?: string
+          symbol?: string
+          timeframe?: string
+          trend?: string | null
+          volatility?: number | null
+        }
+        Relationships: []
+      }
+      markov_predictions: {
+        Row: {
+          created_at: string
+          current_state: string
+          id: string
+          persistence_bars: number | null
+          predicted_state: string
+          probability: number
+          signal: string | null
+          symbol: string
+          timeframe: string
+          transitions: number | null
+        }
+        Insert: {
+          created_at?: string
+          current_state: string
+          id?: string
+          persistence_bars?: number | null
+          predicted_state: string
+          probability: number
+          signal?: string | null
+          symbol: string
+          timeframe: string
+          transitions?: number | null
+        }
+        Update: {
+          created_at?: string
+          current_state?: string
+          id?: string
+          persistence_bars?: number | null
+          predicted_state?: string
+          probability?: number
+          signal?: string | null
+          symbol?: string
+          timeframe?: string
+          transitions?: number | null
+        }
+        Relationships: []
+      }
+      nightly_reports: {
+        Row: {
+          best_session: string | null
+          best_setup: string | null
+          created_at: string
+          id: string
+          payload: Json | null
+          report_date: string
+          suggestion: string | null
+          summary: string | null
+          trades_reviewed: number | null
+          worst_setup: string | null
+        }
+        Insert: {
+          best_session?: string | null
+          best_setup?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          report_date: string
+          suggestion?: string | null
+          summary?: string | null
+          trades_reviewed?: number | null
+          worst_setup?: string | null
+        }
+        Update: {
+          best_session?: string | null
+          best_setup?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          report_date?: string
+          suggestion?: string | null
+          summary?: string | null
+          trades_reviewed?: number | null
+          worst_setup?: string | null
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      strategy_signals: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          id: string
+          pnl: number | null
+          reason: string | null
+          signal: string | null
+          status: string | null
+          strategy: string
+          symbol: string | null
+          win_rate: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          pnl?: number | null
+          reason?: string | null
+          signal?: string | null
+          status?: string | null
+          strategy: string
+          symbol?: string | null
+          win_rate?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          pnl?: number | null
+          reason?: string | null
+          signal?: string | null
+          status?: string | null
+          strategy?: string
+          symbol?: string | null
+          win_rate?: number | null
+        }
+        Relationships: []
+      }
+      trades: {
+        Row: {
+          closed_at: string | null
+          confidence: number | null
+          created_at: string
+          dir: string
+          entry: number | null
+          id: string
+          lot: number | null
+          magic: number | null
+          opened_at: string | null
+          pnl: number | null
+          reason: string | null
+          result: string | null
+          sl: number | null
+          strategy: string | null
+          symbol: string
+          ticket: number | null
+          tp: number | null
+        }
+        Insert: {
+          closed_at?: string | null
+          confidence?: number | null
+          created_at?: string
+          dir: string
+          entry?: number | null
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          opened_at?: string | null
+          pnl?: number | null
+          reason?: string | null
+          result?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol: string
+          ticket?: number | null
+          tp?: number | null
+        }
+        Update: {
+          closed_at?: string | null
+          confidence?: number | null
+          created_at?: string
+          dir?: string
+          entry?: number | null
+          id?: string
+          lot?: number | null
+          magic?: number | null
+          opened_at?: string | null
+          pnl?: number | null
+          reason?: string | null
+          result?: string | null
+          sl?: number | null
+          strategy?: string | null
+          symbol?: string
+          ticket?: number | null
+          tp?: number | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

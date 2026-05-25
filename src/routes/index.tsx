@@ -2,18 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Panel, KV } from "@/components/dashboard/Panel";
 import { CandleChart } from "@/components/dashboard/CandleChart";
 import { Clock } from "@/components/dashboard/Clock";
-import {
-  mockMetrics,
-  mockMarkov,
-  mockKelly,
-  mockDecision,
-  mockStrategies,
-  mockSkipped,
-  mockStack,
-  mockAgents,
-  mockJournal,
-  mockLogs,
-} from "@/lib/mock-data";
+import { Waiting } from "@/components/dashboard/Waiting";
+import { useLiveTable } from "@/hooks/useLiveTable";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -32,6 +22,13 @@ function StatusDot({ ok = true, label }: { ok?: boolean; label: string }) {
 }
 
 function Header() {
+  const { rows: statuses } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 20 });
+  const byKey: Record<string, any> = {};
+  statuses.forEach((s) => (byKey[s.component] = s));
+  const rdp = byKey["RDP"]?.status ?? "—";
+  const mt5 = byKey["MT5"]?.status ?? "—";
+  const bot = byKey["HERMES"]?.status ?? (statuses.length ? "ONLINE" : "WAITING");
+
   return (
     <header className="panel border-b-2">
       <div className="grid grid-cols-12 gap-0">
@@ -52,10 +49,10 @@ function Header() {
           </div>
         </div>
         <div className="col-span-4 p-3 text-[10px] uppercase tracking-wider grid grid-cols-2 gap-x-3 gap-y-1">
-          <div>BOT STATUS: <b>ONLINE</b><span className="blink ml-1">_</span></div>
+          <div>BOT STATUS: <b>{bot}</b><span className="blink ml-1">_</span></div>
           <div>MODE: <b>READ ONLY</b></div>
-          <div>RDP: <b>CONNECTED</b></div>
-          <div>MT5: <b>CONNECTED</b></div>
+          <div>RDP: <b>{rdp}</b></div>
+          <div>MT5: <b>{mt5}</b></div>
           <div className="col-span-2 flex items-center justify-between border-t border-dashed border-black/40 pt-1 mt-0.5">
             <span>TIME</span>
             <Clock />
@@ -77,9 +74,9 @@ function Header() {
           </Link>
         ))}
         <div className="ml-auto px-3 py-1.5 flex items-center gap-4">
-          <StatusDot label="SUPABASE: MOCK" />
-          <StatusDot label="WS: LIVE" />
-          <span>v0.1.0 — HERMES</span>
+          <StatusDot label="SUPABASE: LIVE" />
+          <StatusDot label="REALTIME: ON" />
+          <span>v0.2.0 — HERMES</span>
         </div>
       </nav>
     </header>
@@ -87,43 +84,54 @@ function Header() {
 }
 
 function Hero() {
+  const { rows, empty } = useLiveTable<any>("account_snapshots", { limit: 1 });
+  const s = rows[0];
   return (
-    <Panel title="TOTAL PNL — VERIFIED FROM MT5" right="ACCT: DEMO" className="col-span-8">
-      <div className="grid grid-cols-3 gap-3 items-center">
-        <div className="col-span-2 px-2 py-3">
-          <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
-          <div className="pixel text-[88px] leading-none tracking-tighter text-profit">
-            ${mockMetrics.totalPnl.toLocaleString()}
+    <Panel title="TOTAL PNL — VERIFIED FROM MT5" right="ACCT: LIVE" className="col-span-8">
+      {empty || !s ? (
+        <Waiting />
+      ) : (
+        <div className="grid grid-cols-3 gap-3 items-center">
+          <div className="col-span-2 px-2 py-3">
+            <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
+            <div className="pixel text-[88px] leading-none tracking-tighter text-profit">
+              ${Number(s.total_pnl ?? 0).toLocaleString()}
+            </div>
+            <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest">
+              <StatusDot label="Verified from MT5" />
+              <StatusDot label="Account: Live" />
+              <StatusDot label="Broker Connected" />
+            </div>
           </div>
-          <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest">
-            <StatusDot label="Verified from MT5" />
-            <StatusDot label="Account: Demo / Live" />
-            <StatusDot label="Broker Connected" />
+          <div className="border-l border-black p-2 space-y-0.5">
+            <KV k="Trades Today" v={s.trades_today ?? "—"} />
+            <KV k="Daily PnL" v={`${(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${s.daily_pnl ?? 0}`} accent={(s.daily_pnl ?? 0) >= 0 ? "profit" : "loss"} />
+            <KV k="Win Rate" v={`${s.win_rate ?? 0}%`} />
+            <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
+            <KV k="Open Positions" v={s.open_positions ?? 0} />
+            <KV k="Max DD" v={`${s.max_drawdown ?? 0}%`} accent="loss" />
           </div>
         </div>
-        <div className="border-l border-black p-2 space-y-0.5">
-          <KV k="Trades Today" v={mockMetrics.tradesToday} />
-          <KV k="Daily PnL" v={`+$${mockMetrics.dailyPnl}`} accent="profit" />
-          <KV k="Win Rate" v={`${mockMetrics.winRate}%`} />
-          <KV k="Profit Factor" v={mockMetrics.profitFactor} />
-          <KV k="Open Positions" v={mockMetrics.openPositions} />
-          <KV k="Max DD" v={`${mockMetrics.maxDrawdown}%`} accent="loss" />
-        </div>
-      </div>
+      )}
     </Panel>
   );
 }
 
 function MetricsRow() {
+  const { rows, empty } = useLiveTable<any>("account_snapshots", { limit: 1 });
+  const s = rows[0];
+  if (empty || !s) {
+    return <div className="border border-black -mt-px p-2"><Waiting label="WAITING FOR HERMES LIVE METRICS" /></div>;
+  }
   const items = [
-    { k: "Trades Today", v: mockMetrics.tradesToday },
-    { k: "Total Trades", v: mockMetrics.totalTrades.toLocaleString() },
-    { k: "Win Rate", v: `${mockMetrics.winRate}%` },
-    { k: "Daily PnL", v: `+$${mockMetrics.dailyPnl}`, a: "profit" as const },
-    { k: "Avg Ticket", v: `$${mockMetrics.averageTicket}` },
-    { k: "Profit Factor", v: mockMetrics.profitFactor },
-    { k: "Max DD", v: `${mockMetrics.maxDrawdown}%`, a: "loss" as const },
-    { k: "Open Pos", v: mockMetrics.openPositions },
+    { k: "Trades Today", v: s.trades_today ?? 0 },
+    { k: "Total Trades", v: (s.total_trades ?? 0).toLocaleString() },
+    { k: "Win Rate", v: `${s.win_rate ?? 0}%` },
+    { k: "Daily PnL", v: `${(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${s.daily_pnl ?? 0}`, a: ((s.daily_pnl ?? 0) >= 0 ? "profit" : "loss") as "profit" | "loss" },
+    { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString()}` },
+    { k: "Profit Factor", v: s.profit_factor ?? "—" },
+    { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" as const },
+    { k: "Open Pos", v: s.open_positions ?? 0 },
   ];
   return (
     <div className="grid grid-cols-8 gap-0 border border-black -mt-px">
@@ -140,286 +148,361 @@ function MetricsRow() {
 }
 
 function Markov() {
-  const m = mockMarkov;
+  const { rows, empty } = useLiveTable<any>("markov_predictions", { limit: 1 });
+  const m = rows[0];
   return (
-    <Panel title="MARKOV STATE TRANSITION" right={`${m.symbol} ${m.timeframe}`}>
-      <div className="grid grid-cols-5 items-center gap-2 my-2">
-        <div className="col-span-2 text-center">
-          <div className="text-[9px] uppercase opacity-70">Current State</div>
-          <div className="pixel text-[34px] leading-none">{m.currentState}</div>
-        </div>
-        <div className="text-center text-[28px]">→</div>
-        <div className="col-span-2 text-center">
-          <div className="text-[9px] uppercase opacity-70">Predicted Next</div>
-          <div className="pixel text-[34px] leading-none">{m.predictedState}</div>
-        </div>
-      </div>
-      <div className="border-y border-dashed border-black/40 py-1 text-center">
-        <span className="text-[10px] uppercase opacity-70">probability</span>{" "}
-        <span className="pixel text-[18px]">p = {m.probability.toFixed(2)}</span>{" "}
-        <span className="ml-3 px-1.5 border border-black text-[10px]">SIGNAL: {m.signal}</span>
-      </div>
-      <div className="grid grid-cols-3 gap-2 mt-2 text-center">
-        <div><div className="text-[9px] uppercase opacity-70">Signals</div><div className="pixel text-[16px]">{m.signals}</div></div>
-        <div><div className="text-[9px] uppercase opacity-70">Entered</div><div className="pixel text-[16px] text-profit">{m.entered}</div></div>
-        <div><div className="text-[9px] uppercase opacity-70">Skipped</div><div className="pixel text-[16px] text-loss">{m.skipped}</div></div>
-      </div>
+    <Panel title="MARKOV STATE TRANSITION" right={m ? `${m.symbol} ${m.timeframe}` : "—"}>
+      {empty || !m ? (
+        <Waiting />
+      ) : (
+        <>
+          <div className="grid grid-cols-5 items-center gap-2 my-2">
+            <div className="col-span-2 text-center">
+              <div className="text-[9px] uppercase opacity-70">Current State</div>
+              <div className="pixel text-[34px] leading-none">{m.current_state}</div>
+            </div>
+            <div className="text-center text-[28px]">→</div>
+            <div className="col-span-2 text-center">
+              <div className="text-[9px] uppercase opacity-70">Predicted Next</div>
+              <div className="pixel text-[34px] leading-none">{m.predicted_state}</div>
+            </div>
+          </div>
+          <div className="border-y border-dashed border-black/40 py-1 text-center">
+            <span className="text-[10px] uppercase opacity-70">probability</span>{" "}
+            <span className="pixel text-[18px]">p = {Number(m.probability).toFixed(2)}</span>{" "}
+            <span className="ml-3 px-1.5 border border-black text-[10px]">SIGNAL: {m.signal ?? "—"}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mt-2 text-center">
+            <div><div className="text-[9px] uppercase opacity-70">Persistence</div><div className="pixel text-[16px]">{m.persistence_bars ?? "—"}</div></div>
+            <div><div className="text-[9px] uppercase opacity-70">Transitions</div><div className="pixel text-[16px]">{m.transitions ?? "—"}</div></div>
+            <div><div className="text-[9px] uppercase opacity-70">Signal</div><div className="pixel text-[16px]">{m.signal ?? "—"}</div></div>
+          </div>
+        </>
+      )}
     </Panel>
   );
 }
 
 function Kelly() {
-  const k = mockKelly;
+  const { rows, empty } = useLiveTable<any>("kelly_risk", { limit: 1 });
+  const k = rows[0];
   return (
     <Panel title="KELLY RISK ENGINE" right="f* = p−(1−p)/b">
-      <div className="border border-dashed border-black/50 p-2 text-center my-1">
-        <span className="pixel text-[14px]">{k.formula}</span>
-      </div>
-      <KV k="Model Probability" v={k.modelProbability.toFixed(2)} />
-      <KV k="Reward / Risk" v={k.rewardRisk.toFixed(1)} />
-      <KV k="Edge" v={`${k.edge}%`} />
-      <KV k="Fractional Kelly" v={k.fractionalKelly.toFixed(2)} />
-      <KV k="Final Risk" v={`${k.finalRisk}%`} />
-      <KV k="Lot Size" v={k.lotSize.toFixed(2)} />
-      <div className="mt-2 border border-black px-2 py-1 text-center bg-foreground text-background text-[11px] tracking-widest">
-        RISK STATUS: {k.status}
-      </div>
+      {empty || !k ? (
+        <Waiting />
+      ) : (
+        <>
+          <div className="border border-dashed border-black/50 p-2 text-center my-1">
+            <span className="pixel text-[14px]">Kelly f* = p − (1−p) / b</span>
+          </div>
+          <KV k="Model Probability" v={Number(k.model_probability ?? 0).toFixed(2)} />
+          <KV k="Reward / Risk" v={Number(k.reward_risk ?? 0).toFixed(1)} />
+          <KV k="Edge" v={`${k.edge ?? 0}%`} />
+          <KV k="Fractional Kelly" v={Number(k.kelly_fraction ?? 0).toFixed(2)} />
+          <KV k="Final Risk" v={`${k.final_risk ?? 0}%`} />
+          <KV k="Lot Size" v={Number(k.lot_size ?? 0).toFixed(2)} />
+          <div className="mt-2 border border-black px-2 py-1 text-center bg-foreground text-background text-[11px] tracking-widest">
+            RISK STATUS: {k.status ?? "—"}
+          </div>
+        </>
+      )}
     </Panel>
   );
 }
 
 function Decision() {
-  const d = mockDecision;
+  const { rows, empty } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const d = rows[0];
   return (
     <Panel title="AI DECISION OBJECT" right="LATEST BACKEND DECISION">
-      <div className="grid grid-cols-2 gap-x-3">
-        <KV k="Symbol" v={d.symbol} />
-        <KV k="Timeframe" v={d.timeframe} />
-        <KV k="Market State" v={d.marketState} />
-        <KV k="Markov p" v={d.markovProbability.toFixed(2)} />
-        <KV k="Strategy" v={d.strategy} />
-        <KV k="Signal" v={d.signal} accent="profit" />
-        <KV k="Confidence" v={`${d.confidence}%`} />
-        <KV k="Risk Status" v={d.riskStatus} />
-        <KV k="Lot" v={d.lotSize} />
-        <KV k="Entry" v={d.entry} />
-        <KV k="SL" v={d.sl} accent="loss" />
-        <KV k="TP" v={d.tp} accent="profit" />
-      </div>
-      <div className="mt-2 border-t border-black pt-1.5">
-        <div className="text-[9px] uppercase opacity-70">Decision</div>
-        <div className="pixel text-[20px]">{d.decision}</div>
-        <div className="text-[10px] mt-1 opacity-80">
-          <b>REASON:</b> {d.reason}
-        </div>
-        <div className="text-[10px] opacity-80">
-          <b>BLOCKED:</b> {d.blockedReason}
-        </div>
-      </div>
+      {empty || !d ? (
+        <Waiting />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-x-3">
+            <KV k="Symbol" v={d.symbol ?? "—"} />
+            <KV k="Timeframe" v={d.timeframe ?? "—"} />
+            <KV k="Market State" v={d.market_state ?? "—"} />
+            <KV k="Markov p" v={Number(d.markov_probability ?? 0).toFixed(2)} />
+            <KV k="Strategy" v={d.strategy ?? "—"} />
+            <KV k="Signal" v={d.signal ?? "—"} accent="profit" />
+            <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
+            <KV k="Risk Status" v={d.risk_status ?? "—"} />
+            <KV k="Lot" v={d.lot_size ?? "—"} />
+            <KV k="Entry" v={d.entry ?? "—"} />
+            <KV k="SL" v={d.sl ?? "—"} accent="loss" />
+            <KV k="TP" v={d.tp ?? "—"} accent="profit" />
+          </div>
+          <div className="mt-2 border-t border-black pt-1.5">
+            <div className="text-[9px] uppercase opacity-70">Decision</div>
+            <div className="pixel text-[20px]">{d.decision ?? "—"}</div>
+            <div className="text-[10px] mt-1 opacity-80"><b>REASON:</b> {d.reason ?? "—"}</div>
+            <div className="text-[10px] opacity-80"><b>BLOCKED:</b> {d.blocked_reason ?? "None"}</div>
+          </div>
+        </>
+      )}
     </Panel>
   );
 }
 
 function Strategies() {
+  const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 8 });
+  // collapse to latest per strategy
+  const seen = new Set<string>();
+  const latest = rows.filter((r) => (seen.has(r.strategy) ? false : (seen.add(r.strategy), true))).slice(0, 4);
   return (
-    <Panel title="STRATEGY MODULES" right={`${mockStrategies.length} loaded`}>
-      <div className="grid grid-cols-4 gap-2">
-        {mockStrategies.map((s) => (
-          <div key={s.name} className="border border-black p-2">
-            <div className="flex items-center justify-between">
-              <div className="font-bold text-[11px]">{s.name}</div>
-              <div className="text-[9px] border border-black px-1">{s.status}</div>
+    <Panel title="STRATEGY MODULES" right={`${latest.length} loaded`}>
+      {empty || latest.length === 0 ? (
+        <Waiting />
+      ) : (
+        <div className="grid grid-cols-4 gap-2">
+          {latest.map((s) => (
+            <div key={s.id} className="border border-black p-2">
+              <div className="flex items-center justify-between">
+                <div className="font-bold text-[11px]">{s.strategy}</div>
+                <div className="text-[9px] border border-black px-1">{s.status ?? "—"}</div>
+              </div>
+              <div className="mt-1.5 space-y-0.5">
+                <KV k="Signal" v={s.signal ?? "—"} />
+                <KV k="Confidence" v={`${s.confidence ?? 0}%`} />
+                <KV k="Win Rate" v={`${s.win_rate ?? 0}%`} />
+                <KV k="Today PnL" v={`${(s.pnl ?? 0) >= 0 ? "+" : ""}$${Number(s.pnl ?? 0).toFixed(2)}`} accent={(s.pnl ?? 0) >= 0 ? "profit" : "loss"} />
+              </div>
+              {s.reason && <div className="mt-1 text-[10px] opacity-80 italic line-clamp-2">"{s.reason}"</div>}
             </div>
-            <div className="mt-1.5 space-y-0.5">
-              <KV k="Signal" v={s.signal} />
-              <KV k="Confidence" v={`${s.confidence}%`} />
-              <KV k="Win Rate" v={`${s.winRate}%`} />
-              <KV k="Today PnL" v={`${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(2)}`} accent={s.pnl >= 0 ? "profit" : "loss"} />
-            </div>
-            <div className="mt-1 text-[10px] opacity-80 italic line-clamp-2">"{s.reason}"</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
 
 function SkipEngine() {
+  const { rows, empty } = useLiveTable<any>("ai_decisions", { limit: 20 });
+  const skipped = rows.filter((r) => (r.decision ?? "").toUpperCase() === "SKIP").slice(0, 6);
   return (
-    <Panel title="SIGNAL SKIP ENGINE" right={`SKIPPED: ${mockSkipped.length}`}>
-      <table className="w-full text-[10px]">
-        <thead>
-          <tr className="border-b border-black text-left uppercase tracking-wider">
-            <th className="py-1">Time</th>
-            <th>Symbol</th>
-            <th>Strategy</th>
-            <th>Reason</th>
-          </tr>
-        </thead>
-        <tbody>
-          {mockSkipped.map((s, i) => (
-            <tr key={i} className="border-b border-dashed border-black/40">
-              <td className="py-1 pixel">{s.time}</td>
-              <td>{s.symbol}</td>
-              <td>{s.strategy}</td>
-              <td className="text-loss">{s.reason}</td>
+    <Panel title="SIGNAL SKIP ENGINE" right={`SKIPPED: ${skipped.length}`}>
+      {empty || skipped.length === 0 ? (
+        <Waiting />
+      ) : (
+        <table className="w-full text-[10px]">
+          <thead>
+            <tr className="border-b border-black text-left uppercase tracking-wider">
+              <th className="py-1">Time</th><th>Symbol</th><th>Strategy</th><th>Reason</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {skipped.map((s) => (
+              <tr key={s.id} className="border-b border-dashed border-black/40">
+                <td className="py-1 pixel">{new Date(s.created_at).toISOString().slice(11, 19)}</td>
+                <td>{s.symbol}</td>
+                <td>{s.strategy}</td>
+                <td className="text-loss">{s.blocked_reason ?? s.reason ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </Panel>
   );
 }
 
 function Stack() {
+  const { rows, empty } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 10 });
   return (
-    <Panel title="TRADING STACK" right="5 NODES">
-      <div className="grid grid-cols-5 gap-2">
-        {mockStack.map((n) => (
-          <div key={n.name} className="border border-black p-2">
-            <div className="font-bold text-[11px]">{n.name}</div>
-            <div className="text-[9px] opacity-70 leading-tight mt-0.5">{n.desc}</div>
-            <div className="mt-1.5 space-y-0.5">
-              <KV k="Uptime" v={n.uptime} />
-              <KV k="Health" v={n.health} accent="profit" />
-              <KV k="Latency" v={n.latency} />
-              <KV k="Status" v={n.status} />
+    <Panel title="TRADING STACK" right={`${rows.length} NODES`}>
+      {empty ? (
+        <Waiting />
+      ) : (
+        <div className="grid grid-cols-5 gap-2">
+          {rows.slice(0, 5).map((n) => (
+            <div key={n.id} className="border border-black p-2">
+              <div className="font-bold text-[11px]">{n.component}</div>
+              <div className="text-[9px] opacity-70 leading-tight mt-0.5">{n.meta?.desc ?? ""}</div>
+              <div className="mt-1.5 space-y-0.5">
+                <KV k="Uptime" v={n.uptime ?? "—"} />
+                <KV k="Health" v={n.status ?? "—"} accent="profit" />
+                <KV k="Latency" v={n.latency_ms != null ? `${n.latency_ms}ms` : "—"} />
+                <KV k="Status" v={n.status ?? "—"} />
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
 
 function SelfLearn() {
-  const steps = [
-    { n: "01", t: "TRADE EXECUTES", d: "Entry, exit, PnL, strategy and reason are logged." },
-    { n: "02", t: "NIGHTLY REVIEW", d: "Bot reviews all trades of the day." },
-    { n: "03", t: "STRATEGY SUGGESTIONS", d: "Best setup, worst setup, best session, worst session." },
-    { n: "04", t: "RISK UPDATE", d: "Bot recommends risk changes — never auto-applied to live rules." },
-  ];
+  const { rows, empty } = useLiveTable<any>("nightly_reports", { orderBy: "report_date", ascending: false, limit: 1 });
+  const r = rows[0];
   return (
     <Panel title="SELF-LEARNING NIGHTLY LOOP" right="03:00 UTC">
-      <div className="grid grid-cols-4 gap-0">
-        {steps.map((s, i) => (
-          <div key={s.n} className={`p-2 ${i < steps.length - 1 ? "border-r border-dashed border-black/50" : ""}`}>
-            <div className="pixel text-[28px] leading-none">{s.n}</div>
-            <div className="font-bold text-[11px] mt-1">{s.t}</div>
-            <div className="text-[10px] opacity-80 mt-1 leading-snug">{s.d}</div>
-          </div>
-        ))}
-      </div>
+      {empty || !r ? (
+        <Waiting />
+      ) : (
+        <div className="grid grid-cols-4 gap-0">
+          {[
+            { n: "01", t: "TRADES REVIEWED", d: `${r.trades_reviewed ?? 0} trades on ${r.report_date}` },
+            { n: "02", t: "BEST SETUP", d: r.best_setup ?? "—" },
+            { n: "03", t: "WORST SETUP", d: r.worst_setup ?? "—" },
+            { n: "04", t: "SUGGESTION", d: r.suggestion ?? "—" },
+          ].map((s, i) => (
+            <div key={s.n} className={`p-2 ${i < 3 ? "border-r border-dashed border-black/50" : ""}`}>
+              <div className="pixel text-[28px] leading-none">{s.n}</div>
+              <div className="font-bold text-[11px] mt-1">{s.t}</div>
+              <div className="text-[10px] opacity-80 mt-1 leading-snug">{s.d}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
 
 function Telegram() {
+  const { rows: reports, empty: noReports } = useLiveTable<any>("nightly_reports", { orderBy: "report_date", ascending: false, limit: 1 });
+  const { rows: execs, empty: noExecs } = useLiveTable<any>("execution_events", { limit: 1 });
+  const r = reports[0];
+  const e = execs[0];
   return (
     <Panel title="TELEGRAM REPORT" right="@HERMES_BOT">
-      <div className="border border-black p-2 bg-secondary">
-        <div className="flex items-center justify-between border-b border-dashed border-black/50 pb-1 mb-1">
-          <b>HERMES TRADING BOT</b>
-          <span className="text-[10px] border border-black px-1">ONLINE</span>
-        </div>
-        <div className="text-[10px] uppercase opacity-70 mt-1">Nightly Report</div>
-        <KV k="Trades" v="47" />
-        <KV k="Win Rate" v="65.1%" />
-        <KV k="P/L" v="+$312.44" accent="profit" />
-        <KV k="Best Symbol" v="BTCUSD" />
-        <KV k="Worst Setup" v="Counter-trend entry" accent="loss" />
-        <div className="text-[10px] mt-1 opacity-80 italic">
-          ▶ Suggestion: Avoid low-volatility breakouts
-        </div>
-      </div>
-      <div className="mt-2 border border-black p-2">
-        <div className="text-[10px] uppercase opacity-70">Latest Alert</div>
-        <div className="pixel text-[14px]">FILLED · BTCUSD · BUY</div>
-        <div className="grid grid-cols-2 gap-x-3 mt-1">
-          <KV k="Entry" v="77860" />
-          <KV k="Risk" v="0.5%" />
-          <KV k="SL" v="77450" accent="loss" />
-          <KV k="TP" v="78600" accent="profit" />
-        </div>
-      </div>
+      {noReports && noExecs ? (
+        <Waiting />
+      ) : (
+        <>
+          <div className="border border-black p-2 bg-secondary">
+            <div className="flex items-center justify-between border-b border-dashed border-black/50 pb-1 mb-1">
+              <b>HERMES TRADING BOT</b>
+              <span className="text-[10px] border border-black px-1">ONLINE</span>
+            </div>
+            <div className="text-[10px] uppercase opacity-70 mt-1">Nightly Report</div>
+            {r ? (
+              <>
+                <KV k="Trades" v={r.trades_reviewed ?? "—"} />
+                <KV k="Best Setup" v={r.best_setup ?? "—"} />
+                <KV k="Worst Setup" v={r.worst_setup ?? "—"} accent="loss" />
+                <KV k="Best Session" v={r.best_session ?? "—"} />
+                <div className="text-[10px] mt-1 opacity-80 italic">▶ {r.suggestion ?? "—"}</div>
+              </>
+            ) : (
+              <Waiting label="NO NIGHTLY REPORT YET" />
+            )}
+          </div>
+          <div className="mt-2 border border-black p-2">
+            <div className="text-[10px] uppercase opacity-70">Latest Alert</div>
+            {e ? (
+              <>
+                <div className="pixel text-[14px]">{(e.result ?? "—")} · {e.symbol ?? "—"} · {e.side ?? "—"}</div>
+                <div className="grid grid-cols-2 gap-x-3 mt-1">
+                  <KV k="Price" v={e.price ?? "—"} />
+                  <KV k="Lot" v={e.lot ?? "—"} />
+                  <KV k="Mode" v={e.mode ?? "READ_ONLY"} />
+                  <KV k="Magic" v={e.magic ?? "—"} />
+                </div>
+              </>
+            ) : (
+              <Waiting label="NO EXECUTION EVENTS" />
+            )}
+          </div>
+        </>
+      )}
     </Panel>
   );
 }
 
 function VideoAgents() {
+  const { rows, empty } = useLiveTable<any>("hermes_agents", { orderBy: "name", ascending: true, limit: 12 });
   return (
-    <Panel title="VIDEO AGENTS" right={`${mockAgents.length} ONLINE`}>
-      <div className="grid grid-cols-3 gap-2">
-        {mockAgents.map((a) => (
-          <div key={a.name} className="border border-black p-2">
-            <div className="flex items-center justify-between border-b border-dashed border-black/50 pb-1">
-              <b className="text-[11px]">{a.name}</b>
-              <span className="text-[9px] border border-black px-1">{a.tag}</span>
+    <Panel title="VIDEO AGENTS" right={`${rows.length} ONLINE`}>
+      {empty ? (
+        <Waiting />
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          {rows.map((a) => (
+            <div key={a.id} className="border border-black p-2">
+              <div className="flex items-center justify-between border-b border-dashed border-black/50 pb-1">
+                <b className="text-[11px]">{a.name}</b>
+                <span className="text-[9px] border border-black px-1">{a.tag ?? "—"}</span>
+              </div>
+              <div className="mt-1 space-y-0.5">
+                {a.symbol && <KV k="Symbol" v={a.symbol} />}
+                {a.timeframe && <KV k="Timeframe" v={a.timeframe} />}
+                {a.latest_signal && <KV k="Latest Signal" v={a.latest_signal} />}
+                {a.confidence != null && <KV k="Confidence" v={`${a.confidence}%`} />}
+                {a.pnl_today != null && <KV k="PnL Today" v={`${a.pnl_today >= 0 ? "+" : ""}$${a.pnl_today}`} accent={a.pnl_today >= 0 ? "profit" : "loss"} />}
+              </div>
+              <div className="mt-1.5 border border-black bg-foreground text-background text-[10px] tracking-widest text-center py-0.5">
+                {a.status ?? "—"}
+              </div>
             </div>
-            <div className="mt-1 space-y-0.5">
-              {a.rows.map(([k, v]) => (
-                <KV key={k} k={k} v={v} />
-              ))}
-            </div>
-            <div className="mt-1.5 border border-black bg-foreground text-background text-[10px] tracking-widest text-center py-0.5">
-              {a.status}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
 
 function Journal() {
+  const { rows, empty } = useLiveTable<any>("trades", { limit: 20 });
   return (
-    <Panel title="TRADE JOURNAL" right={`${mockJournal.length} ROWS`}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-[10px]">
-          <thead>
-            <tr className="border-b border-black text-left uppercase tracking-wider">
-              {["Time","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Result","Strategy","Conf","Reason"].map(h => (
-                <th key={h} className="py-1 pr-2">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {mockJournal.map((t, i) => (
-              <tr key={i} className="border-b border-dashed border-black/40">
-                <td className="py-1 pr-2 pixel">{t.time}</td>
-                <td className="pr-2">{t.magic}</td>
-                <td className="pr-2">{t.symbol}</td>
-                <td className="pr-2">{t.dir}</td>
-                <td className="pr-2 pixel">{t.entry}</td>
-                <td className="pr-2 pixel text-loss">{t.sl}</td>
-                <td className="pr-2 pixel text-profit">{t.tp}</td>
-                <td className="pr-2">{t.lot}</td>
-                <td className={`pr-2 pixel ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>{t.pnl >= 0 ? "+" : ""}{t.pnl}</td>
-                <td className="pr-2">{t.result}</td>
-                <td className="pr-2">{t.strategy}</td>
-                <td className="pr-2">{t.confidence}%</td>
-                <td className="pr-2 italic opacity-80">{t.reason}</td>
+    <Panel title="TRADE JOURNAL" right={`${rows.length} ROWS`}>
+      {empty ? (
+        <Waiting />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[10px]">
+            <thead>
+              <tr className="border-b border-black text-left uppercase tracking-wider">
+                {["Time","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Result","Strategy","Conf","Reason"].map((h) => (
+                  <th key={h} className="py-1 pr-2">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((t) => (
+                <tr key={t.id} className="border-b border-dashed border-black/40">
+                  <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
+                  <td className="pr-2">{t.magic ?? "—"}</td>
+                  <td className="pr-2">{t.symbol}</td>
+                  <td className="pr-2">{t.dir}</td>
+                  <td className="pr-2 pixel">{t.entry ?? "—"}</td>
+                  <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
+                  <td className="pr-2 pixel text-profit">{t.tp ?? "—"}</td>
+                  <td className="pr-2">{t.lot ?? "—"}</td>
+                  <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
+                  <td className="pr-2">{t.result ?? "—"}</td>
+                  <td className="pr-2">{t.strategy ?? "—"}</td>
+                  <td className="pr-2">{t.confidence != null ? `${t.confidence}%` : "—"}</td>
+                  <td className="pr-2 italic opacity-80">{t.reason ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Panel>
   );
 }
 
 function LogsTerminal() {
+  const { rows, empty } = useLiveTable<any>("bot_logs", { limit: 25 });
+  const ordered = [...rows].reverse();
   return (
     <Panel title="LOGS TERMINAL" right="STDOUT">
       <div className="bg-foreground text-background p-2 text-[10px] leading-snug font-mono">
-        {mockLogs.map((l, i) => (
-          <div key={i}>
-            <span className="opacity-60">$</span> {l}
-          </div>
-        ))}
-        <div>
-          <span className="opacity-60">$</span> <span className="blink">█</span>
-        </div>
+        {empty ? (
+          <div className="opacity-70">$ WAITING FOR HERMES LIVE LOGS <span className="blink">█</span></div>
+        ) : (
+          <>
+            {ordered.map((l) => (
+              <div key={l.id}>
+                <span className="opacity-60">$</span> [{new Date(l.created_at).toISOString().slice(11, 19)}] {l.source ? `${l.source}: ` : ""}{l.message}
+              </div>
+            ))}
+            <div><span className="opacity-60">$</span> <span className="blink">█</span></div>
+          </>
+        )}
       </div>
     </Panel>
   );
@@ -451,6 +534,17 @@ function ControlPanel() {
   );
 }
 
+function ChartPrice() {
+  const { rows } = useLiveTable<any>("market_states", { limit: 1, filter: { column: "symbol", value: "BTCUSD" } });
+  const m = rows[0];
+  return (
+    <div className="flex items-baseline justify-between">
+      <div className="pixel text-[36px] leading-none">{m?.price ? `$${Number(m.price).toLocaleString()}` : "—"}</div>
+      <div className="text-profit pixel text-[14px]">{m?.state ?? "WAITING"}</div>
+    </div>
+  );
+}
+
 function Dashboard() {
   return (
     <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
@@ -459,10 +553,7 @@ function Dashboard() {
       <div className="grid grid-cols-12 gap-3 mt-3">
         <Hero />
         <Panel title="BTCUSD / USD · 5-MIN" right="LIVE" className="col-span-4">
-          <div className="flex items-baseline justify-between">
-            <div className="pixel text-[36px] leading-none">$77,860</div>
-            <div className="text-profit pixel text-[14px]">+0.45%</div>
-          </div>
+          <ChartPrice />
           <div className="text-[10px] uppercase opacity-70 mt-1">Mini snapshot</div>
           <div className="mt-2">
             <CandleChart />
@@ -475,11 +566,8 @@ function Dashboard() {
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-3"><Markov /></div>
         <div className="col-span-3"><Kelly /></div>
-        <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · +$47 · EXIT" className="col-span-6">
-          <div className="flex items-baseline justify-between mb-1">
-            <div className="pixel text-[28px] leading-none">$77,860</div>
-            <div className="text-profit pixel text-[14px]">+0.45%</div>
-          </div>
+        <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · EXIT" className="col-span-6">
+          <ChartPrice />
           <CandleChart />
         </Panel>
       </div>
@@ -508,7 +596,7 @@ function Dashboard() {
       </div>
 
       <footer className="mt-4 border-t border-black pt-2 text-[10px] uppercase tracking-widest flex justify-between opacity-80">
-        <div>HERMES TRADING TERMINAL · BUILD 0.1.0 · MOCK DATA MODE</div>
+        <div>HERMES TRADING TERMINAL · BUILD 0.2.0 · SUPABASE LIVE</div>
         <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
       </footer>
     </div>
