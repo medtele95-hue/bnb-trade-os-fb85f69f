@@ -153,13 +153,13 @@ export const mockAgents = [
 ];
 
 export const mockJournal = [
-  { time: "14:11:20", magic: 1002, symbol: "BTCUSD", dir: "BUY", entry: 77860, sl: 77450, tp: 78600, lot: 0.03, pnl: 47, result: "WIN", strategy: "EMA_PULLBACK", confidence: 74, reason: "Trend aligned" },
-  { time: "14:02:11", magic: 1001, symbol: "XAUUSD", dir: "SELL", entry: 2384.5, sl: 2390.0, tp: 2374.0, lot: 0.02, pnl: 31, result: "WIN", strategy: "BREAKOUT", confidence: 68, reason: "Resistance rejection" },
-  { time: "13:48:55", magic: 1003, symbol: "EURUSD", dir: "BUY", entry: 1.0842, sl: 1.0825, tp: 1.0875, lot: 0.05, pnl: -12, result: "LOSS", strategy: "SECOND_ENTRY", confidence: 55, reason: "Failed continuation" },
-  { time: "13:30:08", magic: 1002, symbol: "BTCUSD", dir: "BUY", entry: 77640, sl: 77400, tp: 78100, lot: 0.03, pnl: 62, result: "WIN", strategy: "EMA_PULLBACK", confidence: 71, reason: "Higher TF aligned" },
-  { time: "12:55:42", magic: 1001, symbol: "XAUUSD", dir: "BUY", entry: 2378.0, sl: 2372.0, tp: 2388.0, lot: 0.02, pnl: 18, result: "WIN", strategy: "SCALPING", confidence: 61, reason: "Momentum spike" },
-  { time: "12:10:19", magic: 1003, symbol: "EURUSD", dir: "SELL", entry: 1.0861, sl: 1.0878, tp: 1.0834, lot: 0.04, pnl: 28, result: "WIN", strategy: "BREAKOUT", confidence: 66, reason: "Support break" },
-  { time: "11:42:01", magic: 1002, symbol: "BTCUSD", dir: "SELL", entry: 77920, sl: 78150, tp: 77500, lot: 0.03, pnl: -18, result: "LOSS", strategy: "SCALPING", confidence: 48, reason: "Whipsaw" },
+  { time: "14:11:20", magic: 909001, symbol: "BTCUSD", dir: "BUY", entry: 77860, sl: 77450, tp: 78600, lot: 0.03, pnl: 47, result: "WIN", strategy: "EMA_PULLBACK", confidence: 74, reason: "Trend aligned" },
+  { time: "14:02:11", magic: 909001, symbol: "XAUUSD", dir: "SELL", entry: 2384.5, sl: 2390.0, tp: 2374.0, lot: 0.02, pnl: 31, result: "WIN", strategy: "BREAKOUT", confidence: 68, reason: "Resistance rejection" },
+  { time: "13:48:55", magic: 909001, symbol: "EURUSD", dir: "BUY", entry: 1.0842, sl: 1.0825, tp: 1.0875, lot: 0.05, pnl: -12, result: "LOSS", strategy: "SECOND_ENTRY", confidence: 55, reason: "Failed continuation" },
+  { time: "13:30:08", magic: 909001, symbol: "BTCUSD", dir: "BUY", entry: 77640, sl: 77400, tp: 78100, lot: 0.03, pnl: 62, result: "WIN", strategy: "EMA_PULLBACK", confidence: 71, reason: "Higher TF aligned" },
+  { time: "12:55:42", magic: 909001, symbol: "XAUUSD", dir: "BUY", entry: 2378.0, sl: 2372.0, tp: 2388.0, lot: 0.02, pnl: 18, result: "WIN", strategy: "SCALPING", confidence: 61, reason: "Momentum spike" },
+  { time: "12:10:19", magic: 909001, symbol: "EURUSD", dir: "SELL", entry: 1.0861, sl: 1.0878, tp: 1.0834, lot: 0.04, pnl: 28, result: "WIN", strategy: "BREAKOUT", confidence: 66, reason: "Support break" },
+  { time: "11:42:01", magic: 909001, symbol: "BTCUSD", dir: "SELL", entry: 77920, sl: 78150, tp: 77500, lot: 0.03, pnl: -18, result: "LOSS", strategy: "SCALPING", confidence: 48, reason: "Whipsaw" },
 ];
 
 export const mockLogs = [
