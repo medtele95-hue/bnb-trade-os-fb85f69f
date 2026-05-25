@@ -74,10 +74,82 @@ export const mockStack = [
   { name: "TELEGRAM BOT", desc: "Sends alerts and nightly reports", uptime: "100.00%", health: "OK", latency: "118ms", status: "ONLINE" },
 ];
 
-export const mockRobots = [
-  { id: "ROBOT 1", magic: 1001, status: "RUNNING", symbol: "XAUUSD", trades: 1, pnl: 42.10 },
-  { id: "ROBOT 2", magic: 1002, status: "RUNNING", symbol: "BTCUSD", trades: 2, pnl: 118.40 },
-  { id: "ROBOT 3", magic: 1003, status: "RUNNING", symbol: "EURUSD", trades: 0, pnl: -12.30 },
+export const mockAgents = [
+  {
+    name: "HERMES 5-MIN AGENT",
+    tag: "CORE",
+    status: "RUNNING",
+    rows: [
+      ["Symbol", "BTCUSD"],
+      ["Timeframe", "M5"],
+      ["Latest Signal", "ENTER"],
+      ["Confidence", "74%"],
+      ["PnL Today", "+$312.44"],
+    ] as [string, string][],
+  },
+  {
+    name: "MARKOV STATE AGENT",
+    tag: "PROB",
+    status: "ACTIVE",
+    rows: [
+      ["Current State", "UP"],
+      ["Predicted Next", "UP"],
+      ["Probability", "0.91"],
+      ["Persistence", "6 bars"],
+      ["Transitions", "142"],
+      ["Signal", "ENTER"],
+    ] as [string, string][],
+  },
+  {
+    name: "KELLY RISK AGENT",
+    tag: "RISK",
+    status: "APPROVED",
+    rows: [
+      ["Model Prob", "0.68"],
+      ["Reward / Risk", "2.0"],
+      ["Edge", "13%"],
+      ["Kelly Fraction", "0.25"],
+      ["Final Risk", "0.5%"],
+      ["Lot Size", "0.03"],
+      ["Risk Status", "APPROVED"],
+    ] as [string, string][],
+  },
+  {
+    name: "SELF-LEARNING AGENT",
+    tag: "LEARN",
+    status: "IDLE · 03:00 UTC",
+    rows: [
+      ["Trades Reviewed", "47"],
+      ["Best Setup", "EMA_PULLBACK"],
+      ["Worst Setup", "COUNTER_TREND"],
+      ["Best Session", "LONDON OPEN"],
+      ["Suggestion", "Avoid low-vol breakouts"],
+      ["Nightly Review", "OK · 03:00 UTC"],
+    ] as [string, string][],
+  },
+  {
+    name: "EXECUTION AGENT",
+    tag: "EXEC",
+    status: "READ ONLY",
+    rows: [
+      ["Mode", "READ ONLY"],
+      ["Last Order", "BUY 0.03 BTCUSD"],
+      ["Last Result", "FILLED @ 77860"],
+      ["Safety Lock", "LOCKED"],
+      ["Magic Number", "909001"],
+    ] as [string, string][],
+  },
+  {
+    name: "TELEGRAM REPORT AGENT",
+    tag: "COMMS",
+    status: "ONLINE",
+    rows: [
+      ["Latest Alert", "FILLED · BTCUSD · BUY"],
+      ["Nightly Report", "SENT 03:02 UTC"],
+      ["Bot Status", "ONLINE"],
+      ["Last Message", "14:11:24 UTC"],
+    ] as [string, string][],
+  },
 ];
 
 export const mockJournal = [
