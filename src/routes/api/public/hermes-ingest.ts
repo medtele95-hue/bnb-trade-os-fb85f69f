@@ -125,6 +125,8 @@ const TABLES: Record<string, TableSpec> = {
       "magic_number",
       "mode",
       "symbols",
+      "active_symbol",
+      "last_update",
       "raw_payload",
     ],
   },
