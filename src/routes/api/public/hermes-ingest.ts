@@ -292,6 +292,17 @@ function rowKeys(rows: Record<string, unknown>[]) {
   return Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).sort();
 }
 
+function dedupeUpsertRows(rows: Record<string, unknown>[], spec: TableSpec) {
+  if (spec.mode !== "upsert" || !spec.conflict) return rows;
+  const conflictKeys = spec.conflict.split(",").map((key) => key.trim());
+  const byConflictKey = new Map<string, Record<string, unknown>>();
+  for (const row of rows) {
+    const key = conflictKeys.map((column) => String(row[column] ?? "")).join("\u0000");
+    byConflictKey.set(key, row);
+  }
+  return [...byConflictKey.values()];
+}
+
 export const Route = createFileRoute("/api/public/hermes-ingest")({
   server: {
     handlers: {
@@ -368,9 +379,10 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
         const allowed = new Set(spec.columns);
         const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
 
-        const rows = rawRows.map((r) =>
+        const cleanedRows = rawRows.map((r) =>
           cleanRow(r as Record<string, unknown>, allowed),
         );
+        const rows = dedupeUpsertRows(cleanedRows, spec);
         const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
         console.log(
@@ -381,7 +393,10 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           const query = supabaseAdmin.from(table as any);
           const op =
             spec.mode === "upsert"
-              ? query.upsert(rows as any, { onConflict: spec.conflict })
+              ? query.upsert(rows as any, {
+                  onConflict: spec.conflict,
+                  ignoreDuplicates: false,
+                })
               : query.insert(rows as any);
           const { data: inserted, error } = await op.select();
 
