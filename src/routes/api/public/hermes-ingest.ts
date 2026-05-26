@@ -102,6 +102,8 @@ const TABLES: Record<string, TableSpec> = {
       "result",
       "decision",
       "event_type",
+      "magic_number",
+      "raw_payload",
     ],
   },
   hermes_agents: {
@@ -123,6 +125,7 @@ const TABLES: Record<string, TableSpec> = {
       "magic_number",
       "mode",
       "symbols",
+      "raw_payload",
     ],
   },
   kelly_risk: {
@@ -141,6 +144,8 @@ const TABLES: Record<string, TableSpec> = {
       "blocked_reason",
       "daily_loss_pct",
       "drawdown_pct",
+      "fractional_kelly",
+      "raw_payload",
     ],
   },
   market_candles: {
@@ -159,6 +164,7 @@ const TABLES: Record<string, TableSpec> = {
       "tick_volume",
       "spread",
       "broker_symbol",
+      "raw_payload",
     ],
   },
   market_states: {
