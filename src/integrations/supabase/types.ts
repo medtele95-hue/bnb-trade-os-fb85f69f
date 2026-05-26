@@ -192,7 +192,7 @@ export type Database = {
         Insert: {
           allow_live_trading?: boolean | null
           bot_name?: string | null
-          component: string
+          component?: string
           demo_trading?: boolean | null
           id?: string
           last_heartbeat?: string | null
