@@ -349,9 +349,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
         const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
         console.log(
-          `[hermes-ingest] table=${table} rows=${rows.length} keys=${JSON.stringify(
-            rows.map((r) => Object.keys(r)),
-          )}`,
+          `[hermes-ingest] table=${table} rows=${rows.length} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} write_keys=${JSON.stringify(rows.map((r) => Object.keys(r)))}`,
         );
 
         try {
@@ -403,7 +401,10 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             details: e?.message ?? String(e),
             received_keys: receivedKeys,
             allowed_keys: allowedKeys,
-            postgres_error: e,
+            postgres_error: {
+              message: e?.message ?? String(e),
+              name: e?.name,
+            },
           });
         }
       },
