@@ -420,6 +420,23 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             console.log(
               `[hermes-ingest] db_error table=${table} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
             );
+
+            if (
+              table === "market_candles" &&
+              error.code === "23505" &&
+              (error.message.includes("market_candles_symbol_timeframe_candle_time_key") ||
+                error.details?.includes("market_candles_symbol_timeframe_candle_time_key"))
+            ) {
+              const result = {
+                ok: true,
+                table,
+                inserted: 0,
+                duplicate_conflict_treated_as_ok: true,
+              };
+              console.log(`[hermes-ingest] duplicate_ok ${JSON.stringify(result)}`);
+              return json(200, result);
+            }
+
             return json(400, {
               ok: false,
               table,
