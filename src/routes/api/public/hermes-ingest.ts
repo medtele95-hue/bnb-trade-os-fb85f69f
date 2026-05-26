@@ -30,6 +30,7 @@ const TABLES: Record<string, TableSpec> = {
       "currency",
       "login",
       "margin_level",
+      "profit",
     ],
   },
   ai_decisions: {
@@ -76,6 +77,8 @@ const TABLES: Record<string, TableSpec> = {
       "magic_number",
       "demo_trading",
       "mode",
+      "read_only",
+      "paper_trading",
     ],
   },
   execution_events: {
@@ -91,6 +94,7 @@ const TABLES: Record<string, TableSpec> = {
       "mode",
       "payload",
       "result",
+      "decision",
     ],
   },
   hermes_agents: {
@@ -111,6 +115,7 @@ const TABLES: Record<string, TableSpec> = {
       "display_name",
       "magic_number",
       "mode",
+      "symbols",
     ],
   },
   kelly_risk: {
@@ -127,6 +132,7 @@ const TABLES: Record<string, TableSpec> = {
       "symbol",
       "final_risk",
       "blocked_reason",
+      "daily_loss_pct",
     ],
   },
   market_candles: {
@@ -164,6 +170,7 @@ const TABLES: Record<string, TableSpec> = {
       "ema50",
       "ema200",
       "rsi",
+      "session",
     ],
   },
   markov_predictions: {
@@ -181,6 +188,7 @@ const TABLES: Record<string, TableSpec> = {
       "signal",
       "confidence",
       "persistence",
+      "predicted_next_state",
     ],
   },
   nightly_reports: {
@@ -221,6 +229,7 @@ const TABLES: Record<string, TableSpec> = {
       "entry",
       "sl",
       "tp",
+      "timeframe",
     ],
   },
   trades: {
@@ -243,6 +252,7 @@ const TABLES: Record<string, TableSpec> = {
       "reason",
       "opened_at",
       "closed_at",
+      "lot_size",
     ],
   },
 };
@@ -282,11 +292,21 @@ function rowKeys(rows: Record<string, unknown>[]) {
   return Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).sort();
 }
 
+function dedupeUpsertRows(rows: Record<string, unknown>[], spec: TableSpec) {
+  if (spec.mode !== "upsert" || !spec.conflict) return rows;
+  const conflictKeys = spec.conflict.split(",").map((key) => key.trim());
+  const byConflictKey = new Map<string, Record<string, unknown>>();
+  for (const row of rows) {
+    const key = conflictKeys.map((column) => String(row[column] ?? "")).join("\u0000");
+    byConflictKey.set(key, row);
+  }
+  return [...byConflictKey.values()];
+}
+
 export const Route = createFileRoute("/api/public/hermes-ingest")({
   server: {
     handlers: {
-      OPTIONS: async () =>
-        new Response(null, { status: 204, headers: corsHeaders }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders }),
       POST: async ({ request }) => {
         const secret = process.env.HERMES_INGEST_SECRET;
         const provided = request.headers.get("x-hermes-secret");
@@ -358,9 +378,8 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
         const allowed = new Set(spec.columns);
         const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
 
-        const rows = rawRows.map((r) =>
-          cleanRow(r as Record<string, unknown>, allowed),
-        );
+        const cleanedRows = rawRows.map((r) => cleanRow(r as Record<string, unknown>, allowed));
+        const rows = dedupeUpsertRows(cleanedRows, spec);
         const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
         console.log(
@@ -371,7 +390,10 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           const query = supabaseAdmin.from(table as any);
           const op =
             spec.mode === "upsert"
-              ? query.upsert(rows as any, { onConflict: spec.conflict })
+              ? query.upsert(rows as any, {
+                  onConflict: spec.conflict,
+                  ignoreDuplicates: false,
+                })
               : query.insert(rows as any);
           const { data: inserted, error } = await op.select();
 
@@ -406,9 +428,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           console.log(`[hermes-ingest] success ${JSON.stringify(result)}`);
           return json(200, result);
         } catch (e: any) {
-          console.log(
-            `[hermes-ingest] exception table=${table} message=${e?.message}`,
-          );
+          console.log(`[hermes-ingest] exception table=${table} message=${e?.message}`);
           return json(500, {
             ok: false,
             table,
@@ -416,9 +436,13 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             details: e?.message ?? String(e),
             received_keys: receivedKeys,
             allowed_keys: allowedKeys,
+            code: e?.code ?? null,
+            hint: e?.hint ?? null,
             postgres_error: {
               message: e?.message ?? String(e),
               name: e?.name,
+              code: e?.code,
+              hint: e?.hint,
             },
           });
         }
