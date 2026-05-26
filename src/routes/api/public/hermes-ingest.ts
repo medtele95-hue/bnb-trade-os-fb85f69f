@@ -306,7 +306,11 @@ function normalizeValue(v: unknown) {
   return v;
 }
 
-function cleanRow(row: Record<string, unknown>, allowed: Set<string>, rawRow: Record<string, unknown>) {
+function cleanRow(
+  row: Record<string, unknown>,
+  allowed: Set<string>,
+  rawRow: Record<string, unknown>,
+) {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     if (!allowed.has(k)) continue;
@@ -332,14 +336,20 @@ function applyTableDefaults(table: string, row: Record<string, unknown>) {
 
   if (table === "markov_predictions") {
     if (
-      (next.predicted_state === undefined || next.predicted_state === null || next.predicted_state === "") &&
+      (next.predicted_state === undefined ||
+        next.predicted_state === null ||
+        next.predicted_state === "") &&
       next.predicted_next_state !== undefined &&
       next.predicted_next_state !== null &&
       next.predicted_next_state !== ""
     ) {
       next.predicted_state = next.predicted_next_state;
     }
-    if (next.predicted_state === undefined || next.predicted_state === null || next.predicted_state === "") {
+    if (
+      next.predicted_state === undefined ||
+      next.predicted_state === null ||
+      next.predicted_state === ""
+    ) {
       next.predicted_state = "UNKNOWN";
     }
   }
