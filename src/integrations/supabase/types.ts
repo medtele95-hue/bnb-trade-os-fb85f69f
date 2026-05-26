@@ -23,6 +23,7 @@ export type Database = {
           equity: number | null
           free_margin: number | null
           id: string
+          login: number | null
           margin: number | null
           max_drawdown: number | null
           open_positions: number | null
@@ -40,6 +41,7 @@ export type Database = {
           equity?: number | null
           free_margin?: number | null
           id?: string
+          login?: number | null
           margin?: number | null
           max_drawdown?: number | null
           open_positions?: number | null
@@ -57,6 +59,7 @@ export type Database = {
           equity?: number | null
           free_margin?: number | null
           id?: string
+          login?: number | null
           margin?: number | null
           max_drawdown?: number | null
           open_positions?: number | null
@@ -160,9 +163,11 @@ export type Database = {
           allow_live_trading: boolean | null
           bot_name: string | null
           component: string
+          demo_trading: boolean | null
           id: string
           last_heartbeat: string | null
           latency_ms: number | null
+          magic_number: number | null
           meta: Json | null
           status: string
           updated_at: string
@@ -172,9 +177,11 @@ export type Database = {
           allow_live_trading?: boolean | null
           bot_name?: string | null
           component: string
+          demo_trading?: boolean | null
           id?: string
           last_heartbeat?: string | null
           latency_ms?: number | null
+          magic_number?: number | null
           meta?: Json | null
           status: string
           updated_at?: string
@@ -184,9 +191,11 @@ export type Database = {
           allow_live_trading?: boolean | null
           bot_name?: string | null
           component?: string
+          demo_trading?: boolean | null
           id?: string
           last_heartbeat?: string | null
           latency_ms?: number | null
+          magic_number?: number | null
           meta?: Json | null
           status?: string
           updated_at?: string
@@ -239,6 +248,7 @@ export type Database = {
           display_name: string | null
           id: string
           latest_signal: string | null
+          magic_number: number | null
           meta: Json | null
           name: string
           pnl_today: number | null
@@ -253,6 +263,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           latest_signal?: string | null
+          magic_number?: number | null
           meta?: Json | null
           name: string
           pnl_today?: number | null
@@ -267,6 +278,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           latest_signal?: string | null
+          magic_number?: number | null
           meta?: Json | null
           name?: string
           pnl_today?: number | null
