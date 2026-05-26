@@ -30,6 +30,7 @@ export type Database = {
           open_positions: number | null
           profit: number | null
           profit_factor: number | null
+          server: string | null
           total_pnl: number | null
           total_trades: number | null
           trades_today: number | null
@@ -50,6 +51,7 @@ export type Database = {
           open_positions?: number | null
           profit?: number | null
           profit_factor?: number | null
+          server?: string | null
           total_pnl?: number | null
           total_trades?: number | null
           trades_today?: number | null
@@ -70,6 +72,7 @@ export type Database = {
           open_positions?: number | null
           profit?: number | null
           profit_factor?: number | null
+          server?: string | null
           total_pnl?: number | null
           total_trades?: number | null
           trades_today?: number | null
@@ -182,6 +185,7 @@ export type Database = {
           paper_trading: boolean | null
           read_only: boolean | null
           status: string
+          symbols: Json | null
           updated_at: string
           uptime: string | null
         }
@@ -199,6 +203,7 @@ export type Database = {
           paper_trading?: boolean | null
           read_only?: boolean | null
           status: string
+          symbols?: Json | null
           updated_at?: string
           uptime?: string | null
         }
@@ -216,6 +221,7 @@ export type Database = {
           paper_trading?: boolean | null
           read_only?: boolean | null
           status?: string
+          symbols?: Json | null
           updated_at?: string
           uptime?: string | null
         }
@@ -225,6 +231,7 @@ export type Database = {
         Row: {
           created_at: string
           decision: string | null
+          event_type: string | null
           id: string
           lot: number | null
           magic: number | null
@@ -238,6 +245,7 @@ export type Database = {
         Insert: {
           created_at?: string
           decision?: string | null
+          event_type?: string | null
           id?: string
           lot?: number | null
           magic?: number | null
@@ -251,6 +259,7 @@ export type Database = {
         Update: {
           created_at?: string
           decision?: string | null
+          event_type?: string | null
           id?: string
           lot?: number | null
           magic?: number | null
@@ -322,6 +331,7 @@ export type Database = {
           blocked_reason: string | null
           created_at: string
           daily_loss_pct: number | null
+          drawdown_pct: number | null
           edge: number | null
           final_risk: number | null
           id: string
@@ -336,6 +346,7 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           daily_loss_pct?: number | null
+          drawdown_pct?: number | null
           edge?: number | null
           final_risk?: number | null
           id?: string
@@ -350,6 +361,7 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           daily_loss_pct?: number | null
+          drawdown_pct?: number | null
           edge?: number | null
           final_risk?: number | null
           id?: string
@@ -475,6 +487,7 @@ export type Database = {
           signal: string | null
           symbol: string
           timeframe: string
+          transition_count: number | null
           transitions: number | null
         }
         Insert: {
@@ -490,6 +503,7 @@ export type Database = {
           signal?: string | null
           symbol: string
           timeframe: string
+          transition_count?: number | null
           transitions?: number | null
         }
         Update: {
@@ -505,6 +519,7 @@ export type Database = {
           signal?: string | null
           symbol?: string
           timeframe?: string
+          transition_count?: number | null
           transitions?: number | null
         }
         Relationships: []
@@ -637,6 +652,7 @@ export type Database = {
           lot: number | null
           lot_size: number | null
           magic: number | null
+          magic_number: number | null
           opened_at: string | null
           pnl: number | null
           reason: string | null
@@ -657,6 +673,7 @@ export type Database = {
           lot?: number | null
           lot_size?: number | null
           magic?: number | null
+          magic_number?: number | null
           opened_at?: string | null
           pnl?: number | null
           reason?: string | null
@@ -677,6 +694,7 @@ export type Database = {
           lot?: number | null
           lot_size?: number | null
           magic?: number | null
+          magic_number?: number | null
           opened_at?: string | null
           pnl?: number | null
           reason?: string | null
