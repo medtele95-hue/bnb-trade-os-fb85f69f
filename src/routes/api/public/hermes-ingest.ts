@@ -31,6 +31,7 @@ const TABLES: Record<string, TableSpec> = {
       "login",
       "margin_level",
       "profit",
+      "server",
     ],
   },
   ai_decisions: {
@@ -73,6 +74,7 @@ const TABLES: Record<string, TableSpec> = {
       "latency_ms",
       "meta",
       "bot_name",
+      "symbols",
       "allow_live_trading",
       "magic_number",
       "demo_trading",
@@ -95,6 +97,7 @@ const TABLES: Record<string, TableSpec> = {
       "payload",
       "result",
       "decision",
+      "event_type",
     ],
   },
   hermes_agents: {
@@ -133,6 +136,7 @@ const TABLES: Record<string, TableSpec> = {
       "final_risk",
       "blocked_reason",
       "daily_loss_pct",
+      "drawdown_pct",
     ],
   },
   market_candles: {
@@ -189,6 +193,7 @@ const TABLES: Record<string, TableSpec> = {
       "confidence",
       "persistence",
       "predicted_next_state",
+      "transition_count",
     ],
   },
   nightly_reports: {
@@ -253,6 +258,7 @@ const TABLES: Record<string, TableSpec> = {
       "opened_at",
       "closed_at",
       "lot_size",
+      "magic_number",
     ],
   },
 };
@@ -286,6 +292,17 @@ function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
     out[k] = v;
   }
   return out;
+}
+
+function applyTableDefaults(table: string, row: Record<string, unknown>) {
+  if (
+    table === "bot_status" &&
+    (row.component === undefined || row.component === null || row.component === "")
+  ) {
+    return { ...row, component: "hermes_core" };
+  }
+
+  return row;
 }
 
 function rowKeys(rows: Record<string, unknown>[]) {
@@ -378,7 +395,9 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
         const allowed = new Set(spec.columns);
         const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
 
-        const cleanedRows = rawRows.map((r) => cleanRow(r as Record<string, unknown>, allowed));
+        const cleanedRows = rawRows.map((r) =>
+          applyTableDefaults(table, cleanRow(r as Record<string, unknown>, allowed)),
+        );
         const rows = dedupeUpsertRows(cleanedRows, spec);
         const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
@@ -401,10 +420,27 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             console.log(
               `[hermes-ingest] db_error table=${table} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
             );
+
+            if (
+              table === "market_candles" &&
+              error.code === "23505" &&
+              (error.message.includes("market_candles_symbol_timeframe_candle_time_key") ||
+                error.details?.includes("market_candles_symbol_timeframe_candle_time_key"))
+            ) {
+              const result = {
+                ok: true,
+                table,
+                inserted: 0,
+                duplicate_conflict_treated_as_ok: true,
+              };
+              console.log(`[hermes-ingest] duplicate_ok ${JSON.stringify(result)}`);
+              return json(200, result);
+            }
+
             return json(400, {
               ok: false,
               table,
-              error: "db_error",
+              error: error.message,
               details: error.message,
               received_keys: receivedKeys,
               allowed_keys: allowedKeys,
@@ -432,7 +468,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           return json(500, {
             ok: false,
             table,
-            error: "exception",
+            error: e?.message ?? String(e),
             details: e?.message ?? String(e),
             received_keys: receivedKeys,
             allowed_keys: allowedKeys,
