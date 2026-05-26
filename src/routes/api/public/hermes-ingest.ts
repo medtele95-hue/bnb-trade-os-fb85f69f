@@ -306,8 +306,7 @@ function dedupeUpsertRows(rows: Record<string, unknown>[], spec: TableSpec) {
 export const Route = createFileRoute("/api/public/hermes-ingest")({
   server: {
     handlers: {
-      OPTIONS: async () =>
-        new Response(null, { status: 204, headers: corsHeaders }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders }),
       POST: async ({ request }) => {
         const secret = process.env.HERMES_INGEST_SECRET;
         const provided = request.headers.get("x-hermes-secret");
@@ -379,9 +378,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
         const allowed = new Set(spec.columns);
         const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
 
-        const cleanedRows = rawRows.map((r) =>
-          cleanRow(r as Record<string, unknown>, allowed),
-        );
+        const cleanedRows = rawRows.map((r) => cleanRow(r as Record<string, unknown>, allowed));
         const rows = dedupeUpsertRows(cleanedRows, spec);
         const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
@@ -431,9 +428,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           console.log(`[hermes-ingest] success ${JSON.stringify(result)}`);
           return json(200, result);
         } catch (e: any) {
-          console.log(
-            `[hermes-ingest] exception table=${table} message=${e?.message}`,
-          );
+          console.log(`[hermes-ingest] exception table=${table} message=${e?.message}`);
           return json(500, {
             ok: false,
             table,
