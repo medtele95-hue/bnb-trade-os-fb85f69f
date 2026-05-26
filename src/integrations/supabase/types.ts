@@ -362,6 +362,7 @@ export type Database = {
           id: string
           kelly_fraction: number | null
           lot_size: number | null
+          max_daily_loss: number | null
           model_probability: number | null
           raw_payload: Json | null
           reward_risk: number | null
@@ -379,6 +380,7 @@ export type Database = {
           id?: string
           kelly_fraction?: number | null
           lot_size?: number | null
+          max_daily_loss?: number | null
           model_probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
@@ -396,6 +398,7 @@ export type Database = {
           id?: string
           kelly_fraction?: number | null
           lot_size?: number | null
+          max_daily_loss?: number | null
           model_probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
