@@ -339,21 +339,14 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           }
         }
 
-        let allowed: Set<string>;
-        try {
-          allowed = await getColumns(table);
-        } catch (e: any) {
-          return json(500, {
-            ok: false,
-            table,
-            error: "schema_lookup_failed",
-            details: e?.message ?? String(e),
-          });
-        }
+        const allowedKeys = [...spec.columns].sort();
+        const allowed = new Set(spec.columns);
+        const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
 
         const rows = rawRows.map((r) =>
           cleanRow(r as Record<string, unknown>, allowed),
         );
+        const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
         console.log(
           `[hermes-ingest] table=${table} rows=${rows.length} keys=${JSON.stringify(
@@ -371,15 +364,22 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
 
           if (error) {
             console.log(
-              `[hermes-ingest] db_error table=${table} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
+              `[hermes-ingest] db_error table=${table} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
             );
-            // Bust cache in case schema changed
-            delete columnCache[table];
             return json(400, {
               ok: false,
               table,
               error: "db_error",
               details: error.message,
+              received_keys: receivedKeys,
+              allowed_keys: allowedKeys,
+              stripped_keys: strippedKeys,
+              postgres_error: {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code,
+              },
               hint: error.hint,
               code: error.code,
             });
@@ -401,6 +401,9 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             table,
             error: "exception",
             details: e?.message ?? String(e),
+            received_keys: receivedKeys,
+            allowed_keys: allowedKeys,
+            postgres_error: e,
           });
         }
       },
