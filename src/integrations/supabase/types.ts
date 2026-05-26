@@ -370,6 +370,7 @@ export type Database = {
           lot_size: number | null
           max_daily_loss: number | null
           max_drawdown: number | null
+          max_risk_per_trade: number | null
           model_probability: number | null
           raw_payload: Json | null
           reward_risk: number | null
@@ -389,6 +390,7 @@ export type Database = {
           lot_size?: number | null
           max_daily_loss?: number | null
           max_drawdown?: number | null
+          max_risk_per_trade?: number | null
           model_probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
@@ -408,6 +410,7 @@ export type Database = {
           lot_size?: number | null
           max_daily_loss?: number | null
           max_drawdown?: number | null
+          max_risk_per_trade?: number | null
           model_probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
