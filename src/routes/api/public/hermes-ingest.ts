@@ -440,9 +440,7 @@ function isDuplicateCandleOk(table: string, error: DbWriteError) {
   const constraint = duplicateConstraints[table];
   if (!constraint) return false;
 
-  const text = [error.message, error.details, error.hint, error.code]
-    .filter(Boolean)
-    .join("\n");
+  const text = [error.message, error.details, error.hint, error.code].filter(Boolean).join("\n");
 
   return error.code === "23505" || text.includes(constraint);
 }
