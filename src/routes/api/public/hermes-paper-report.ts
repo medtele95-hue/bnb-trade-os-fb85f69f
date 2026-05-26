@@ -53,9 +53,9 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
           supabaseAdmin
             .from("trades")
             .select("*")
-            .gte("created_at", sinceIso)
+            .or(`created_at.gte.${sinceIso},opened_at.gte.${sinceIso}`)
             .order("created_at", { ascending: false })
-            .limit(500),
+            .limit(1000),
           supabaseAdmin
             .from("ai_decisions")
             .select("*")
@@ -101,19 +101,40 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
           );
         });
 
-        // Paper opened / closed counts from execution_events
-        let opened = 0;
-        let closed = 0;
-        for (const e of paperEvents as any[]) {
-          const et = (e.event_type || "").toUpperCase();
-          if (et.includes("OPEN")) opened++;
-          else if (et.includes("CLOSE")) closed++;
-        }
+        // Filter PAPER trades from trades table
+        // mode may live at raw_payload.mode or raw_payload.raw_payload.mode
+        // magic_number 909001 is the Hermes paper magic
+        const getMode = (t: any): string => {
+          const rp = t.raw_payload || {};
+          const inner = rp.raw_payload || {};
+          return String(rp.mode ?? inner.mode ?? "").toUpperCase();
+        };
+        const getStatus = (t: any): string => {
+          const rp = t.raw_payload || {};
+          const inner = rp.raw_payload || {};
+          return String(rp.status ?? inner.status ?? "").toUpperCase();
+        };
 
-        // Closed trades (have closed_at or result/pnl)
-        const closedTrades = (trades as any[]).filter(
-          (t) => t.closed_at || t.result || t.pnl != null,
-        );
+        const paperTrades = (trades as any[]).filter((t) => {
+          if (!t.dir || !t.symbol || t.entry == null) return false;
+          const lot = toNum(t.lot_size ?? t.lot);
+          if (!(lot > 0)) return false;
+          const mode = getMode(t);
+          const isPaper = mode === "PAPER" || Number(t.magic_number) === 909001;
+          if (!isPaper) return false;
+          // ensure within window (opened_at OR created_at)
+          const openedAt = t.opened_at ? new Date(t.opened_at).getTime() : 0;
+          const createdAt = t.created_at ? new Date(t.created_at).getTime() : 0;
+          const sinceMs = new Date(sinceIso).getTime();
+          return Math.max(openedAt, createdAt) >= sinceMs;
+        });
+
+        const isClosed = (t: any) => t.closed_at != null || getStatus(t) === "CLOSED";
+        const openTrades = paperTrades.filter((t) => !isClosed(t));
+        const closedTrades = paperTrades.filter(isClosed);
+
+        const opened = paperTrades.length;
+        const closed = closedTrades.length;
 
         let wins = 0;
         let losses = 0;
@@ -128,7 +149,7 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
           else if (pnl < 0) losses++;
           if (pnl > biggestWin) biggestWin = pnl;
           if (pnl < biggestLoss) biggestLoss = pnl;
-          const s = t.strategy || "unknown";
+          const s = t.strategy || (t.raw_payload && t.raw_payload.strategy) || "unknown";
           strategyPnl[s] = (strategyPnl[s] || 0) + pnl;
         }
 
@@ -137,14 +158,8 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
         let bestVal = -Infinity;
         let worstVal = Infinity;
         for (const [s, v] of Object.entries(strategyPnl)) {
-          if (v > bestVal) {
-            bestVal = v;
-            bestStrategy = s;
-          }
-          if (v < worstVal) {
-            worstVal = v;
-            worstStrategy = s;
-          }
+          if (v > bestVal) { bestVal = v; bestStrategy = s; }
+          if (v < worstVal) { worstVal = v; worstStrategy = s; }
         }
 
         const skippedCount = (aiDecisions as any[]).filter((d) => {
@@ -161,7 +176,7 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
             ? confidences.reduce((a, b) => a + b, 0) / confidences.length
             : 0;
 
-        const lots = (trades as any[])
+        const lots = paperTrades
           .map((t) => toNum(t.lot_size ?? t.lot))
           .filter((n) => n > 0);
         const avgLot = lots.length > 0 ? lots.reduce((a, b) => a + b, 0) / lots.length : 0;
@@ -209,14 +224,17 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
           },
           counts: {
             paper_events: paperEvents.length,
+            paper_trades: paperTrades.length,
+            open_trades: openTrades.length,
             closed_trades: closedTrades.length,
             recent_ai_decisions: aiDecisions.length,
             recent_kelly_risk: kellyRisk.length,
             recent_strategy_signals: strategySignals.length,
             recent_logs: logs.length,
-            trades_total: trades.length,
+            trades_total: paperTrades.length,
           },
           paper_events: paperEvents,
+          open_trades: openTrades,
           closed_trades: closedTrades,
           recent_ai_decisions: aiDecisions,
           recent_kelly_risk: kellyRisk,
