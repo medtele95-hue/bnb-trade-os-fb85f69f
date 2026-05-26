@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           balance: number | null
           created_at: string
+          currency: string | null
           daily_pnl: number | null
           equity: number | null
           free_margin: number | null
@@ -34,6 +35,7 @@ export type Database = {
         Insert: {
           balance?: number | null
           created_at?: string
+          currency?: string | null
           daily_pnl?: number | null
           equity?: number | null
           free_margin?: number | null
@@ -50,6 +52,7 @@ export type Database = {
         Update: {
           balance?: number | null
           created_at?: string
+          currency?: string | null
           daily_pnl?: number | null
           equity?: number | null
           free_margin?: number | null
@@ -127,6 +130,7 @@ export type Database = {
       }
       bot_logs: {
         Row: {
+          context: Json | null
           created_at: string
           id: string
           level: string | null
@@ -134,6 +138,7 @@ export type Database = {
           source: string | null
         }
         Insert: {
+          context?: Json | null
           created_at?: string
           id?: string
           level?: string | null
@@ -141,6 +146,7 @@ export type Database = {
           source?: string | null
         }
         Update: {
+          context?: Json | null
           created_at?: string
           id?: string
           level?: string | null
@@ -151,6 +157,8 @@ export type Database = {
       }
       bot_status: {
         Row: {
+          allow_live_trading: boolean | null
+          bot_name: string | null
           component: string
           id: string
           last_heartbeat: string | null
@@ -161,6 +169,8 @@ export type Database = {
           uptime: string | null
         }
         Insert: {
+          allow_live_trading?: boolean | null
+          bot_name?: string | null
           component: string
           id?: string
           last_heartbeat?: string | null
@@ -171,6 +181,8 @@ export type Database = {
           uptime?: string | null
         }
         Update: {
+          allow_live_trading?: boolean | null
+          bot_name?: string | null
           component?: string
           id?: string
           last_heartbeat?: string | null
@@ -224,6 +236,7 @@ export type Database = {
       hermes_agents: {
         Row: {
           confidence: number | null
+          display_name: string | null
           id: string
           latest_signal: string | null
           meta: Json | null
@@ -237,6 +250,7 @@ export type Database = {
         }
         Insert: {
           confidence?: number | null
+          display_name?: string | null
           id?: string
           latest_signal?: string | null
           meta?: Json | null
@@ -250,6 +264,7 @@ export type Database = {
         }
         Update: {
           confidence?: number | null
+          display_name?: string | null
           id?: string
           latest_signal?: string | null
           meta?: Json | null
@@ -304,6 +319,7 @@ export type Database = {
       }
       market_candles: {
         Row: {
+          broker_symbol: string | null
           candle_time: string
           close: number
           created_at: string
@@ -317,6 +333,7 @@ export type Database = {
           timeframe: string
         }
         Insert: {
+          broker_symbol?: string | null
           candle_time: string
           close: number
           created_at?: string
@@ -330,6 +347,7 @@ export type Database = {
           timeframe: string
         }
         Update: {
+          broker_symbol?: string | null
           candle_time?: string
           close?: number
           created_at?: string
@@ -346,6 +364,7 @@ export type Database = {
       }
       market_states: {
         Row: {
+          atr: number | null
           created_at: string
           id: string
           price: number | null
@@ -357,6 +376,7 @@ export type Database = {
           volatility: number | null
         }
         Insert: {
+          atr?: number | null
           created_at?: string
           id?: string
           price?: number | null
@@ -368,6 +388,7 @@ export type Database = {
           volatility?: number | null
         }
         Update: {
+          atr?: number | null
           created_at?: string
           id?: string
           price?: number | null
@@ -382,6 +403,7 @@ export type Database = {
       }
       markov_predictions: {
         Row: {
+          confidence: number | null
           created_at: string
           current_state: string
           id: string
@@ -394,6 +416,7 @@ export type Database = {
           transitions: number | null
         }
         Insert: {
+          confidence?: number | null
           created_at?: string
           current_state: string
           id?: string
@@ -406,6 +429,7 @@ export type Database = {
           transitions?: number | null
         }
         Update: {
+          confidence?: number | null
           created_at?: string
           current_state?: string
           id?: string
@@ -481,6 +505,7 @@ export type Database = {
       }
       strategy_signals: {
         Row: {
+          blocked_reason: string | null
           confidence: number | null
           created_at: string
           id: string
@@ -493,6 +518,7 @@ export type Database = {
           win_rate: number | null
         }
         Insert: {
+          blocked_reason?: string | null
           confidence?: number | null
           created_at?: string
           id?: string
@@ -505,6 +531,7 @@ export type Database = {
           win_rate?: number | null
         }
         Update: {
+          blocked_reason?: string | null
           confidence?: number | null
           created_at?: string
           id?: string
