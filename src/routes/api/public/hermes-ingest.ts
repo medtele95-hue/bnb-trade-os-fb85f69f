@@ -392,7 +392,9 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
         const allowed = new Set(spec.columns);
         const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
 
-        const cleanedRows = rawRows.map((r) => cleanRow(r as Record<string, unknown>, allowed));
+        const cleanedRows = rawRows.map((r) =>
+          applyTableDefaults(table, cleanRow(r as Record<string, unknown>, allowed)),
+        );
         const rows = dedupeUpsertRows(cleanedRows, spec);
         const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
@@ -418,7 +420,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             return json(400, {
               ok: false,
               table,
-              error: "db_error",
+              error: error.message,
               details: error.message,
               received_keys: receivedKeys,
               allowed_keys: allowedKeys,
@@ -446,7 +448,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           return json(500, {
             ok: false,
             table,
-            error: "exception",
+            error: e?.message ?? String(e),
             details: e?.message ?? String(e),
             received_keys: receivedKeys,
             allowed_keys: allowedKeys,
