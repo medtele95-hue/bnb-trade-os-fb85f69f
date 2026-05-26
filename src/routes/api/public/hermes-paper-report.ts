@@ -53,9 +53,9 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
           supabaseAdmin
             .from("trades")
             .select("*")
-            .gte("created_at", sinceIso)
+            .or(`created_at.gte.${sinceIso},opened_at.gte.${sinceIso}`)
             .order("created_at", { ascending: false })
-            .limit(500),
+            .limit(1000),
           supabaseAdmin
             .from("ai_decisions")
             .select("*")
