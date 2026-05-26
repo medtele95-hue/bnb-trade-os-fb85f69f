@@ -245,41 +245,10 @@ function json(status: number, body: unknown) {
   });
 }
 
-// Cache live column lists per table for 60s
-const columnCache: Record<string, { cols: Set<string>; at: number }> = {};
-const CACHE_MS = 60_000;
-
-async function getColumns(table: string): Promise<Set<string>> {
-  const now = Date.now();
-  const cached = columnCache[table];
-  if (cached && now - cached.at < CACHE_MS) return cached.cols;
-
-  // Probe one row to learn column names. Falls back to empty select.
-  const { data, error } = await supabaseAdmin
-    .from(table as any)
-    .select("*")
-    .limit(1);
-
-  if (error) throw error;
-
-  let cols = new Set<string>();
-  if (data && data.length > 0) {
-    cols = new Set(Object.keys(data[0] as object));
-  } else {
-    // Empty table: insert a probe-free no-op by selecting head with count.
-    // As a fallback when there are no rows, allow any field through on first
-    // insert; PostgREST will reject unknown columns with a clear error.
-    cols = new Set<string>();
-  }
-  columnCache[table] = { cols, at: now };
-  return cols;
-}
-
 function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
   const out: Record<string, unknown> = {};
-  const useAllowlist = allowed.size > 0;
   for (const [k, v] of Object.entries(row)) {
-    if (useAllowlist && !allowed.has(k)) continue;
+    if (!allowed.has(k)) continue;
     if (v === undefined) continue;
     if (typeof v === "string" && v === "") {
       out[k] = null;
@@ -292,6 +261,10 @@ function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
     out[k] = v;
   }
   return out;
+}
+
+function rowKeys(rows: Record<string, unknown>[]) {
+  return Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).sort();
 }
 
 export const Route = createFileRoute("/api/public/hermes-ingest")({
