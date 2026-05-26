@@ -292,33 +292,59 @@ function json(status: number, body: unknown) {
   });
 }
 
-function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
+type DbWriteError = {
+  message: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string | null;
+};
+
+function normalizeValue(v: unknown) {
+  if (v === undefined) return undefined;
+  if (typeof v === "string" && v === "") return null;
+  if (typeof v === "number" && !Number.isFinite(v)) return null;
+  return v;
+}
+
+function cleanRow(row: Record<string, unknown>, allowed: Set<string>, rawRow: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     if (!allowed.has(k)) continue;
-    if (v === undefined) continue;
-    if (typeof v === "string" && v === "") {
-      out[k] = null;
-      continue;
-    }
-    if (typeof v === "number" && !Number.isFinite(v)) {
-      out[k] = null;
-      continue;
-    }
-    out[k] = v;
+    const normalized = normalizeValue(v);
+    if (normalized === undefined) continue;
+    out[k] = normalized;
+  }
+  if (allowed.has("raw_payload")) {
+    out.raw_payload = rawRow;
   }
   return out;
 }
 
 function applyTableDefaults(table: string, row: Record<string, unknown>) {
+  const next = { ...row };
+
   if (
     table === "bot_status" &&
-    (row.component === undefined || row.component === null || row.component === "")
+    (next.component === undefined || next.component === null || next.component === "")
   ) {
-    return { ...row, component: "hermes_core" };
+    next.component = "hermes_core";
   }
 
-  return row;
+  if (table === "markov_predictions") {
+    if (
+      (next.predicted_state === undefined || next.predicted_state === null || next.predicted_state === "") &&
+      next.predicted_next_state !== undefined &&
+      next.predicted_next_state !== null &&
+      next.predicted_next_state !== ""
+    ) {
+      next.predicted_state = next.predicted_next_state;
+    }
+    if (next.predicted_state === undefined || next.predicted_state === null || next.predicted_state === "") {
+      next.predicted_state = "UNKNOWN";
+    }
+  }
+
+  return next;
 }
 
 function rowKeys(rows: Record<string, unknown>[]) {
@@ -334,6 +360,92 @@ function dedupeUpsertRows(rows: Record<string, unknown>[], spec: TableSpec) {
     byConflictKey.set(key, row);
   }
   return [...byConflictKey.values()];
+}
+
+async function getLiveColumns(table: string, spec: TableSpec) {
+  const { data, error } = await (supabaseAdmin as any).rpc("hermes_table_columns", {
+    _table_name: table,
+  });
+
+  if (error || !Array.isArray(data) || data.length === 0) {
+    console.log(
+      `[hermes-ingest] live_schema_fallback table=${table} error=${error?.message ?? "empty result"}`,
+    );
+    return spec.columns;
+  }
+
+  return data as string[];
+}
+
+function prepareRows(
+  table: string,
+  spec: TableSpec,
+  rawRows: Record<string, unknown>[],
+  allowedColumns: string[],
+) {
+  const allowed = new Set(allowedColumns);
+  const cleanedRows = rawRows.map((rawRow) =>
+    applyTableDefaults(table, cleanRow(rawRow, allowed, rawRow)),
+  );
+  return dedupeUpsertRows(cleanedRows, spec);
+}
+
+async function writeRows(table: string, spec: TableSpec, rows: Record<string, unknown>[]) {
+  const query = supabaseAdmin.from(table as any);
+  const op =
+    spec.mode === "upsert"
+      ? query.upsert(rows as any, {
+          onConflict: spec.conflict,
+          ignoreDuplicates: false,
+        })
+      : query.insert(rows as any);
+  return op.select();
+}
+
+function extractMissingColumn(error: DbWriteError) {
+  const text = [error.message, error.details, error.hint].filter(Boolean).join("\n");
+  const quotedColumn = text.match(/Could not find the '([^']+)' column/i)?.[1];
+  if (quotedColumn) return quotedColumn;
+  const plainColumn = text.match(/Could not find column\s+([a-zA-Z0-9_]+)/i)?.[1];
+  if (plainColumn) return plainColumn;
+  const schemaCacheColumn = text.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+.*schema cache/i)?.[1];
+  return schemaCacheColumn ?? null;
+}
+
+function isDuplicateCandleOk(table: string, error: DbWriteError) {
+  return (
+    table === "market_candles" &&
+    error.code === "23505" &&
+    (error.message.includes("market_candles_symbol_timeframe_candle_time_key") ||
+      !!error.details?.includes("market_candles_symbol_timeframe_candle_time_key") ||
+      error.message.includes("duplicate key value"))
+  );
+}
+
+function errorBody(args: {
+  table: string;
+  error: DbWriteError;
+  receivedKeys: string[];
+  allowedKeys: string[];
+  strippedKeys: string[];
+}) {
+  return {
+    ok: false,
+    table: args.table,
+    error: args.error.message,
+    details: args.error.message,
+    received_keys: args.receivedKeys,
+    allowed_keys: args.allowedKeys,
+    stripped_keys: args.strippedKeys,
+    code: args.error.code ?? null,
+    hint: args.error.hint ?? null,
+    postgres_error: {
+      message: args.error.message,
+      details: args.error.details,
+      hint: args.error.hint,
+      code: args.error.code,
+    },
+  };
 }
 
 export const Route = createFileRoute("/api/public/hermes-ingest")({
