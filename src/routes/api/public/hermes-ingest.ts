@@ -30,6 +30,7 @@ const TABLES: Record<string, TableSpec> = {
       "currency",
       "login",
       "margin_level",
+      "profit",
     ],
   },
   ai_decisions: {
@@ -76,6 +77,8 @@ const TABLES: Record<string, TableSpec> = {
       "magic_number",
       "demo_trading",
       "mode",
+      "read_only",
+      "paper_trading",
     ],
   },
   execution_events: {
@@ -91,6 +94,7 @@ const TABLES: Record<string, TableSpec> = {
       "mode",
       "payload",
       "result",
+      "decision",
     ],
   },
   hermes_agents: {
@@ -111,6 +115,7 @@ const TABLES: Record<string, TableSpec> = {
       "display_name",
       "magic_number",
       "mode",
+      "symbols",
     ],
   },
   kelly_risk: {
@@ -127,6 +132,7 @@ const TABLES: Record<string, TableSpec> = {
       "symbol",
       "final_risk",
       "blocked_reason",
+      "daily_loss_pct",
     ],
   },
   market_candles: {
@@ -164,6 +170,7 @@ const TABLES: Record<string, TableSpec> = {
       "ema50",
       "ema200",
       "rsi",
+      "session",
     ],
   },
   markov_predictions: {
@@ -181,6 +188,7 @@ const TABLES: Record<string, TableSpec> = {
       "signal",
       "confidence",
       "persistence",
+      "predicted_next_state",
     ],
   },
   nightly_reports: {
@@ -221,6 +229,7 @@ const TABLES: Record<string, TableSpec> = {
       "entry",
       "sl",
       "tp",
+      "timeframe",
     ],
   },
   trades: {
@@ -243,6 +252,7 @@ const TABLES: Record<string, TableSpec> = {
       "reason",
       "opened_at",
       "closed_at",
+      "lot_size",
     ],
   },
 };
