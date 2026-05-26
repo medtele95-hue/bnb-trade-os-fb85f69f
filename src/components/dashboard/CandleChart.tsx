@@ -38,7 +38,7 @@ export function CandleChart({ symbol = "BTCUSD", timeframe = "M5", limit = 80 }:
     };
     load();
     const ch = supabase
-      .channel(`live:market_candles:${symbol}:${timeframe}`)
+      .channel(`live:market_candles:${symbol}:${timeframe}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "market_candles", filter: `symbol=eq.${symbol}` },
