@@ -149,6 +149,7 @@ const TABLES: Record<string, TableSpec> = {
       "fractional_kelly",
       "max_daily_loss",
       "max_drawdown",
+      "max_risk_per_trade",
       "raw_payload",
     ],
   },
@@ -427,12 +428,11 @@ function extractMissingColumn(error: DbWriteError) {
 }
 
 function isDuplicateCandleOk(table: string, error: DbWriteError) {
+  if (error.code !== "23505") return false;
   return (
-    table === "market_candles" &&
-    error.code === "23505" &&
-    (error.message.includes("market_candles_symbol_timeframe_candle_time_key") ||
-      !!error.details?.includes("market_candles_symbol_timeframe_candle_time_key") ||
-      error.message.includes("duplicate key value"))
+    table === "market_candles" ||
+    table === "bot_status" ||
+    table === "hermes_agents"
   );
 }
 
