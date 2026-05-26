@@ -191,20 +191,40 @@ function Kelly() {
       {empty || !k ? (
         <Waiting />
       ) : (
-        <>
-          <div className="border border-dashed border-black/50 p-2 text-center my-1">
-            <span className="pixel text-[14px]">Kelly f* = p − (1−p) / b</span>
-          </div>
-          <KV k="Model Probability" v={Number(k.model_probability ?? 0).toFixed(2)} />
-          <KV k="Reward / Risk" v={Number(k.reward_risk ?? 0).toFixed(1)} />
-          <KV k="Edge" v={`${k.edge ?? 0}%`} />
-          <KV k="Fractional Kelly" v={Number(k.kelly_fraction ?? 0).toFixed(2)} />
-          <KV k="Final Risk" v={`${k.final_risk ?? 0}%`} />
-          <KV k="Lot Size" v={Number(k.lot_size ?? 0).toFixed(2)} />
-          <div className="mt-2 border border-black px-2 py-1 text-center bg-foreground text-background text-[11px] tracking-widest">
-            RISK STATUS: {k.status ?? "—"}
-          </div>
-        </>
+        (() => {
+          const raw = (k.raw_payload ?? {}) as Record<string, any>;
+          const riskStatus = (k.risk_status ?? k.status ?? raw.risk_status ?? raw.status ?? "—") as string;
+          const isBlocked = String(riskStatus).toUpperCase() === "BLOCKED";
+          const rawLot = Number(raw.raw_lot ?? raw.calculated_lot ?? k.lot_size ?? 0);
+          const executableLot = isBlocked ? 0 : Number(k.lot_size ?? 0);
+          const finalRisk = isBlocked ? 0 : Number(k.final_risk ?? 0);
+          const blockedReason = k.blocked_reason ?? raw.blocked_reason ?? "—";
+          return (
+            <>
+              <div className="border border-dashed border-black/50 p-2 text-center my-1">
+                <span className="pixel text-[14px]">Kelly f* = p − (1−p) / b</span>
+              </div>
+              <KV k="Model Probability" v={Number(k.model_probability ?? 0).toFixed(2)} />
+              <KV k="Reward / Risk" v={Number(k.reward_risk ?? 0).toFixed(1)} />
+              <KV k="Edge" v={`${k.edge ?? 0}%`} />
+              <KV k="Fractional Kelly" v={Number(k.kelly_fraction ?? 0).toFixed(2)} />
+              <KV k="Final Risk" v={`${finalRisk}%`} />
+              <KV k="Lot Size" v={executableLot.toFixed(2)} />
+              <KV k="Raw Lot" v={rawLot.toFixed(2)} />
+              {isBlocked && (
+                <KV k="Theoretical Raw Lot" v={Number(raw.raw_lot ?? raw.calculated_lot ?? 0).toFixed(2)} />
+              )}
+              <div className="mt-2 border border-black px-2 py-1 text-center bg-foreground text-background text-[11px] tracking-widest">
+                RISK STATUS: {riskStatus}
+              </div>
+              {isBlocked && (
+                <div className="mt-1 text-[10px] opacity-80">
+                  <b>BLOCKED:</b> {blockedReason}
+                </div>
+              )}
+            </>
+          );
+        })()
       )}
     </Panel>
   );
