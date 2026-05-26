@@ -31,6 +31,7 @@ const TABLES: Record<string, TableSpec> = {
       "login",
       "margin_level",
       "profit",
+      "server",
     ],
   },
   ai_decisions: {
@@ -73,6 +74,7 @@ const TABLES: Record<string, TableSpec> = {
       "latency_ms",
       "meta",
       "bot_name",
+      "symbols",
       "allow_live_trading",
       "magic_number",
       "demo_trading",
@@ -95,6 +97,7 @@ const TABLES: Record<string, TableSpec> = {
       "payload",
       "result",
       "decision",
+      "event_type",
     ],
   },
   hermes_agents: {
@@ -133,6 +136,7 @@ const TABLES: Record<string, TableSpec> = {
       "final_risk",
       "blocked_reason",
       "daily_loss_pct",
+      "drawdown_pct",
     ],
   },
   market_candles: {
