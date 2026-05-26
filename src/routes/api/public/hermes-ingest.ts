@@ -29,6 +29,7 @@ const TABLES: Record<string, TableSpec> = {
       "open_positions",
       "currency",
       "login",
+      "margin_level",
     ],
   },
   ai_decisions: {
@@ -51,6 +52,7 @@ const TABLES: Record<string, TableSpec> = {
       "signal",
       "strategy",
       "markov_probability",
+      "kelly_fraction",
     ],
   },
   bot_logs: {
@@ -73,6 +75,7 @@ const TABLES: Record<string, TableSpec> = {
       "allow_live_trading",
       "magic_number",
       "demo_trading",
+      "mode",
     ],
   },
   execution_events: {
@@ -107,6 +110,7 @@ const TABLES: Record<string, TableSpec> = {
       "meta",
       "display_name",
       "magic_number",
+      "mode",
     ],
   },
   kelly_risk: {
@@ -122,10 +126,12 @@ const TABLES: Record<string, TableSpec> = {
       "kelly_fraction",
       "symbol",
       "final_risk",
+      "blocked_reason",
     ],
   },
   market_candles: {
-    mode: "insert",
+    mode: "upsert",
+    conflict: "symbol,timeframe,candle_time",
     columns: [
       "id",
       "created_at",
@@ -154,6 +160,10 @@ const TABLES: Record<string, TableSpec> = {
       "spread",
       "volatility",
       "atr",
+      "ema20",
+      "ema50",
+      "ema200",
+      "rsi",
     ],
   },
   markov_predictions: {
@@ -170,6 +180,7 @@ const TABLES: Record<string, TableSpec> = {
       "transitions",
       "signal",
       "confidence",
+      "persistence",
     ],
   },
   nightly_reports: {
@@ -185,6 +196,7 @@ const TABLES: Record<string, TableSpec> = {
       "worst_setup",
       "best_setup",
       "trades_reviewed",
+      "status",
     ],
   },
   settings: {
@@ -206,6 +218,9 @@ const TABLES: Record<string, TableSpec> = {
       "pnl",
       "reason",
       "blocked_reason",
+      "entry",
+      "sl",
+      "tp",
     ],
   },
   trades: {
