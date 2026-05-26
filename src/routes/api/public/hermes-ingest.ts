@@ -519,14 +519,11 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           }
         }
 
-        const allowedKeys = [...spec.columns].sort();
-        const allowed = new Set(spec.columns);
         const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
-
-        const cleanedRows = rawRows.map((r) =>
-          applyTableDefaults(table, cleanRow(r as Record<string, unknown>, allowed)),
-        );
-        const rows = dedupeUpsertRows(cleanedRows, spec);
+        const liveColumns = await getLiveColumns(table, spec);
+        let allowedKeys = [...liveColumns].sort();
+        let rows = prepareRows(table, spec, rawRows as Record<string, unknown>[], liveColumns);
+        let allowed = new Set(liveColumns);
         const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
         console.log(
@@ -534,27 +531,28 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
         );
 
         try {
-          const query = supabaseAdmin.from(table as any);
-          const op =
-            spec.mode === "upsert"
-              ? query.upsert(rows as any, {
-                  onConflict: spec.conflict,
-                  ignoreDuplicates: false,
-                })
-              : query.insert(rows as any);
-          const { data: inserted, error } = await op.select();
+          let { data: inserted, error } = await writeRows(table, spec, rows);
 
           if (error) {
             console.log(
               `[hermes-ingest] db_error table=${table} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
             );
 
-            if (
-              table === "market_candles" &&
-              error.code === "23505" &&
-              (error.message.includes("market_candles_symbol_timeframe_candle_time_key") ||
-                error.details?.includes("market_candles_symbol_timeframe_candle_time_key"))
-            ) {
+            const missingColumn = extractMissingColumn(error);
+            if (missingColumn) {
+              const retryColumns = liveColumns.filter((column) => column !== missingColumn);
+              allowedKeys = [...retryColumns].sort();
+              allowed = new Set(retryColumns);
+              rows = prepareRows(table, spec, rawRows as Record<string, unknown>[], retryColumns);
+              console.log(
+                `[hermes-ingest] retry_without_missing_column table=${table} column=${missingColumn} allowed_keys=${JSON.stringify(allowedKeys)} write_keys=${JSON.stringify(rows.map((r) => Object.keys(r)))}`,
+              );
+              const retry = await writeRows(table, spec, rows);
+              inserted = retry.data;
+              error = retry.error;
+            }
+
+            if (error && isDuplicateCandleOk(table, error)) {
               const result = {
                 ok: true,
                 table,
@@ -565,23 +563,18 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
               return json(200, result);
             }
 
-            return json(400, {
-              ok: false,
-              table,
-              error: error.message,
-              details: error.message,
-              received_keys: receivedKeys,
-              allowed_keys: allowedKeys,
-              stripped_keys: strippedKeys,
-              postgres_error: {
-                message: error.message,
-                details: error.details,
-                hint: error.hint,
-                code: error.code,
-              },
-              hint: error.hint,
-              code: error.code,
-            });
+            if (error) {
+              return json(
+                400,
+                errorBody({
+                  table,
+                  error,
+                  receivedKeys,
+                  allowedKeys,
+                  strippedKeys: receivedKeys.filter((key) => !allowed.has(key)),
+                }),
+              );
+            }
           }
 
           const result = {
@@ -593,22 +586,21 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           return json(200, result);
         } catch (e: any) {
           console.log(`[hermes-ingest] exception table=${table} message=${e?.message}`);
-          return json(500, {
-            ok: false,
-            table,
-            error: e?.message ?? String(e),
-            details: e?.message ?? String(e),
-            received_keys: receivedKeys,
-            allowed_keys: allowedKeys,
-            code: e?.code ?? null,
-            hint: e?.hint ?? null,
-            postgres_error: {
-              message: e?.message ?? String(e),
-              name: e?.name,
-              code: e?.code,
-              hint: e?.hint,
-            },
-          });
+          return json(
+            400,
+            errorBody({
+              table,
+              error: {
+                message: e?.message ?? String(e),
+                details: e?.details,
+                hint: e?.hint,
+                code: e?.code,
+              },
+              receivedKeys,
+              allowedKeys,
+              strippedKeys: receivedKeys.filter((key) => !allowed.has(key)),
+            }),
+          );
         }
       },
     },
