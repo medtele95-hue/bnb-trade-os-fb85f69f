@@ -32,6 +32,8 @@ const TABLES: Record<string, TableSpec> = {
       "margin_level",
       "profit",
       "server",
+      "snapshot_time",
+      "raw_payload",
     ],
   },
   ai_decisions: {
@@ -55,11 +57,12 @@ const TABLES: Record<string, TableSpec> = {
       "strategy",
       "markov_probability",
       "kelly_fraction",
+      "raw_payload",
     ],
   },
   bot_logs: {
     mode: "insert",
-    columns: ["id", "created_at", "level", "message", "source", "context"],
+    columns: ["id", "created_at", "level", "message", "source", "context", "raw_payload"],
   },
   bot_status: {
     mode: "upsert",
@@ -81,6 +84,7 @@ const TABLES: Record<string, TableSpec> = {
       "mode",
       "read_only",
       "paper_trading",
+      "raw_payload",
     ],
   },
   execution_events: {
