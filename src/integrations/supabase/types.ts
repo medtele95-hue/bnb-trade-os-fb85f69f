@@ -30,7 +30,9 @@ export type Database = {
           open_positions: number | null
           profit: number | null
           profit_factor: number | null
+          raw_payload: Json | null
           server: string | null
+          snapshot_time: string | null
           total_pnl: number | null
           total_trades: number | null
           trades_today: number | null
@@ -51,7 +53,9 @@ export type Database = {
           open_positions?: number | null
           profit?: number | null
           profit_factor?: number | null
+          raw_payload?: Json | null
           server?: string | null
+          snapshot_time?: string | null
           total_pnl?: number | null
           total_trades?: number | null
           trades_today?: number | null
@@ -72,7 +76,9 @@ export type Database = {
           open_positions?: number | null
           profit?: number | null
           profit_factor?: number | null
+          raw_payload?: Json | null
           server?: string | null
+          snapshot_time?: string | null
           total_pnl?: number | null
           total_trades?: number | null
           trades_today?: number | null
@@ -92,6 +98,7 @@ export type Database = {
           lot_size: number | null
           market_state: string | null
           markov_probability: number | null
+          raw_payload: Json | null
           reason: string | null
           risk_status: string | null
           signal: string | null
@@ -112,6 +119,7 @@ export type Database = {
           lot_size?: number | null
           market_state?: string | null
           markov_probability?: number | null
+          raw_payload?: Json | null
           reason?: string | null
           risk_status?: string | null
           signal?: string | null
@@ -132,6 +140,7 @@ export type Database = {
           lot_size?: number | null
           market_state?: string | null
           markov_probability?: number | null
+          raw_payload?: Json | null
           reason?: string | null
           risk_status?: string | null
           signal?: string | null
@@ -150,6 +159,7 @@ export type Database = {
           id: string
           level: string | null
           message: string
+          raw_payload: Json | null
           source: string | null
         }
         Insert: {
@@ -158,6 +168,7 @@ export type Database = {
           id?: string
           level?: string | null
           message: string
+          raw_payload?: Json | null
           source?: string | null
         }
         Update: {
@@ -166,6 +177,7 @@ export type Database = {
           id?: string
           level?: string | null
           message?: string
+          raw_payload?: Json | null
           source?: string | null
         }
         Relationships: []
@@ -183,6 +195,7 @@ export type Database = {
           meta: Json | null
           mode: string | null
           paper_trading: boolean | null
+          raw_payload: Json | null
           read_only: boolean | null
           status: string
           symbols: Json | null
@@ -201,6 +214,7 @@ export type Database = {
           meta?: Json | null
           mode?: string | null
           paper_trading?: boolean | null
+          raw_payload?: Json | null
           read_only?: boolean | null
           status: string
           symbols?: Json | null
@@ -219,6 +233,7 @@ export type Database = {
           meta?: Json | null
           mode?: string | null
           paper_trading?: boolean | null
+          raw_payload?: Json | null
           read_only?: boolean | null
           status?: string
           symbols?: Json | null
@@ -235,9 +250,11 @@ export type Database = {
           id: string
           lot: number | null
           magic: number | null
+          magic_number: number | null
           mode: string | null
           payload: Json | null
           price: number | null
+          raw_payload: Json | null
           result: string | null
           side: string | null
           symbol: string | null
@@ -249,9 +266,11 @@ export type Database = {
           id?: string
           lot?: number | null
           magic?: number | null
+          magic_number?: number | null
           mode?: string | null
           payload?: Json | null
           price?: number | null
+          raw_payload?: Json | null
           result?: string | null
           side?: string | null
           symbol?: string | null
@@ -263,9 +282,11 @@ export type Database = {
           id?: string
           lot?: number | null
           magic?: number | null
+          magic_number?: number | null
           mode?: string | null
           payload?: Json | null
           price?: number | null
+          raw_payload?: Json | null
           result?: string | null
           side?: string | null
           symbol?: string | null
@@ -283,6 +304,7 @@ export type Database = {
           mode: string | null
           name: string
           pnl_today: number | null
+          raw_payload: Json | null
           status: string | null
           symbol: string | null
           symbols: Json | null
@@ -300,6 +322,7 @@ export type Database = {
           mode?: string | null
           name: string
           pnl_today?: number | null
+          raw_payload?: Json | null
           status?: string | null
           symbol?: string | null
           symbols?: Json | null
@@ -317,6 +340,7 @@ export type Database = {
           mode?: string | null
           name?: string
           pnl_today?: number | null
+          raw_payload?: Json | null
           status?: string | null
           symbol?: string | null
           symbols?: Json | null
@@ -334,10 +358,12 @@ export type Database = {
           drawdown_pct: number | null
           edge: number | null
           final_risk: number | null
+          fractional_kelly: number | null
           id: string
           kelly_fraction: number | null
           lot_size: number | null
           model_probability: number | null
+          raw_payload: Json | null
           reward_risk: number | null
           status: string | null
           symbol: string | null
@@ -349,10 +375,12 @@ export type Database = {
           drawdown_pct?: number | null
           edge?: number | null
           final_risk?: number | null
+          fractional_kelly?: number | null
           id?: string
           kelly_fraction?: number | null
           lot_size?: number | null
           model_probability?: number | null
+          raw_payload?: Json | null
           reward_risk?: number | null
           status?: string | null
           symbol?: string | null
@@ -364,10 +392,12 @@ export type Database = {
           drawdown_pct?: number | null
           edge?: number | null
           final_risk?: number | null
+          fractional_kelly?: number | null
           id?: string
           kelly_fraction?: number | null
           lot_size?: number | null
           model_probability?: number | null
+          raw_payload?: Json | null
           reward_risk?: number | null
           status?: string | null
           symbol?: string | null
@@ -384,6 +414,7 @@ export type Database = {
           id: string
           low: number
           open: number
+          raw_payload: Json | null
           spread: number | null
           symbol: string
           tick_volume: number | null
@@ -398,6 +429,7 @@ export type Database = {
           id?: string
           low: number
           open: number
+          raw_payload?: Json | null
           spread?: number | null
           symbol: string
           tick_volume?: number | null
@@ -412,6 +444,7 @@ export type Database = {
           id?: string
           low?: number
           open?: number
+          raw_payload?: Json | null
           spread?: number | null
           symbol?: string
           tick_volume?: number | null
@@ -428,6 +461,7 @@ export type Database = {
           ema50: number | null
           id: string
           price: number | null
+          raw_payload: Json | null
           rsi: number | null
           session: string | null
           spread: number | null
@@ -445,6 +479,7 @@ export type Database = {
           ema50?: number | null
           id?: string
           price?: number | null
+          raw_payload?: Json | null
           rsi?: number | null
           session?: string | null
           spread?: number | null
@@ -462,6 +497,7 @@ export type Database = {
           ema50?: number | null
           id?: string
           price?: number | null
+          raw_payload?: Json | null
           rsi?: number | null
           session?: string | null
           spread?: number | null
@@ -482,8 +518,9 @@ export type Database = {
           persistence: number | null
           persistence_bars: number | null
           predicted_next_state: string | null
-          predicted_state: string
+          predicted_state: string | null
           probability: number
+          raw_payload: Json | null
           signal: string | null
           symbol: string
           timeframe: string
@@ -498,8 +535,9 @@ export type Database = {
           persistence?: number | null
           persistence_bars?: number | null
           predicted_next_state?: string | null
-          predicted_state: string
+          predicted_state?: string | null
           probability: number
+          raw_payload?: Json | null
           signal?: string | null
           symbol: string
           timeframe: string
@@ -514,8 +552,9 @@ export type Database = {
           persistence?: number | null
           persistence_bars?: number | null
           predicted_next_state?: string | null
-          predicted_state?: string
+          predicted_state?: string | null
           probability?: number
+          raw_payload?: Json | null
           signal?: string | null
           symbol?: string
           timeframe?: string
@@ -531,6 +570,7 @@ export type Database = {
           created_at: string
           id: string
           payload: Json | null
+          raw_payload: Json | null
           report_date: string
           status: string | null
           suggestion: string | null
@@ -544,6 +584,7 @@ export type Database = {
           created_at?: string
           id?: string
           payload?: Json | null
+          raw_payload?: Json | null
           report_date: string
           status?: string | null
           suggestion?: string | null
@@ -557,6 +598,7 @@ export type Database = {
           created_at?: string
           id?: string
           payload?: Json | null
+          raw_payload?: Json | null
           report_date?: string
           status?: string | null
           suggestion?: string | null
@@ -595,6 +637,7 @@ export type Database = {
           entry: number | null
           id: string
           pnl: number | null
+          raw_payload: Json | null
           reason: string | null
           signal: string | null
           sl: number | null
@@ -612,6 +655,7 @@ export type Database = {
           entry?: number | null
           id?: string
           pnl?: number | null
+          raw_payload?: Json | null
           reason?: string | null
           signal?: string | null
           sl?: number | null
@@ -629,6 +673,7 @@ export type Database = {
           entry?: number | null
           id?: string
           pnl?: number | null
+          raw_payload?: Json | null
           reason?: string | null
           signal?: string | null
           sl?: number | null
@@ -655,8 +700,10 @@ export type Database = {
           magic_number: number | null
           opened_at: string | null
           pnl: number | null
+          raw_payload: Json | null
           reason: string | null
           result: string | null
+          signal: string | null
           sl: number | null
           strategy: string | null
           symbol: string
@@ -676,8 +723,10 @@ export type Database = {
           magic_number?: number | null
           opened_at?: string | null
           pnl?: number | null
+          raw_payload?: Json | null
           reason?: string | null
           result?: string | null
+          signal?: string | null
           sl?: number | null
           strategy?: string | null
           symbol: string
@@ -697,8 +746,10 @@ export type Database = {
           magic_number?: number | null
           opened_at?: string | null
           pnl?: number | null
+          raw_payload?: Json | null
           reason?: string | null
           result?: string | null
+          signal?: string | null
           sl?: number | null
           strategy?: string | null
           symbol?: string
@@ -712,7 +763,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      hermes_table_columns: { Args: { _table_name: string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
