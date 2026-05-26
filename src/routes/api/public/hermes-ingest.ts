@@ -432,12 +432,27 @@ function extractMissingColumn(error: DbWriteError) {
 }
 
 function isDuplicateCandleOk(table: string, error: DbWriteError) {
-  if (error.code !== "23505") return false;
-  return (
-    table === "market_candles" ||
-    table === "bot_status" ||
-    table === "hermes_agents"
-  );
+  const duplicateConstraints: Record<string, string> = {
+    bot_status: "bot_status_component_key",
+    hermes_agents: "hermes_agents_name_key",
+    market_candles: "market_candles_symbol_timeframe_candle_time_key",
+  };
+  const constraint = duplicateConstraints[table];
+  if (!constraint) return false;
+
+  const text = [error.message, error.details, error.hint, error.code]
+    .filter(Boolean)
+    .join("\n");
+
+  return error.code === "23505" || text.includes(constraint);
+}
+
+function duplicateConflictResult(table: string) {
+  return {
+    ok: true,
+    table,
+    conflict_ignored: true,
+  };
 }
 
 function errorBody(args: {
@@ -571,16 +586,7 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             }
 
             if (error && isDuplicateCandleOk(table, error)) {
-              const result: Record<string, unknown> = {
-                ok: true,
-                table,
-                inserted: 0,
-              };
-              if (table === "market_candles") {
-                result.duplicate_ignored = true;
-              } else {
-                result.conflict_ignored = true;
-              }
+              const result = duplicateConflictResult(table);
               console.log(`[hermes-ingest] duplicate_ok ${JSON.stringify(result)}`);
               return json(200, result);
             }
@@ -608,16 +614,22 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           return json(200, result);
         } catch (e: any) {
           console.log(`[hermes-ingest] exception table=${table} message=${e?.message}`);
+          const error = {
+            message: e?.message ?? String(e),
+            details: e?.details,
+            hint: e?.hint,
+            code: e?.code,
+          };
+          if (isDuplicateCandleOk(table, error)) {
+            const result = duplicateConflictResult(table);
+            console.log(`[hermes-ingest] duplicate_exception_ok ${JSON.stringify(result)}`);
+            return json(200, result);
+          }
           return json(
             400,
             errorBody({
               table,
-              error: {
-                message: e?.message ?? String(e),
-                details: e?.details,
-                hint: e?.hint,
-                code: e?.code,
-              },
+              error,
               receivedKeys,
               allowedKeys,
               strippedKeys: receivedKeys.filter((key) => !allowed.has(key)),
