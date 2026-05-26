@@ -376,8 +376,10 @@ export type Database = {
           probability: number | null
           raw_payload: Json | null
           reward_risk: number | null
+          spread: number | null
           status: string | null
           symbol: string | null
+          timeframe: string | null
         }
         Insert: {
           blocked_reason?: string | null
@@ -398,8 +400,10 @@ export type Database = {
           probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
+          spread?: number | null
           status?: string | null
           symbol?: string | null
+          timeframe?: string | null
         }
         Update: {
           blocked_reason?: string | null
@@ -420,8 +424,10 @@ export type Database = {
           probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
+          spread?: number | null
           status?: string | null
           symbol?: string | null
+          timeframe?: string | null
         }
         Relationships: []
       }
