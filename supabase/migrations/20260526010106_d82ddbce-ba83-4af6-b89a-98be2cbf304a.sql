@@ -1,0 +1,15 @@
+ALTER TABLE public.nightly_reports ADD COLUMN IF NOT EXISTS status text;
+ALTER TABLE public.bot_status ADD COLUMN IF NOT EXISTS mode text;
+ALTER TABLE public.hermes_agents ADD COLUMN IF NOT EXISTS mode text;
+ALTER TABLE public.account_snapshots ADD COLUMN IF NOT EXISTS margin_level numeric;
+ALTER TABLE public.market_states ADD COLUMN IF NOT EXISTS ema20 numeric;
+ALTER TABLE public.market_states ADD COLUMN IF NOT EXISTS ema50 numeric;
+ALTER TABLE public.market_states ADD COLUMN IF NOT EXISTS ema200 numeric;
+ALTER TABLE public.market_states ADD COLUMN IF NOT EXISTS rsi numeric;
+ALTER TABLE public.markov_predictions ADD COLUMN IF NOT EXISTS persistence numeric;
+ALTER TABLE public.strategy_signals ADD COLUMN IF NOT EXISTS entry numeric;
+ALTER TABLE public.strategy_signals ADD COLUMN IF NOT EXISTS sl numeric;
+ALTER TABLE public.strategy_signals ADD COLUMN IF NOT EXISTS tp numeric;
+ALTER TABLE public.kelly_risk ADD COLUMN IF NOT EXISTS blocked_reason text;
+ALTER TABLE public.ai_decisions ADD COLUMN IF NOT EXISTS kelly_fraction numeric;
+NOTIFY pgrst, 'reload schema';

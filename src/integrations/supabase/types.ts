@@ -25,6 +25,7 @@ export type Database = {
           id: string
           login: number | null
           margin: number | null
+          margin_level: number | null
           max_drawdown: number | null
           open_positions: number | null
           profit_factor: number | null
@@ -43,6 +44,7 @@ export type Database = {
           id?: string
           login?: number | null
           margin?: number | null
+          margin_level?: number | null
           max_drawdown?: number | null
           open_positions?: number | null
           profit_factor?: number | null
@@ -61,6 +63,7 @@ export type Database = {
           id?: string
           login?: number | null
           margin?: number | null
+          margin_level?: number | null
           max_drawdown?: number | null
           open_positions?: number | null
           profit_factor?: number | null
@@ -79,6 +82,7 @@ export type Database = {
           decision: string | null
           entry: number | null
           id: string
+          kelly_fraction: number | null
           lot_size: number | null
           market_state: string | null
           markov_probability: number | null
@@ -98,6 +102,7 @@ export type Database = {
           decision?: string | null
           entry?: number | null
           id?: string
+          kelly_fraction?: number | null
           lot_size?: number | null
           market_state?: string | null
           markov_probability?: number | null
@@ -117,6 +122,7 @@ export type Database = {
           decision?: string | null
           entry?: number | null
           id?: string
+          kelly_fraction?: number | null
           lot_size?: number | null
           market_state?: string | null
           markov_probability?: number | null
@@ -169,6 +175,7 @@ export type Database = {
           latency_ms: number | null
           magic_number: number | null
           meta: Json | null
+          mode: string | null
           status: string
           updated_at: string
           uptime: string | null
@@ -183,6 +190,7 @@ export type Database = {
           latency_ms?: number | null
           magic_number?: number | null
           meta?: Json | null
+          mode?: string | null
           status: string
           updated_at?: string
           uptime?: string | null
@@ -197,6 +205,7 @@ export type Database = {
           latency_ms?: number | null
           magic_number?: number | null
           meta?: Json | null
+          mode?: string | null
           status?: string
           updated_at?: string
           uptime?: string | null
@@ -250,6 +259,7 @@ export type Database = {
           latest_signal: string | null
           magic_number: number | null
           meta: Json | null
+          mode: string | null
           name: string
           pnl_today: number | null
           status: string | null
@@ -265,6 +275,7 @@ export type Database = {
           latest_signal?: string | null
           magic_number?: number | null
           meta?: Json | null
+          mode?: string | null
           name: string
           pnl_today?: number | null
           status?: string | null
@@ -280,6 +291,7 @@ export type Database = {
           latest_signal?: string | null
           magic_number?: number | null
           meta?: Json | null
+          mode?: string | null
           name?: string
           pnl_today?: number | null
           status?: string | null
@@ -292,6 +304,7 @@ export type Database = {
       }
       kelly_risk: {
         Row: {
+          blocked_reason: string | null
           created_at: string
           edge: number | null
           final_risk: number | null
@@ -304,6 +317,7 @@ export type Database = {
           symbol: string | null
         }
         Insert: {
+          blocked_reason?: string | null
           created_at?: string
           edge?: number | null
           final_risk?: number | null
@@ -316,6 +330,7 @@ export type Database = {
           symbol?: string | null
         }
         Update: {
+          blocked_reason?: string | null
           created_at?: string
           edge?: number | null
           final_risk?: number | null
@@ -378,8 +393,12 @@ export type Database = {
         Row: {
           atr: number | null
           created_at: string
+          ema20: number | null
+          ema200: number | null
+          ema50: number | null
           id: string
           price: number | null
+          rsi: number | null
           spread: number | null
           state: string
           symbol: string
@@ -390,8 +409,12 @@ export type Database = {
         Insert: {
           atr?: number | null
           created_at?: string
+          ema20?: number | null
+          ema200?: number | null
+          ema50?: number | null
           id?: string
           price?: number | null
+          rsi?: number | null
           spread?: number | null
           state: string
           symbol: string
@@ -402,8 +425,12 @@ export type Database = {
         Update: {
           atr?: number | null
           created_at?: string
+          ema20?: number | null
+          ema200?: number | null
+          ema50?: number | null
           id?: string
           price?: number | null
+          rsi?: number | null
           spread?: number | null
           state?: string
           symbol?: string
@@ -419,6 +446,7 @@ export type Database = {
           created_at: string
           current_state: string
           id: string
+          persistence: number | null
           persistence_bars: number | null
           predicted_state: string
           probability: number
@@ -432,6 +460,7 @@ export type Database = {
           created_at?: string
           current_state: string
           id?: string
+          persistence?: number | null
           persistence_bars?: number | null
           predicted_state: string
           probability: number
@@ -445,6 +474,7 @@ export type Database = {
           created_at?: string
           current_state?: string
           id?: string
+          persistence?: number | null
           persistence_bars?: number | null
           predicted_state?: string
           probability?: number
@@ -463,6 +493,7 @@ export type Database = {
           id: string
           payload: Json | null
           report_date: string
+          status: string | null
           suggestion: string | null
           summary: string | null
           trades_reviewed: number | null
@@ -475,6 +506,7 @@ export type Database = {
           id?: string
           payload?: Json | null
           report_date: string
+          status?: string | null
           suggestion?: string | null
           summary?: string | null
           trades_reviewed?: number | null
@@ -487,6 +519,7 @@ export type Database = {
           id?: string
           payload?: Json | null
           report_date?: string
+          status?: string | null
           suggestion?: string | null
           summary?: string | null
           trades_reviewed?: number | null
@@ -520,39 +553,48 @@ export type Database = {
           blocked_reason: string | null
           confidence: number | null
           created_at: string
+          entry: number | null
           id: string
           pnl: number | null
           reason: string | null
           signal: string | null
+          sl: number | null
           status: string | null
           strategy: string
           symbol: string | null
+          tp: number | null
           win_rate: number | null
         }
         Insert: {
           blocked_reason?: string | null
           confidence?: number | null
           created_at?: string
+          entry?: number | null
           id?: string
           pnl?: number | null
           reason?: string | null
           signal?: string | null
+          sl?: number | null
           status?: string | null
           strategy: string
           symbol?: string | null
+          tp?: number | null
           win_rate?: number | null
         }
         Update: {
           blocked_reason?: string | null
           confidence?: number | null
           created_at?: string
+          entry?: number | null
           id?: string
           pnl?: number | null
           reason?: string | null
           signal?: string | null
+          sl?: number | null
           status?: string | null
           strategy?: string
           symbol?: string | null
+          tp?: number | null
           win_rate?: number | null
         }
         Relationships: []
