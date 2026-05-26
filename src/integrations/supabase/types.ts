@@ -295,9 +295,11 @@ export type Database = {
       }
       hermes_agents: {
         Row: {
+          active_symbol: string | null
           confidence: number | null
           display_name: string | null
           id: string
+          last_update: string | null
           latest_signal: string | null
           magic_number: number | null
           meta: Json | null
@@ -313,9 +315,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_symbol?: string | null
           confidence?: number | null
           display_name?: string | null
           id?: string
+          last_update?: string | null
           latest_signal?: string | null
           magic_number?: number | null
           meta?: Json | null
@@ -331,9 +335,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_symbol?: string | null
           confidence?: number | null
           display_name?: string | null
           id?: string
+          last_update?: string | null
           latest_signal?: string | null
           magic_number?: number | null
           meta?: Json | null
@@ -363,6 +369,7 @@ export type Database = {
           kelly_fraction: number | null
           lot_size: number | null
           max_daily_loss: number | null
+          max_drawdown: number | null
           model_probability: number | null
           raw_payload: Json | null
           reward_risk: number | null
@@ -381,6 +388,7 @@ export type Database = {
           kelly_fraction?: number | null
           lot_size?: number | null
           max_daily_loss?: number | null
+          max_drawdown?: number | null
           model_probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
@@ -399,6 +407,7 @@ export type Database = {
           kelly_fraction?: number | null
           lot_size?: number | null
           max_daily_loss?: number | null
+          max_drawdown?: number | null
           model_probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
