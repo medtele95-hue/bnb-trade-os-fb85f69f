@@ -151,6 +151,7 @@ const TABLES: Record<string, TableSpec> = {
       "max_drawdown",
       "max_risk_per_trade",
       "open_hermes_trades",
+      "probability",
       "raw_payload",
     ],
   },

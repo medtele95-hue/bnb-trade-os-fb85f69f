@@ -373,6 +373,7 @@ export type Database = {
           max_risk_per_trade: number | null
           model_probability: number | null
           open_hermes_trades: number | null
+          probability: number | null
           raw_payload: Json | null
           reward_risk: number | null
           status: string | null
@@ -394,6 +395,7 @@ export type Database = {
           max_risk_per_trade?: number | null
           model_probability?: number | null
           open_hermes_trades?: number | null
+          probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
           status?: string | null
@@ -415,6 +417,7 @@ export type Database = {
           max_risk_per_trade?: number | null
           model_probability?: number | null
           open_hermes_trades?: number | null
+          probability?: number | null
           raw_payload?: Json | null
           reward_risk?: number | null
           status?: string | null
