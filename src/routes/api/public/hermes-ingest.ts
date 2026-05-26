@@ -436,9 +436,13 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             details: e?.message ?? String(e),
             received_keys: receivedKeys,
             allowed_keys: allowedKeys,
+            code: e?.code ?? null,
+            hint: e?.hint ?? null,
             postgres_error: {
               message: e?.message ?? String(e),
               name: e?.name,
+              code: e?.code,
+              hint: e?.hint,
             },
           });
         }
