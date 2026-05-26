@@ -295,7 +295,10 @@ function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
 }
 
 function applyTableDefaults(table: string, row: Record<string, unknown>) {
-  if (table === "bot_status" && (row.component === undefined || row.component === null || row.component === "")) {
+  if (
+    table === "bot_status" &&
+    (row.component === undefined || row.component === null || row.component === "")
+  ) {
     return { ...row, component: "hermes_core" };
   }
 
