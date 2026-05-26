@@ -193,6 +193,7 @@ const TABLES: Record<string, TableSpec> = {
       "confidence",
       "persistence",
       "predicted_next_state",
+      "transition_count",
     ],
   },
   nightly_reports: {
@@ -257,6 +258,7 @@ const TABLES: Record<string, TableSpec> = {
       "opened_at",
       "closed_at",
       "lot_size",
+      "magic_number",
     ],
   },
 };
@@ -290,6 +292,14 @@ function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
     out[k] = v;
   }
   return out;
+}
+
+function applyTableDefaults(table: string, row: Record<string, unknown>) {
+  if (table === "bot_status" && (row.component === undefined || row.component === null || row.component === "")) {
+    return { ...row, component: "hermes_core" };
+  }
+
+  return row;
 }
 
 function rowKeys(rows: Record<string, unknown>[]) {
