@@ -1,0 +1,9 @@
+ALTER TABLE public.bot_logs ADD COLUMN IF NOT EXISTS context jsonb;
+ALTER TABLE public.bot_status ADD COLUMN IF NOT EXISTS bot_name text;
+ALTER TABLE public.bot_status ADD COLUMN IF NOT EXISTS allow_live_trading boolean;
+ALTER TABLE public.hermes_agents ADD COLUMN IF NOT EXISTS display_name text;
+ALTER TABLE public.account_snapshots ADD COLUMN IF NOT EXISTS currency text;
+ALTER TABLE public.market_candles ADD COLUMN IF NOT EXISTS broker_symbol text;
+ALTER TABLE public.market_states ADD COLUMN IF NOT EXISTS atr numeric;
+ALTER TABLE public.markov_predictions ADD COLUMN IF NOT EXISTS confidence numeric;
+ALTER TABLE public.strategy_signals ADD COLUMN IF NOT EXISTS blocked_reason text;
