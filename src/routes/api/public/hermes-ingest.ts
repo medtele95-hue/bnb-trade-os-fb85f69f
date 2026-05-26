@@ -571,12 +571,16 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             }
 
             if (error && isDuplicateCandleOk(table, error)) {
-              const result = {
+              const result: Record<string, unknown> = {
                 ok: true,
                 table,
                 inserted: 0,
-                duplicate_conflict_treated_as_ok: true,
               };
+              if (table === "market_candles") {
+                result.duplicate_ignored = true;
+              } else {
+                result.upserted = true;
+              }
               console.log(`[hermes-ingest] duplicate_ok ${JSON.stringify(result)}`);
               return json(200, result);
             }
