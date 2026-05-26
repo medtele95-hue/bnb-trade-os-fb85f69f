@@ -763,7 +763,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      hermes_table_columns: { Args: { _table_name: string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
