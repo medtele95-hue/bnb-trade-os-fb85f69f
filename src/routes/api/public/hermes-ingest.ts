@@ -185,6 +185,7 @@ const TABLES: Record<string, TableSpec> = {
       "ema200",
       "rsi",
       "session",
+      "raw_payload",
     ],
   },
   markov_predictions: {
@@ -204,6 +205,7 @@ const TABLES: Record<string, TableSpec> = {
       "persistence",
       "predicted_next_state",
       "transition_count",
+      "raw_payload",
     ],
   },
   nightly_reports: {
@@ -220,6 +222,7 @@ const TABLES: Record<string, TableSpec> = {
       "best_setup",
       "trades_reviewed",
       "status",
+      "raw_payload",
     ],
   },
   settings: {
@@ -245,6 +248,7 @@ const TABLES: Record<string, TableSpec> = {
       "sl",
       "tp",
       "timeframe",
+      "raw_payload",
     ],
   },
   trades: {
@@ -269,6 +273,8 @@ const TABLES: Record<string, TableSpec> = {
       "closed_at",
       "lot_size",
       "magic_number",
+      "signal",
+      "raw_payload",
     ],
   },
 };
