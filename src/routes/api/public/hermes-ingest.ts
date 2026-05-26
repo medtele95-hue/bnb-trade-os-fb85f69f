@@ -1,24 +1,235 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-// Allowlist of writable tables and how to write them.
-// Column filtering is done dynamically from live information_schema (cached),
-// so adding a column via migration is enough — no code change required here.
-const TABLES: Record<string, { mode: "insert" | "upsert"; conflict?: string }> = {
-  account_snapshots: { mode: "insert" },
-  ai_decisions: { mode: "insert" },
-  bot_logs: { mode: "insert" },
-  bot_status: { mode: "upsert", conflict: "component" },
-  execution_events: { mode: "insert" },
-  hermes_agents: { mode: "upsert", conflict: "name" },
-  kelly_risk: { mode: "insert" },
-  market_candles: { mode: "insert" },
-  market_states: { mode: "insert" },
-  markov_predictions: { mode: "insert" },
-  nightly_reports: { mode: "insert" },
-  settings: { mode: "upsert", conflict: "key" },
-  strategy_signals: { mode: "insert" },
-  trades: { mode: "insert" },
+type TableSpec = {
+  mode: "insert" | "upsert";
+  conflict?: string;
+  columns: string[];
+};
+
+// Writable table allowlist. Unknown-field stripping uses these real schema
+// columns before insert/upsert so PostgREST never receives unexpected keys.
+const TABLES: Record<string, TableSpec> = {
+  account_snapshots: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "balance",
+      "equity",
+      "margin",
+      "free_margin",
+      "daily_pnl",
+      "total_pnl",
+      "trades_today",
+      "total_trades",
+      "win_rate",
+      "profit_factor",
+      "max_drawdown",
+      "open_positions",
+      "currency",
+      "login",
+    ],
+  },
+  ai_decisions: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "market_state",
+      "symbol",
+      "timeframe",
+      "decision",
+      "reason",
+      "blocked_reason",
+      "tp",
+      "sl",
+      "entry",
+      "lot_size",
+      "risk_status",
+      "confidence",
+      "signal",
+      "strategy",
+      "markov_probability",
+    ],
+  },
+  bot_logs: {
+    mode: "insert",
+    columns: ["id", "created_at", "level", "message", "source", "context"],
+  },
+  bot_status: {
+    mode: "upsert",
+    conflict: "component",
+    columns: [
+      "id",
+      "updated_at",
+      "component",
+      "status",
+      "last_heartbeat",
+      "uptime",
+      "latency_ms",
+      "meta",
+      "bot_name",
+      "allow_live_trading",
+      "magic_number",
+      "demo_trading",
+    ],
+  },
+  execution_events: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "symbol",
+      "side",
+      "lot",
+      "price",
+      "magic",
+      "mode",
+      "payload",
+      "result",
+    ],
+  },
+  hermes_agents: {
+    mode: "upsert",
+    conflict: "name",
+    columns: [
+      "id",
+      "updated_at",
+      "name",
+      "tag",
+      "status",
+      "symbol",
+      "timeframe",
+      "latest_signal",
+      "confidence",
+      "pnl_today",
+      "meta",
+      "display_name",
+      "magic_number",
+    ],
+  },
+  kelly_risk: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "model_probability",
+      "reward_risk",
+      "edge",
+      "lot_size",
+      "status",
+      "kelly_fraction",
+      "symbol",
+      "final_risk",
+    ],
+  },
+  market_candles: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "symbol",
+      "timeframe",
+      "candle_time",
+      "open",
+      "high",
+      "low",
+      "close",
+      "tick_volume",
+      "spread",
+      "broker_symbol",
+    ],
+  },
+  market_states: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "symbol",
+      "timeframe",
+      "state",
+      "trend",
+      "price",
+      "spread",
+      "volatility",
+      "atr",
+    ],
+  },
+  markov_predictions: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "symbol",
+      "timeframe",
+      "current_state",
+      "predicted_state",
+      "probability",
+      "persistence_bars",
+      "transitions",
+      "signal",
+      "confidence",
+    ],
+  },
+  nightly_reports: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "report_date",
+      "payload",
+      "summary",
+      "suggestion",
+      "best_session",
+      "worst_setup",
+      "best_setup",
+      "trades_reviewed",
+    ],
+  },
+  settings: {
+    mode: "upsert",
+    conflict: "key",
+    columns: ["id", "updated_at", "key", "value"],
+  },
+  strategy_signals: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "strategy",
+      "symbol",
+      "signal",
+      "status",
+      "confidence",
+      "win_rate",
+      "pnl",
+      "reason",
+      "blocked_reason",
+    ],
+  },
+  trades: {
+    mode: "insert",
+    columns: [
+      "id",
+      "created_at",
+      "symbol",
+      "dir",
+      "magic",
+      "ticket",
+      "entry",
+      "sl",
+      "tp",
+      "lot",
+      "pnl",
+      "result",
+      "strategy",
+      "confidence",
+      "reason",
+      "opened_at",
+      "closed_at",
+    ],
+  },
 };
 
 const corsHeaders = {
@@ -34,41 +245,10 @@ function json(status: number, body: unknown) {
   });
 }
 
-// Cache live column lists per table for 60s
-const columnCache: Record<string, { cols: Set<string>; at: number }> = {};
-const CACHE_MS = 60_000;
-
-async function getColumns(table: string): Promise<Set<string>> {
-  const now = Date.now();
-  const cached = columnCache[table];
-  if (cached && now - cached.at < CACHE_MS) return cached.cols;
-
-  // Probe one row to learn column names. Falls back to empty select.
-  const { data, error } = await supabaseAdmin
-    .from(table as any)
-    .select("*")
-    .limit(1);
-
-  if (error) throw error;
-
-  let cols = new Set<string>();
-  if (data && data.length > 0) {
-    cols = new Set(Object.keys(data[0] as object));
-  } else {
-    // Empty table: insert a probe-free no-op by selecting head with count.
-    // As a fallback when there are no rows, allow any field through on first
-    // insert; PostgREST will reject unknown columns with a clear error.
-    cols = new Set<string>();
-  }
-  columnCache[table] = { cols, at: now };
-  return cols;
-}
-
 function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
   const out: Record<string, unknown> = {};
-  const useAllowlist = allowed.size > 0;
   for (const [k, v] of Object.entries(row)) {
-    if (useAllowlist && !allowed.has(k)) continue;
+    if (!allowed.has(k)) continue;
     if (v === undefined) continue;
     if (typeof v === "string" && v === "") {
       out[k] = null;
@@ -81,6 +261,10 @@ function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
     out[k] = v;
   }
   return out;
+}
+
+function rowKeys(rows: Record<string, unknown>[]) {
+  return Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).sort();
 }
 
 export const Route = createFileRoute("/api/public/hermes-ingest")({
@@ -155,26 +339,17 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           }
         }
 
-        let allowed: Set<string>;
-        try {
-          allowed = await getColumns(table);
-        } catch (e: any) {
-          return json(500, {
-            ok: false,
-            table,
-            error: "schema_lookup_failed",
-            details: e?.message ?? String(e),
-          });
-        }
+        const allowedKeys = [...spec.columns].sort();
+        const allowed = new Set(spec.columns);
+        const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
 
         const rows = rawRows.map((r) =>
           cleanRow(r as Record<string, unknown>, allowed),
         );
+        const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
 
         console.log(
-          `[hermes-ingest] table=${table} rows=${rows.length} keys=${JSON.stringify(
-            rows.map((r) => Object.keys(r)),
-          )}`,
+          `[hermes-ingest] table=${table} rows=${rows.length} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} write_keys=${JSON.stringify(rows.map((r) => Object.keys(r)))}`,
         );
 
         try {
@@ -187,15 +362,22 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
 
           if (error) {
             console.log(
-              `[hermes-ingest] db_error table=${table} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
+              `[hermes-ingest] db_error table=${table} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
             );
-            // Bust cache in case schema changed
-            delete columnCache[table];
             return json(400, {
               ok: false,
               table,
               error: "db_error",
               details: error.message,
+              received_keys: receivedKeys,
+              allowed_keys: allowedKeys,
+              stripped_keys: strippedKeys,
+              postgres_error: {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code,
+              },
               hint: error.hint,
               code: error.code,
             });
@@ -217,6 +399,12 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             table,
             error: "exception",
             details: e?.message ?? String(e),
+            received_keys: receivedKeys,
+            allowed_keys: allowedKeys,
+            postgres_error: {
+              message: e?.message ?? String(e),
+              name: e?.name,
+            },
           });
         }
       },
