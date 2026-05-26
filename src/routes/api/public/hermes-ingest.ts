@@ -145,6 +145,7 @@ const TABLES: Record<string, TableSpec> = {
       "daily_loss_pct",
       "drawdown_pct",
       "fractional_kelly",
+      "max_daily_loss",
       "raw_payload",
     ],
   },
