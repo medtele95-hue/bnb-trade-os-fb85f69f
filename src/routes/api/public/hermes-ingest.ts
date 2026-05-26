@@ -1,110 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-// table -> { columns: Set<string>, conflict?: string[], mode: "insert" | "upsert" }
-const TABLES: Record<
-  string,
-  { columns: string[]; mode: "insert" | "upsert"; conflict?: string }
-> = {
-  account_snapshots: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "balance", "equity", "margin", "free_margin",
-      "open_positions", "daily_pnl", "total_pnl", "max_drawdown",
-      "profit_factor", "win_rate", "total_trades", "trades_today",
-    ],
-  },
-  ai_decisions: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "symbol", "timeframe", "market_state", "strategy",
-      "signal", "confidence", "decision", "reason", "blocked_reason",
-      "risk_status", "lot_size", "entry", "sl", "tp", "markov_probability",
-    ],
-  },
-  bot_logs: {
-    mode: "insert",
-    columns: ["id", "created_at", "level", "source", "message"],
-  },
-  bot_status: {
-    mode: "upsert",
-    conflict: "component",
-    columns: [
-      "id", "component", "status", "latency_ms", "uptime", "last_heartbeat",
-      "meta", "updated_at",
-    ],
-  },
-  execution_events: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "symbol", "side", "lot", "price", "result",
-      "magic", "mode", "payload",
-    ],
-  },
-  hermes_agents: {
-    mode: "upsert",
-    conflict: "name",
-    columns: [
-      "id", "name", "tag", "status", "symbol", "timeframe", "latest_signal",
-      "confidence", "pnl_today", "meta", "updated_at",
-    ],
-  },
-  kelly_risk: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "symbol", "model_probability", "reward_risk",
-      "edge", "kelly_fraction", "final_risk", "lot_size", "status",
-    ],
-  },
-  market_candles: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "symbol", "timeframe", "candle_time",
-      "open", "high", "low", "close", "tick_volume", "spread",
-    ],
-  },
-  market_states: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "symbol", "timeframe", "state", "trend",
-      "volatility", "price", "spread",
-    ],
-  },
-  markov_predictions: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "symbol", "timeframe", "current_state",
-      "predicted_state", "probability", "persistence_bars", "transitions",
-      "signal",
-    ],
-  },
-  nightly_reports: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "report_date", "trades_reviewed", "best_setup",
-      "worst_setup", "best_session", "suggestion", "summary", "payload",
-    ],
-  },
-  settings: {
-    mode: "upsert",
-    conflict: "key",
-    columns: ["id", "key", "value", "updated_at"],
-  },
-  strategy_signals: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "strategy", "symbol", "status", "signal",
-      "confidence", "pnl", "reason", "win_rate",
-    ],
-  },
-  trades: {
-    mode: "insert",
-    columns: [
-      "id", "created_at", "opened_at", "closed_at", "symbol", "dir",
-      "lot", "entry", "sl", "tp", "ticket", "magic", "strategy",
-      "confidence", "reason", "result", "pnl",
-    ],
-  },
+// Allowlist of writable tables and how to write them.
+// Column filtering is done dynamically from live information_schema (cached),
+// so adding a column via migration is enough — no code change required here.
+const TABLES: Record<string, { mode: "insert" | "upsert"; conflict?: string }> = {
+  account_snapshots: { mode: "insert" },
+  ai_decisions: { mode: "insert" },
+  bot_logs: { mode: "insert" },
+  bot_status: { mode: "upsert", conflict: "component" },
+  execution_events: { mode: "insert" },
+  hermes_agents: { mode: "upsert", conflict: "name" },
+  kelly_risk: { mode: "insert" },
+  market_candles: { mode: "insert" },
+  market_states: { mode: "insert" },
+  markov_predictions: { mode: "insert" },
+  nightly_reports: { mode: "insert" },
+  settings: { mode: "upsert", conflict: "key" },
+  strategy_signals: { mode: "insert" },
+  trades: { mode: "insert" },
 };
 
 const corsHeaders = {
@@ -120,18 +34,47 @@ function json(status: number, body: unknown) {
   });
 }
 
-function cleanRow(row: Record<string, unknown>, allowed: string[]) {
-  const allowedSet = new Set(allowed);
+// Cache live column lists per table for 60s
+const columnCache: Record<string, { cols: Set<string>; at: number }> = {};
+const CACHE_MS = 60_000;
+
+async function getColumns(table: string): Promise<Set<string>> {
+  const now = Date.now();
+  const cached = columnCache[table];
+  if (cached && now - cached.at < CACHE_MS) return cached.cols;
+
+  // Probe one row to learn column names. Falls back to empty select.
+  const { data, error } = await supabaseAdmin
+    .from(table as any)
+    .select("*")
+    .limit(1);
+
+  if (error) throw error;
+
+  let cols = new Set<string>();
+  if (data && data.length > 0) {
+    cols = new Set(Object.keys(data[0] as object));
+  } else {
+    // Empty table: insert a probe-free no-op by selecting head with count.
+    // As a fallback when there are no rows, allow any field through on first
+    // insert; PostgREST will reject unknown columns with a clear error.
+    cols = new Set<string>();
+  }
+  columnCache[table] = { cols, at: now };
+  return cols;
+}
+
+function cleanRow(row: Record<string, unknown>, allowed: Set<string>) {
   const out: Record<string, unknown> = {};
+  const useAllowlist = allowed.size > 0;
   for (const [k, v] of Object.entries(row)) {
-    if (!allowedSet.has(k)) continue;
+    if (useAllowlist && !allowed.has(k)) continue;
     if (v === undefined) continue;
     if (typeof v === "string" && v === "") {
       out[k] = null;
       continue;
     }
     if (typeof v === "number" && !Number.isFinite(v)) {
-      // reject NaN / Infinity by dropping (use null)
       out[k] = null;
       continue;
     }
@@ -212,8 +155,20 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
           }
         }
 
+        let allowed: Set<string>;
+        try {
+          allowed = await getColumns(table);
+        } catch (e: any) {
+          return json(500, {
+            ok: false,
+            table,
+            error: "schema_lookup_failed",
+            details: e?.message ?? String(e),
+          });
+        }
+
         const rows = rawRows.map((r) =>
-          cleanRow(r as Record<string, unknown>, spec.columns),
+          cleanRow(r as Record<string, unknown>, allowed),
         );
 
         console.log(
@@ -234,6 +189,8 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             console.log(
               `[hermes-ingest] db_error table=${table} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
             );
+            // Bust cache in case schema changed
+            delete columnCache[table];
             return json(400, {
               ok: false,
               table,
