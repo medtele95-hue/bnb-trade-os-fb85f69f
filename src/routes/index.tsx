@@ -464,10 +464,62 @@ function VideoAgents() {
 }
 
 function Journal() {
-  const { rows, empty } = useLiveTable<any>("trades", { limit: 20 });
+  const { rows, empty } = useLiveTable<any>("trades", { limit: 50 });
+
+  const isClosed = (t: any) => {
+    const rp = t.raw_payload || {};
+    const inner = rp.raw_payload || {};
+    const status = String(rp.status ?? inner.status ?? "").toUpperCase();
+    const result = String(t.result ?? "").toUpperCase();
+    return (
+      t.closed_at != null ||
+      result === "WIN" ||
+      result === "LOSS" ||
+      (t.pnl != null && Number(t.pnl) !== 0) ||
+      status === "CLOSED"
+    );
+  };
+
+  const tradeKey = (t: any): string => {
+    if (t.ticket != null) return `tk:${t.ticket}`;
+    const rp = t.raw_payload || {};
+    const inner = rp.raw_payload || {};
+    const pid = rp.paper_trade_id ?? inner.paper_trade_id;
+    if (pid) return `pid:${pid}`;
+    return `fb:${t.symbol}|${t.dir}|${t.entry}|${t.opened_at ?? ""}`;
+  };
+
+  const valid = rows.filter(
+    (t: any) => t.symbol && t.dir && t.entry != null && (t.lot_size ?? t.lot) != null,
+  );
+
+  const byKey = new Map<string, any>();
+  for (const t of valid) {
+    const key = tradeKey(t);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, t);
+      continue;
+    }
+    const existingClosed = isClosed(existing);
+    const tClosed = isClosed(t);
+    if (tClosed && !existingClosed) byKey.set(key, t);
+    else if (tClosed === existingClosed) {
+      const a = new Date(t.closed_at ?? t.opened_at ?? t.created_at).getTime();
+      const b = new Date(existing.closed_at ?? existing.opened_at ?? existing.created_at).getTime();
+      if (a > b) byKey.set(key, t);
+    }
+  }
+
+  const deduped = Array.from(byKey.values()).sort((a, b) => {
+    const ta = new Date(a.opened_at ?? a.created_at).getTime();
+    const tb = new Date(b.opened_at ?? b.created_at).getTime();
+    return tb - ta;
+  }).slice(0, 20);
+
   return (
-    <Panel title="TRADE JOURNAL" right={`${rows.length} ROWS`}>
-      {empty ? (
+    <Panel title="TRADE JOURNAL" right={`${deduped.length} ROWS`}>
+      {empty || deduped.length === 0 ? (
         <Waiting />
       ) : (
         <div className="overflow-x-auto">
@@ -480,16 +532,16 @@ function Journal() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((t) => (
+              {deduped.map((t) => (
                 <tr key={t.id} className="border-b border-dashed border-black/40">
                   <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
-                  <td className="pr-2">{t.magic ?? "—"}</td>
+                  <td className="pr-2">{t.magic ?? t.magic_number ?? "—"}</td>
                   <td className="pr-2">{t.symbol}</td>
                   <td className="pr-2">{t.dir}</td>
                   <td className="pr-2 pixel">{t.entry ?? "—"}</td>
                   <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
                   <td className="pr-2 pixel text-profit">{t.tp ?? "—"}</td>
-                  <td className="pr-2">{t.lot ?? "—"}</td>
+                  <td className="pr-2">{t.lot ?? t.lot_size ?? "—"}</td>
                   <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
                   <td className="pr-2">{t.result ?? "—"}</td>
                   <td className="pr-2">{t.strategy ?? "—"}</td>
