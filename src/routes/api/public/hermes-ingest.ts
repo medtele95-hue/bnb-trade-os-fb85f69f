@@ -509,6 +509,8 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
 
         const table = payload?.table as string | undefined;
         const data = payload?.data;
+        const action = (payload?.action as string | undefined) ?? "insert";
+        const match = payload?.match;
 
         if (!table || typeof table !== "string") {
           return json(400, {
@@ -536,6 +538,111 @@ export const Route = createFileRoute("/api/public/hermes-ingest")({
             error: "missing_data",
             details: "payload.data is required",
           });
+        }
+
+        // Real UPDATE path — never insert/upsert when action=="update"
+        if (action === "update") {
+          if (!match || typeof match !== "object" || Array.isArray(match)) {
+            return json(400, {
+              ok: false,
+              table,
+              error: "missing_match",
+              details: "payload.match object is required for action=update",
+            });
+          }
+          const matchEntries = Object.entries(match as Record<string, unknown>).filter(
+            ([, v]) => v !== undefined && v !== null,
+          );
+          if (matchEntries.length === 0) {
+            return json(400, {
+              ok: false,
+              table,
+              error: "empty_match",
+              details: "payload.match must contain at least one filter",
+            });
+          }
+
+          const updateRaw = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
+          if (!updateRaw || typeof updateRaw !== "object" || Array.isArray(updateRaw)) {
+            return json(400, {
+              ok: false,
+              table,
+              error: "invalid_row",
+              details: "payload.data must be an object for action=update",
+            });
+          }
+
+          const liveColumns = await getLiveColumns(table, spec);
+          const allowed = new Set(liveColumns);
+          const updateRow: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(updateRaw)) {
+            if (!allowed.has(k)) continue;
+            const normalized = normalizeValue(v);
+            if (normalized === undefined) continue;
+            updateRow[k] = normalized;
+          }
+          if (allowed.has("raw_payload")) {
+            updateRow.raw_payload = updateRaw;
+          }
+
+          if (Object.keys(updateRow).length === 0) {
+            return json(400, {
+              ok: false,
+              table,
+              error: "empty_update",
+              details: "no allowed columns in payload.data",
+            });
+          }
+
+          try {
+            let q = supabaseAdmin.from(table as any).update(updateRow as any);
+            for (const [col, val] of matchEntries) {
+              q = q.eq(col, val as any);
+            }
+            const { data: updated, error } = await q.select();
+
+            if (error) {
+              console.log(
+                `[hermes-ingest] update_db_error table=${table} match=${JSON.stringify(match)} message=${error.message} code=${error.code ?? ""}`,
+              );
+              return json(400, {
+                ok: false,
+                table,
+                action: "update",
+                error: error.message,
+                code: error.code ?? null,
+                hint: error.hint ?? null,
+              });
+            }
+
+            const count = updated?.length ?? 0;
+            if (count === 0) {
+              console.log(
+                `[hermes-ingest] update_no_match table=${table} match=${JSON.stringify(match)}`,
+              );
+              return json(404, {
+                ok: false,
+                table,
+                action: "update",
+                error: "NO_MATCHING_ROW",
+                match,
+              });
+            }
+
+            const result = { ok: true, table, action: "update", updated: count };
+            console.log(`[hermes-ingest] update_success ${JSON.stringify(result)}`);
+            return json(200, result);
+          } catch (e: any) {
+            console.log(
+              `[hermes-ingest] update_exception table=${table} message=${e?.message}`,
+            );
+            return json(400, {
+              ok: false,
+              table,
+              action: "update",
+              error: e?.message ?? String(e),
+            });
+          }
         }
 
         const rawRows = Array.isArray(data) ? data : [data];
