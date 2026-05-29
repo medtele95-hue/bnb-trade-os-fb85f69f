@@ -3,6 +3,7 @@ import { Panel, KV } from "@/components/dashboard/Panel";
 import { CandleChart } from "@/components/dashboard/CandleChart";
 import { Clock } from "@/components/dashboard/Clock";
 import { Waiting } from "@/components/dashboard/Waiting";
+import { SmcMap } from "@/components/dashboard/SmcMap";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
 export const Route = createFileRoute("/")({
