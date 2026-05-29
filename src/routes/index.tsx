@@ -3,6 +3,7 @@ import { Panel, KV } from "@/components/dashboard/Panel";
 import { CandleChart } from "@/components/dashboard/CandleChart";
 import { Clock } from "@/components/dashboard/Clock";
 import { Waiting } from "@/components/dashboard/Waiting";
+import { SmcMap } from "@/components/dashboard/SmcMap";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
 export const Route = createFileRoute("/")({
@@ -645,8 +646,13 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-5"><Decision /></div>
-        <div className="col-span-7"><Strategies /></div>
+        <div className="col-span-12"><Decision /></div>
+      </div>
+
+      <div className="mt-3"><SmcMap /></div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><Strategies /></div>
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
