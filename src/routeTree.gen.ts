@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicHermesPaperReportRouteImport } from './routes/api/public/hermes-paper-report'
+import { Route as ApiPublicHermesOpenPaperTradesRouteImport } from './routes/api/public/hermes-open-paper-trades'
 import { Route as ApiPublicHermesIngestRouteImport } from './routes/api/public/hermes-ingest'
 
 const SettingsRoute = SettingsRouteImport.update({
@@ -30,6 +31,12 @@ const ApiPublicHermesPaperReportRoute =
     path: '/api/public/hermes-paper-report',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHermesOpenPaperTradesRoute =
+  ApiPublicHermesOpenPaperTradesRouteImport.update({
+    id: '/api/public/hermes-open-paper-trades',
+    path: '/api/public/hermes-open-paper-trades',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHermesIngestRoute = ApiPublicHermesIngestRouteImport.update({
   id: '/api/public/hermes-ingest',
   path: '/api/public/hermes-ingest',
@@ -40,12 +47,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/api/public/hermes-ingest': typeof ApiPublicHermesIngestRoute
+  '/api/public/hermes-open-paper-trades': typeof ApiPublicHermesOpenPaperTradesRoute
   '/api/public/hermes-paper-report': typeof ApiPublicHermesPaperReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/api/public/hermes-ingest': typeof ApiPublicHermesIngestRoute
+  '/api/public/hermes-open-paper-trades': typeof ApiPublicHermesOpenPaperTradesRoute
   '/api/public/hermes-paper-report': typeof ApiPublicHermesPaperReportRoute
 }
 export interface FileRoutesById {
@@ -53,6 +62,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/api/public/hermes-ingest': typeof ApiPublicHermesIngestRoute
+  '/api/public/hermes-open-paper-trades': typeof ApiPublicHermesOpenPaperTradesRoute
   '/api/public/hermes-paper-report': typeof ApiPublicHermesPaperReportRoute
 }
 export interface FileRouteTypes {
@@ -61,18 +71,21 @@ export interface FileRouteTypes {
     | '/'
     | '/settings'
     | '/api/public/hermes-ingest'
+    | '/api/public/hermes-open-paper-trades'
     | '/api/public/hermes-paper-report'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/settings'
     | '/api/public/hermes-ingest'
+    | '/api/public/hermes-open-paper-trades'
     | '/api/public/hermes-paper-report'
   id:
     | '__root__'
     | '/'
     | '/settings'
     | '/api/public/hermes-ingest'
+    | '/api/public/hermes-open-paper-trades'
     | '/api/public/hermes-paper-report'
   fileRoutesById: FileRoutesById
 }
@@ -80,6 +93,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRoute: typeof SettingsRoute
   ApiPublicHermesIngestRoute: typeof ApiPublicHermesIngestRoute
+  ApiPublicHermesOpenPaperTradesRoute: typeof ApiPublicHermesOpenPaperTradesRoute
   ApiPublicHermesPaperReportRoute: typeof ApiPublicHermesPaperReportRoute
 }
 
@@ -106,6 +120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHermesPaperReportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hermes-open-paper-trades': {
+      id: '/api/public/hermes-open-paper-trades'
+      path: '/api/public/hermes-open-paper-trades'
+      fullPath: '/api/public/hermes-open-paper-trades'
+      preLoaderRoute: typeof ApiPublicHermesOpenPaperTradesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hermes-ingest': {
       id: '/api/public/hermes-ingest'
       path: '/api/public/hermes-ingest'
@@ -120,6 +141,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
   ApiPublicHermesIngestRoute: ApiPublicHermesIngestRoute,
+  ApiPublicHermesOpenPaperTradesRoute: ApiPublicHermesOpenPaperTradesRoute,
   ApiPublicHermesPaperReportRoute: ApiPublicHermesPaperReportRoute,
 }
 export const routeTree = rootRouteImport
