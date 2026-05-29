@@ -646,8 +646,13 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-5"><Decision /></div>
-        <div className="col-span-7"><Strategies /></div>
+        <div className="col-span-12"><Decision /></div>
+      </div>
+
+      <div className="mt-3"><SmcMap /></div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><Strategies /></div>
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
