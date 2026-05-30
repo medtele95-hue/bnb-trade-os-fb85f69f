@@ -4,6 +4,11 @@ import { CandleChart } from "@/components/dashboard/CandleChart";
 import { Clock } from "@/components/dashboard/Clock";
 import { Waiting } from "@/components/dashboard/Waiting";
 import { SmcMap } from "@/components/dashboard/SmcMap";
+import { SafetyGuard } from "@/components/dashboard/SafetyGuard";
+import { BigSetupDetector } from "@/components/dashboard/BigSetupDetector";
+import { StrategyModules } from "@/components/dashboard/StrategyModules";
+import { PaperReport } from "@/components/dashboard/PaperReport";
+import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
 export const Route = createFileRoute("/")({
