@@ -103,10 +103,11 @@ function Hero() {
             <div className="pixel text-[88px] leading-none tracking-tighter text-profit">
               ${Number(s.total_pnl ?? 0).toLocaleString()}
             </div>
-            <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest">
+            <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
               <StatusDot label="Verified from MT5" />
               <StatusDot label="Account: Live" />
               <StatusDot label="Broker Connected" />
+              <Badge value="LIVE ACCOUNT READ-ONLY — PAPER EXECUTION ONLY" tone="orange" />
             </div>
           </div>
           <div className="border-l border-black p-2 space-y-0.5">
