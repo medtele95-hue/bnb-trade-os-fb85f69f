@@ -415,13 +415,28 @@ function Telegram() {
             </div>
             <div className="text-[10px] uppercase opacity-70 mt-1">Nightly Report</div>
             {r ? (
-              <>
-                <KV k="Trades" v={r.trades_reviewed ?? "—"} />
-                <KV k="Best Setup" v={r.best_setup ?? "—"} />
-                <KV k="Worst Setup" v={r.worst_setup ?? "—"} accent="loss" />
-                <KV k="Best Session" v={r.best_session ?? "—"} />
-                <div className="text-[10px] mt-1 opacity-80 italic">▶ {r.suggestion ?? "—"}</div>
-              </>
+              (() => {
+                const p = (r.payload ?? r.raw_payload ?? {}) as Record<string, any>;
+                const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
+                return (
+                  <>
+                    <KV k="Trades" v={u(r.trades_reviewed)} />
+                    <KV k="Best Setup" v={u(r.best_setup ?? p.best_setup)} />
+                    <KV k="Worst Setup" v={u(r.worst_setup ?? p.worst_setup)} accent="loss" />
+                    <KV k="Best Strategy" v={u(p.best_strategy)} />
+                    <KV k="Worst Strategy" v={u(p.worst_strategy)} accent="loss" />
+                    <KV k="Best Session" v={u(r.best_session ?? p.best_session)} />
+                    <KV k="Worst Session" v={u(p.worst_session)} accent="loss" />
+                    <KV k="Safety Blocks" v={u(p.safety_guard_blocks)} />
+                    <KV k="Big Setup Grades" v={
+                      p.big_setup_grade_summary && typeof p.big_setup_grade_summary === "object"
+                        ? Object.entries(p.big_setup_grade_summary).map(([g, n]) => `${g}:${n}`).join(" ")
+                        : "UNKNOWN"
+                    } />
+                    <div className="text-[10px] mt-1 opacity-80 italic">▶ {u(r.suggestion ?? p.suggestion)}</div>
+                  </>
+                );
+              })()
             ) : (
               <Waiting label="NO NIGHTLY REPORT YET" />
             )}
