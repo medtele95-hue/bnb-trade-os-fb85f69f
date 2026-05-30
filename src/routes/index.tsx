@@ -363,24 +363,34 @@ function Stack() {
 function SelfLearn() {
   const { rows, empty } = useLiveTable<any>("nightly_reports", { orderBy: "report_date", ascending: false, limit: 1 });
   const r = rows[0];
+  const p = (r?.payload ?? r?.raw_payload ?? {}) as Record<string, any>;
+  const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
   return (
     <Panel title="SELF-LEARNING NIGHTLY LOOP" right="03:00 UTC">
       {empty || !r ? (
-        <Waiting />
+        <Waiting label="WAITING FOR NEW REPORT DATA" />
       ) : (
         <div className="grid grid-cols-4 gap-0">
           {[
-            { n: "01", t: "TRADES REVIEWED", d: `${r.trades_reviewed ?? 0} trades on ${r.report_date}` },
-            { n: "02", t: "BEST SETUP", d: r.best_setup ?? "—" },
-            { n: "03", t: "WORST SETUP", d: r.worst_setup ?? "—" },
-            { n: "04", t: "SUGGESTION", d: r.suggestion ?? "—" },
+            { n: "01", t: "BEST SETUP", d: u(r.best_setup ?? p.best_setup) },
+            { n: "02", t: "WORST SETUP", d: u(r.worst_setup ?? p.worst_setup) },
+            { n: "03", t: "BEST GRADE", d: u(p.best_big_setup_grade) },
+            { n: "04", t: "WORST GRADE", d: u(p.worst_big_setup_grade) },
+            { n: "05", t: "BEST STRATEGY", d: u(p.best_strategy) },
+            { n: "06", t: "WORST STRATEGY", d: u(p.worst_strategy) },
+            { n: "07", t: "ACTIVE STRATEGIES", d: Array.isArray(p.active_strategies) ? p.active_strategies.join(", ") : u(p.active_strategies) },
+            { n: "08", t: "LEGACY OBSERVER", d: Array.isArray(p.legacy_observer_strategies) ? p.legacy_observer_strategies.join(", ") : u(p.legacy_observer_strategies) },
           ].map((s, i) => (
-            <div key={s.n} className={`p-2 ${i < 3 ? "border-r border-dashed border-black/50" : ""}`}>
-              <div className="pixel text-[28px] leading-none">{s.n}</div>
+            <div key={s.n} className={`p-2 ${i % 4 !== 3 ? "border-r border-dashed border-black/50" : ""} ${i < 4 ? "border-b border-dashed border-black/50" : ""}`}>
+              <div className="pixel text-[22px] leading-none">{s.n}</div>
               <div className="font-bold text-[11px] mt-1">{s.t}</div>
               <div className="text-[10px] opacity-80 mt-1 leading-snug">{s.d}</div>
             </div>
           ))}
+          <div className="col-span-4 p-2 border-t border-dashed border-black/50">
+            <div className="text-[10px] uppercase opacity-70">Suggestion</div>
+            <div className="text-[11px] italic">▶ {u(r.suggestion ?? p.suggestion)}</div>
+          </div>
         </div>
       )}
     </Panel>
