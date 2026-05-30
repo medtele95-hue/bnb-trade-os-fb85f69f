@@ -558,29 +558,42 @@ function Journal() {
           <table className="w-full text-[10px]">
             <thead>
               <tr className="border-b border-black text-left uppercase tracking-wider">
-                {["Time","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Result","Strategy","Conf","Reason"].map((h) => (
+                {["Time","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Result","Strategy","Conf","Setup","Safety","SMC","Risk","Status","Reason"].map((h) => (
                   <th key={h} className="py-1 pr-2">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {deduped.map((t) => (
-                <tr key={t.id} className="border-b border-dashed border-black/40">
-                  <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
-                  <td className="pr-2">{t.magic ?? t.magic_number ?? "—"}</td>
-                  <td className="pr-2">{t.symbol}</td>
-                  <td className="pr-2">{t.dir}</td>
-                  <td className="pr-2 pixel">{t.entry ?? "—"}</td>
-                  <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
-                  <td className="pr-2 pixel text-profit">{t.tp ?? "—"}</td>
-                  <td className="pr-2">{t.lot ?? t.lot_size ?? "—"}</td>
-                  <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
-                  <td className="pr-2">{t.result ?? "—"}</td>
-                  <td className="pr-2">{t.strategy ?? "—"}</td>
-                  <td className="pr-2">{t.confidence != null ? `${t.confidence}%` : "—"}</td>
-                  <td className="pr-2 italic opacity-80">{t.reason ?? ""}</td>
-                </tr>
-              ))}
+              {deduped.map((t) => {
+                const rp = (t.raw_payload ?? {}) as Record<string, any>;
+                const grade = rp.big_setup_grade ?? "UNKNOWN";
+                const safety = rp.safety_guard_status ?? "UNKNOWN";
+                const smc = rp.smc_confluence_status ?? "UNKNOWN";
+                const risk = rp.risk_diag_status ?? rp.risk_status ?? "UNKNOWN";
+                const sstat = rp.strategy_status ?? "UNKNOWN";
+                return (
+                  <tr key={t.id} className="border-b border-dashed border-black/40">
+                    <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
+                    <td className="pr-2">{t.magic ?? t.magic_number ?? "—"}</td>
+                    <td className="pr-2">{t.symbol}</td>
+                    <td className="pr-2">{t.dir}</td>
+                    <td className="pr-2 pixel">{t.entry ?? "—"}</td>
+                    <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
+                    <td className="pr-2 pixel text-profit">{t.tp ?? "—"}</td>
+                    <td className="pr-2">{t.lot ?? t.lot_size ?? "—"}</td>
+                    <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
+                    <td className="pr-2">{t.result ?? "—"}</td>
+                    <td className="pr-2">{t.strategy ?? "—"}</td>
+                    <td className="pr-2">{t.confidence != null ? `${t.confidence}%` : "—"}</td>
+                    <td className="pr-2"><Badge value={grade} tone={gradeTone(grade)} /></td>
+                    <td className="pr-2"><Badge value={safety} tone={statusTone(safety)} /></td>
+                    <td className="pr-2"><Badge value={smc} tone={statusTone(smc)} /></td>
+                    <td className="pr-2"><Badge value={risk} tone={statusTone(risk)} /></td>
+                    <td className="pr-2"><Badge value={sstat} tone={String(sstat).toUpperCase() === "LEGACY_OBSERVER" ? "gray" : statusTone(sstat)} /></td>
+                    <td className="pr-2 italic opacity-80">{t.reason ?? ""}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
