@@ -4,6 +4,11 @@ import { CandleChart } from "@/components/dashboard/CandleChart";
 import { Clock } from "@/components/dashboard/Clock";
 import { Waiting } from "@/components/dashboard/Waiting";
 import { SmcMap } from "@/components/dashboard/SmcMap";
+import { SafetyGuard } from "@/components/dashboard/SafetyGuard";
+import { BigSetupDetector } from "@/components/dashboard/BigSetupDetector";
+import { StrategyModules } from "@/components/dashboard/StrategyModules";
+import { PaperReport } from "@/components/dashboard/PaperReport";
+import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
 export const Route = createFileRoute("/")({
@@ -51,7 +56,7 @@ function Header() {
         </div>
         <div className="col-span-4 p-3 text-[10px] uppercase tracking-wider grid grid-cols-2 gap-x-3 gap-y-1">
           <div>BOT STATUS: <b>{bot}</b><span className="blink ml-1">_</span></div>
-          <div>MODE: <b>READ ONLY</b></div>
+          <div>MODE: <b>READ ONLY · PAPER</b></div>
           <div>RDP: <b>{rdp}</b></div>
           <div>MT5: <b>{mt5}</b></div>
           <div className="col-span-2 flex items-center justify-between border-t border-dashed border-black/40 pt-1 mt-0.5">
@@ -98,10 +103,11 @@ function Hero() {
             <div className="pixel text-[88px] leading-none tracking-tighter text-profit">
               ${Number(s.total_pnl ?? 0).toLocaleString()}
             </div>
-            <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest">
+            <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
               <StatusDot label="Verified from MT5" />
               <StatusDot label="Account: Live" />
               <StatusDot label="Broker Connected" />
+              <Badge value="LIVE ACCOUNT READ-ONLY — PAPER EXECUTION ONLY" tone="orange" />
             </div>
           </div>
           <div className="border-l border-black p-2 space-y-0.5">
@@ -357,24 +363,34 @@ function Stack() {
 function SelfLearn() {
   const { rows, empty } = useLiveTable<any>("nightly_reports", { orderBy: "report_date", ascending: false, limit: 1 });
   const r = rows[0];
+  const p = (r?.payload ?? r?.raw_payload ?? {}) as Record<string, any>;
+  const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
   return (
     <Panel title="SELF-LEARNING NIGHTLY LOOP" right="03:00 UTC">
       {empty || !r ? (
-        <Waiting />
+        <Waiting label="WAITING FOR NEW REPORT DATA" />
       ) : (
         <div className="grid grid-cols-4 gap-0">
           {[
-            { n: "01", t: "TRADES REVIEWED", d: `${r.trades_reviewed ?? 0} trades on ${r.report_date}` },
-            { n: "02", t: "BEST SETUP", d: r.best_setup ?? "—" },
-            { n: "03", t: "WORST SETUP", d: r.worst_setup ?? "—" },
-            { n: "04", t: "SUGGESTION", d: r.suggestion ?? "—" },
+            { n: "01", t: "BEST SETUP", d: u(r.best_setup ?? p.best_setup) },
+            { n: "02", t: "WORST SETUP", d: u(r.worst_setup ?? p.worst_setup) },
+            { n: "03", t: "BEST GRADE", d: u(p.best_big_setup_grade) },
+            { n: "04", t: "WORST GRADE", d: u(p.worst_big_setup_grade) },
+            { n: "05", t: "BEST STRATEGY", d: u(p.best_strategy) },
+            { n: "06", t: "WORST STRATEGY", d: u(p.worst_strategy) },
+            { n: "07", t: "ACTIVE STRATEGIES", d: Array.isArray(p.active_strategies) ? p.active_strategies.join(", ") : u(p.active_strategies) },
+            { n: "08", t: "LEGACY OBSERVER", d: Array.isArray(p.legacy_observer_strategies) ? p.legacy_observer_strategies.join(", ") : u(p.legacy_observer_strategies) },
           ].map((s, i) => (
-            <div key={s.n} className={`p-2 ${i < 3 ? "border-r border-dashed border-black/50" : ""}`}>
-              <div className="pixel text-[28px] leading-none">{s.n}</div>
+            <div key={s.n} className={`p-2 ${i % 4 !== 3 ? "border-r border-dashed border-black/50" : ""} ${i < 4 ? "border-b border-dashed border-black/50" : ""}`}>
+              <div className="pixel text-[22px] leading-none">{s.n}</div>
               <div className="font-bold text-[11px] mt-1">{s.t}</div>
               <div className="text-[10px] opacity-80 mt-1 leading-snug">{s.d}</div>
             </div>
           ))}
+          <div className="col-span-4 p-2 border-t border-dashed border-black/50">
+            <div className="text-[10px] uppercase opacity-70">Suggestion</div>
+            <div className="text-[11px] italic">▶ {u(r.suggestion ?? p.suggestion)}</div>
+          </div>
         </div>
       )}
     </Panel>
@@ -399,13 +415,28 @@ function Telegram() {
             </div>
             <div className="text-[10px] uppercase opacity-70 mt-1">Nightly Report</div>
             {r ? (
-              <>
-                <KV k="Trades" v={r.trades_reviewed ?? "—"} />
-                <KV k="Best Setup" v={r.best_setup ?? "—"} />
-                <KV k="Worst Setup" v={r.worst_setup ?? "—"} accent="loss" />
-                <KV k="Best Session" v={r.best_session ?? "—"} />
-                <div className="text-[10px] mt-1 opacity-80 italic">▶ {r.suggestion ?? "—"}</div>
-              </>
+              (() => {
+                const p = (r.payload ?? r.raw_payload ?? {}) as Record<string, any>;
+                const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
+                return (
+                  <>
+                    <KV k="Trades" v={u(r.trades_reviewed)} />
+                    <KV k="Best Setup" v={u(r.best_setup ?? p.best_setup)} />
+                    <KV k="Worst Setup" v={u(r.worst_setup ?? p.worst_setup)} accent="loss" />
+                    <KV k="Best Strategy" v={u(p.best_strategy)} />
+                    <KV k="Worst Strategy" v={u(p.worst_strategy)} accent="loss" />
+                    <KV k="Best Session" v={u(r.best_session ?? p.best_session)} />
+                    <KV k="Worst Session" v={u(p.worst_session)} accent="loss" />
+                    <KV k="Safety Blocks" v={u(p.safety_guard_blocks)} />
+                    <KV k="Big Setup Grades" v={
+                      p.big_setup_grade_summary && typeof p.big_setup_grade_summary === "object"
+                        ? Object.entries(p.big_setup_grade_summary).map(([g, n]) => `${g}:${n}`).join(" ")
+                        : "UNKNOWN"
+                    } />
+                    <div className="text-[10px] mt-1 opacity-80 italic">▶ {u(r.suggestion ?? p.suggestion)}</div>
+                  </>
+                );
+              })()
             ) : (
               <Waiting label="NO NIGHTLY REPORT YET" />
             )}
@@ -527,29 +558,42 @@ function Journal() {
           <table className="w-full text-[10px]">
             <thead>
               <tr className="border-b border-black text-left uppercase tracking-wider">
-                {["Time","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Result","Strategy","Conf","Reason"].map((h) => (
+                {["Time","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Result","Strategy","Conf","Setup","Safety","SMC","Risk","Status","Reason"].map((h) => (
                   <th key={h} className="py-1 pr-2">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {deduped.map((t) => (
-                <tr key={t.id} className="border-b border-dashed border-black/40">
-                  <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
-                  <td className="pr-2">{t.magic ?? t.magic_number ?? "—"}</td>
-                  <td className="pr-2">{t.symbol}</td>
-                  <td className="pr-2">{t.dir}</td>
-                  <td className="pr-2 pixel">{t.entry ?? "—"}</td>
-                  <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
-                  <td className="pr-2 pixel text-profit">{t.tp ?? "—"}</td>
-                  <td className="pr-2">{t.lot ?? t.lot_size ?? "—"}</td>
-                  <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
-                  <td className="pr-2">{t.result ?? "—"}</td>
-                  <td className="pr-2">{t.strategy ?? "—"}</td>
-                  <td className="pr-2">{t.confidence != null ? `${t.confidence}%` : "—"}</td>
-                  <td className="pr-2 italic opacity-80">{t.reason ?? ""}</td>
-                </tr>
-              ))}
+              {deduped.map((t) => {
+                const rp = (t.raw_payload ?? {}) as Record<string, any>;
+                const grade = rp.big_setup_grade ?? "UNKNOWN";
+                const safety = rp.safety_guard_status ?? "UNKNOWN";
+                const smc = rp.smc_confluence_status ?? "UNKNOWN";
+                const risk = rp.risk_diag_status ?? rp.risk_status ?? "UNKNOWN";
+                const sstat = rp.strategy_status ?? "UNKNOWN";
+                return (
+                  <tr key={t.id} className="border-b border-dashed border-black/40">
+                    <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
+                    <td className="pr-2">{t.magic ?? t.magic_number ?? "—"}</td>
+                    <td className="pr-2">{t.symbol}</td>
+                    <td className="pr-2">{t.dir}</td>
+                    <td className="pr-2 pixel">{t.entry ?? "—"}</td>
+                    <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
+                    <td className="pr-2 pixel text-profit">{t.tp ?? "—"}</td>
+                    <td className="pr-2">{t.lot ?? t.lot_size ?? "—"}</td>
+                    <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
+                    <td className="pr-2">{t.result ?? "—"}</td>
+                    <td className="pr-2">{t.strategy ?? "—"}</td>
+                    <td className="pr-2">{t.confidence != null ? `${t.confidence}%` : "—"}</td>
+                    <td className="pr-2"><Badge value={grade} tone={gradeTone(grade)} /></td>
+                    <td className="pr-2"><Badge value={safety} tone={statusTone(safety)} /></td>
+                    <td className="pr-2"><Badge value={smc} tone={statusTone(smc)} /></td>
+                    <td className="pr-2"><Badge value={risk} tone={statusTone(risk)} /></td>
+                    <td className="pr-2"><Badge value={sstat} tone={String(sstat).toUpperCase() === "LEGACY_OBSERVER" ? "gray" : statusTone(sstat)} /></td>
+                    <td className="pr-2 italic opacity-80">{t.reason ?? ""}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -646,13 +690,18 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><Decision /></div>
+        <div className="col-span-7"><Decision /></div>
+        <div className="col-span-5"><SafetyGuard /></div>
       </div>
 
       <div className="mt-3"><SmcMap /></div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><Strategies /></div>
+        <div className="col-span-12"><BigSetupDetector /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><StrategyModules /></div>
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
@@ -667,6 +716,8 @@ function Dashboard() {
       </div>
 
       <div className="mt-3"><Journal /></div>
+
+      <div className="mt-3"><PaperReport /></div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-7"><LogsTerminal /></div>
