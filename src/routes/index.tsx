@@ -690,13 +690,18 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><Decision /></div>
+        <div className="col-span-7"><Decision /></div>
+        <div className="col-span-5"><SafetyGuard /></div>
       </div>
 
       <div className="mt-3"><SmcMap /></div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><Strategies /></div>
+        <div className="col-span-12"><BigSetupDetector /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><StrategyModules /></div>
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
@@ -711,6 +716,8 @@ function Dashboard() {
       </div>
 
       <div className="mt-3"><Journal /></div>
+
+      <div className="mt-3"><PaperReport /></div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-7"><LogsTerminal /></div>
