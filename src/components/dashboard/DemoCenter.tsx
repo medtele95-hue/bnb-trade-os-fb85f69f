@@ -27,6 +27,38 @@ function getField(sources: any[], key: string): any {
   return undefined;
 }
 
+/**
+ * Single source of truth for the dashboard.
+ * Reads the latest bot_status row where component='dashboard_status'
+ * and returns the merged inner payload (payload | status_json | raw_payload).
+ * If a key is missing here, callers may fall back to other sources, but
+ * dashboard_status ALWAYS takes priority.
+ */
+export function useDashboardStatusPayload(): Record<string, any> {
+  const { rows } = useLiveTable<any>("bot_status", {
+    orderBy: "updated_at",
+    ascending: false,
+    limit: 1,
+    filter: { column: "component", value: "dashboard_status" },
+  });
+  const row = rows[0];
+  if (!row) return {};
+  const rp = (row.raw_payload ?? {}) as Record<string, any>;
+  const inner =
+    (rp.payload as Record<string, any> | undefined) ??
+    (rp.status_json as Record<string, any> | undefined) ??
+    (rp.raw_payload as Record<string, any> | undefined) ??
+    {};
+  // Top-level rp wins first, then inner payload fields override/extend.
+  return { ...rp, ...inner };
+}
+
+function formatMode(raw: any): string {
+  if (raw == null || raw === "") return UNKNOWN_MODE_FALLBACK;
+  return String(raw).replace(/_/g, " ").toUpperCase();
+}
+const UNKNOWN_MODE_FALLBACK = UNK;
+
 type GateResult = "PASS" | "FAIL" | "UNKNOWN";
 function gateTone(s: GateResult) {
   return s === "PASS" ? "green" : s === "FAIL" ? "red" : "gray";
