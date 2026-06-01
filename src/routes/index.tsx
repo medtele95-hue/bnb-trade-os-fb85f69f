@@ -636,24 +636,46 @@ function Journal() {
   );
 }
 
+function pickTimeStr(rp: any, key: string): string {
+  if (!rp) return "UNKNOWN";
+  const v = rp[key];
+  if (v == null || v === "") return "UNKNOWN";
+  const s = String(v);
+  const m = s.match(/\d{2}:\d{2}:\d{2}/) ?? s.match(/\d{2}:\d{2}/);
+  return m ? m[0] : s;
+}
+
 function LogsTerminal() {
   const { rows, empty } = useLiveTable<any>("bot_logs", { limit: 25 });
   const ordered = [...rows].reverse();
   return (
-    <Panel title="LOGS TERMINAL" right="STDOUT">
+    <Panel title="LOGS TERMINAL" right="BACKEND TIME ENGINE">
       <div className="bg-foreground text-background p-2 text-[10px] leading-snug font-mono">
         {empty ? (
           <div className="opacity-70">$ WAITING FOR HERMES LIVE LOGS <span className="blink">█</span></div>
         ) : (
           <>
-            {ordered.map((l) => (
-              <div key={l.id}>
-                <span className="opacity-60">$</span> [{new Date(l.created_at).toISOString().slice(11, 19)}] {l.source ? `${l.source}: ` : ""}{l.message}
-              </div>
-            ))}
+            {ordered.map((l) => {
+              const rp = l.raw_payload ?? {};
+              const utc = pickTimeStr(rp, "utc_time");
+              const casa = pickTimeStr(rp, "casablanca_time");
+              const brk = rp.broker_time_estimate != null
+                ? pickTimeStr(rp, "broker_time_estimate")
+                : pickTimeStr(rp, "broker_time");
+              const src = l.source ?? "HERMES_BACKEND";
+              return (
+                <div key={l.id}>
+                  <span className="opacity-60">$</span>{" "}
+                  [UTC {utc} | CASA {casa} | BRK {brk}] {src}: {l.message}
+                </div>
+              );
+            })}
             <div><span className="opacity-60">$</span> <span className="blink">█</span></div>
           </>
         )}
+      </div>
+      <div className="mt-1 text-[9px] uppercase tracking-widest opacity-70">
+        Times are from backend Time Engine (raw_payload). Missing → UNKNOWN. Browser clock not used.
       </div>
     </Panel>
   );
