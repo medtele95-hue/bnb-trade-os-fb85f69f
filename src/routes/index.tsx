@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Panel, KV } from "@/components/dashboard/Panel";
 import { CandleChart } from "@/components/dashboard/CandleChart";
-import { Clock } from "@/components/dashboard/Clock";
+
 import { Waiting } from "@/components/dashboard/Waiting";
 import { SmcMap } from "@/components/dashboard/SmcMap";
 import { SafetyGuard } from "@/components/dashboard/SafetyGuard";
@@ -12,6 +12,7 @@ import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
 import {
   DemoModeBanner, DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
+  useBackendTime,
 } from "@/components/dashboard/DemoCenter";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
@@ -28,6 +29,36 @@ function StatusDot({ ok = true, label }: { ok?: boolean; label: string }) {
       />
       {label}
     </span>
+  );
+}
+
+function HeaderBackendTime() {
+  const t = useBackendTime();
+  const cell = (label: string, v: string | null) => (
+    <div className="flex items-center justify-between gap-2">
+      <span className="opacity-70">{label}</span>
+      <b className={v ? "" : "opacity-60"}>{v ?? "UNKNOWN"}</b>
+    </div>
+  );
+  const gateTone = t.gate_status?.toUpperCase() === "PASS" || t.gate_status?.toUpperCase() === "OPEN"
+    ? "text-profit"
+    : t.gate_status?.toUpperCase() === "BLOCK" || t.gate_status?.toUpperCase() === "CLOSED"
+    ? "text-loss"
+    : "opacity-70";
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
+      {cell("UTC", t.utc)}
+      {cell("CASA", t.casa)}
+      {cell("BRK", t.broker)}
+      {cell("SESS", t.session)}
+      <div className="flex items-center justify-between gap-2 col-span-2">
+        <span className="opacity-70">GATE</span>
+        <b className={gateTone}>{t.gate_status ?? "UNKNOWN"}</b>
+      </div>
+      <div className="col-span-2 truncate opacity-80" title={t.gate_reason ?? ""}>
+        <span className="opacity-70">REASON:</span> {t.gate_reason ?? "UNKNOWN"}
+      </div>
+    </div>
   );
 }
 
@@ -63,9 +94,8 @@ function Header() {
           <div>MODE: <b>READ ONLY · DEMO PILOT</b></div>
           <div>RDP: <b>{rdp}</b></div>
           <div>MT5: <b>{mt5}</b></div>
-          <div className="col-span-2 flex items-center justify-between border-t border-dashed border-black/40 pt-1 mt-0.5">
-            <span>TIME</span>
-            <Clock />
+          <div className="col-span-2 border-t border-dashed border-black/40 pt-1 mt-0.5">
+            <HeaderBackendTime />
           </div>
         </div>
       </div>
@@ -606,24 +636,46 @@ function Journal() {
   );
 }
 
+function pickTimeStr(rp: any, key: string): string {
+  if (!rp) return "UNKNOWN";
+  const v = rp[key];
+  if (v == null || v === "") return "UNKNOWN";
+  const s = String(v);
+  const m = s.match(/\d{2}:\d{2}:\d{2}/) ?? s.match(/\d{2}:\d{2}/);
+  return m ? m[0] : s;
+}
+
 function LogsTerminal() {
   const { rows, empty } = useLiveTable<any>("bot_logs", { limit: 25 });
   const ordered = [...rows].reverse();
   return (
-    <Panel title="LOGS TERMINAL" right="STDOUT">
+    <Panel title="LOGS TERMINAL" right="BACKEND TIME ENGINE">
       <div className="bg-foreground text-background p-2 text-[10px] leading-snug font-mono">
         {empty ? (
           <div className="opacity-70">$ WAITING FOR HERMES LIVE LOGS <span className="blink">█</span></div>
         ) : (
           <>
-            {ordered.map((l) => (
-              <div key={l.id}>
-                <span className="opacity-60">$</span> [{new Date(l.created_at).toISOString().slice(11, 19)}] {l.source ? `${l.source}: ` : ""}{l.message}
-              </div>
-            ))}
+            {ordered.map((l) => {
+              const rp = l.raw_payload ?? {};
+              const utc = pickTimeStr(rp, "utc_time");
+              const casa = pickTimeStr(rp, "casablanca_time");
+              const brk = rp.broker_time_estimate != null
+                ? pickTimeStr(rp, "broker_time_estimate")
+                : pickTimeStr(rp, "broker_time");
+              const src = l.source ?? "HERMES_BACKEND";
+              return (
+                <div key={l.id}>
+                  <span className="opacity-60">$</span>{" "}
+                  [UTC {utc} | CASA {casa} | BRK {brk}] {src}: {l.message}
+                </div>
+              );
+            })}
             <div><span className="opacity-60">$</span> <span className="blink">█</span></div>
           </>
         )}
+      </div>
+      <div className="mt-1 text-[9px] uppercase tracking-widest opacity-70">
+        Times are from backend Time Engine (raw_payload). Missing → UNKNOWN. Browser clock not used.
       </div>
     </Panel>
   );
