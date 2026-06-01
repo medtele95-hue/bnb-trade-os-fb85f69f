@@ -588,6 +588,11 @@ const REQUIRED_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) 
   { name: "mtfa_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "mtfa_status") },
   { name: "safety_guard_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "safety_guard_status") },
   { name: "time_gate_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "time_gate_status") },
+  { name: "utc_time", source: "ai_decisions.raw_payload / bot_status", lookup: (c) => getField([c.decRP, c.bsRP], "utc_time") },
+  { name: "casablanca_time", source: "ai_decisions.raw_payload / bot_status", lookup: (c) => getField([c.decRP, c.bsRP], "casablanca_time") },
+  { name: "broker_time_estimate", source: "ai_decisions.raw_payload / bot_status", lookup: (c) => getField([c.decRP, c.bsRP], "broker_time_estimate") ?? getField([c.decRP, c.bsRP], "broker_time") },
+  { name: "session", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP, c.bsRP], "session") },
+  { name: "time_gate_reason", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "time_gate_reason") },
 ];
 
 export function MissingFieldsPanel() {
