@@ -6,6 +6,21 @@ import { useLiveTable } from "@/hooks/useLiveTable";
 const ACTIVE = ["BREAKOUT_RETEST", "CRT_TBS_REVERSAL", "AMD_FVG_IFVG_REVERSAL", "FIB_OTE_RETEST", "EMA_PULLBACK"] as const;
 const LEGACY = ["SECOND_ENTRY", "SCALPING_AGENT"] as const;
 
+const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "LEGACY_OBSERVER"> = {
+  BREAKOUT_RETEST: "ENTRY_STRATEGY",
+  CRT_TBS_REVERSAL: "ENTRY_STRATEGY",
+  AMD_FVG_IFVG_REVERSAL: "ENTRY_STRATEGY",
+  FIB_OTE_RETEST: "ENTRY_STRATEGY",
+  EMA_PULLBACK: "CONFIRMATION_ONLY",
+  SECOND_ENTRY: "LEGACY_OBSERVER",
+  SCALPING_AGENT: "LEGACY_OBSERVER",
+};
+function roleTone(r: string) {
+  if (r === "ENTRY_STRATEGY") return "green";
+  if (r === "CONFIRMATION_ONLY") return "yellow";
+  return "gray";
+}
+
 function pickLatest(rows: any[]): Record<string, any> {
   const out: Record<string, any> = {};
   for (const r of rows) {
