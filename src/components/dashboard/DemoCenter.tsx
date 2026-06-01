@@ -297,11 +297,13 @@ export function KellyDemoPanel() {
 // Extract time engine fields from backend payloads ONLY.
 // Never uses browser Date(). Missing → UNKNOWN.
 export function useBackendTime() {
+  const ds = useDashboardStatusPayload();
   const { rows: decRows } = useLiveTable<any>("ai_decisions", { limit: 1 });
-  const { rows: bsRows } = useLiveTable<any>("bot_status", { limit: 5 });
+  const { rows: bsRows } = useLiveTable<any>("bot_status", { orderBy: "updated_at", ascending: false, limit: 5 });
   const dRP = getRP(decRows[0]);
   const bsRP = getRP(bsRows[0]);
-  const sources = [dRP, bsRP, bsRows[0] ?? {}];
+  // dashboard_status ALWAYS wins.
+  const sources = [ds, dRP, bsRP, bsRows[0] ?? {}];
   const pickStr = (k: string) => {
     const v = getField(sources, k);
     return v == null || v === "" ? null : String(v);
@@ -316,13 +318,13 @@ export function useBackendTime() {
     utc: trim(pickStr("utc_time")),
     casa: trim(pickStr("casablanca_time")),
     broker: trim(pickStr("broker_time_estimate") ?? pickStr("broker_time")),
-    session: pickStr("session"),
+    session: pickStr("session") ?? pickStr("session_name"),
     gate_status: pickStr("time_gate_status"),
     gate_reason: pickStr("time_gate_reason"),
-    broker_utc_offset: pickStr("broker_utc_offset"),
+    broker_utc_offset: pickStr("broker_utc_offset") ?? pickStr("broker_utc_offset_hours"),
     market_open: pickStr("market_open"),
     is_weekend: pickStr("is_weekend") ?? pickStr("safety_guard_is_weekend"),
-    bad_hour: pickStr("bad_hour"),
+    bad_hour: pickStr("bad_hour") ?? pickStr("is_bad_hour"),
   };
 }
 
