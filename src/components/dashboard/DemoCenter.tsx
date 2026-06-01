@@ -72,43 +72,59 @@ function boolGate(v: any): GateResult {
 
 // ============ HEADER MODE BANNER ============
 export function DemoModeBanner() {
-  const { rows: status } = useLiveTable<any>("bot_status", { limit: 5 });
+  const ds = useDashboardStatusPayload();
+  const { rows: status } = useLiveTable<any>("bot_status", { orderBy: "updated_at", ascending: false, limit: 5 });
   const bs = status[0] ?? {};
   const bsRP = getRP(bs);
-  const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
-  const snap = snaps[0] ?? {};
-  const snapRP = getRP(snap);
 
-  const sources = [bsRP, bs, snapRP, snap];
+  // dashboard_status ALWAYS wins. Old account snapshots are NOT consulted here.
+  const sources = [ds, bsRP, bs];
   const demoPilotEnabled = getField(sources, "demo_pilot_enabled");
   const demoTrading = getField(sources, "demo_trading");
   const demoOnly = getField(sources, "demo_only");
   const paperTrading = getField(sources, "paper_trading");
   const allowLive = getField(sources, "allow_live_trading");
+  const liveBlocked = getField(sources, "live_trading_blocked");
   const accountType = String(getField(sources, "account_type") ?? "").toUpperCase();
-  const magic = getField(sources, "demo_magic_number") ?? getField(sources, "magic_number") ?? DEMO_MAGIC;
-  const comment = getField(sources, "demo_comment") ?? DEMO_COMMENT;
+  const magic = getField(sources, "demo_magic_number") ?? getField(sources, "magic_number");
+  const comment = getField(sources, "demo_comment");
+  const modeRaw = getField(sources, "mode");
 
-  const mode = demoPilotEnabled ? "DEMO PILOT 24H" : demoTrading ? "DEMO" : paperTrading ? "PAPER" : allowLive ? "LIVE" : UNK;
+  const mode = modeRaw
+    ? formatMode(modeRaw)
+    : demoPilotEnabled ? "DEMO PILOT 24H"
+    : demoTrading ? "DEMO"
+    : paperTrading ? "PAPER"
+    : allowLive ? "LIVE" : UNK;
+
   const accountBadge =
     accountType === "DEMO" ? "DEMO VERIFIED" :
     accountType === "LIVE" ? "LIVE BLOCKED" :
     UNK;
 
-  const liveAlert = accountType === "LIVE" && demoPilotEnabled;
+  // Live-trading display: prefer explicit live_trading_blocked from backend,
+  // then fall back to allow_live_trading.
+  const liveTradingText =
+    liveBlocked === true ? "BLOCKED" :
+    liveBlocked === false ? "ALLOWED ⚠" :
+    allowLive == null ? UNK :
+    allowLive ? "ALLOWED ⚠" : "BLOCKED";
+  const liveTradingDanger = liveBlocked === false || allowLive === true;
+
+  const liveAccountAlert = accountType === "LIVE" && demoPilotEnabled === true;
   const liveTradingAlert = allowLive === true;
 
   return (
     <div className="border-2 border-black mt-3">
       <div className="bg-foreground text-background px-3 py-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-widest font-bold">
         <span>MODE: <span className="pixel text-[14px]">{mode}</span></span>
-        <span>LIVE TRADING: <span className={liveTradingAlert ? "text-red-400" : ""}>{allowLive == null ? UNK : allowLive ? "ALLOWED ⚠" : "BLOCKED"}</span></span>
+        <span>LIVE TRADING: <span className={liveTradingDanger ? "text-red-400" : ""}>{liveTradingText}</span></span>
         <span>DEMO ONLY: {demoOnly == null ? UNK : demoOnly ? "TRUE" : "FALSE"}</span>
-        <span>ACCOUNT: {accountBadge}</span>
+        <span>ACCOUNT TYPE: {accountBadge}</span>
         <span>MAGIC: {magic ?? UNK}</span>
         <span>COMMENT: {comment ?? UNK}</span>
       </div>
-      {liveAlert && (
+      {liveAccountAlert && (
         <div className="bg-red-600 text-white px-3 py-2 text-center text-[12px] font-black uppercase tracking-widest">
           ⚠ LIVE ACCOUNT DETECTED — DEMO ROUTER BLOCKED. NO DEMO ORDER CAN BE SENT.
         </div>
