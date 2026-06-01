@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Panel, KV } from "@/components/dashboard/Panel";
 import { CandleChart } from "@/components/dashboard/CandleChart";
-import { Clock } from "@/components/dashboard/Clock";
+
 import { Waiting } from "@/components/dashboard/Waiting";
 import { SmcMap } from "@/components/dashboard/SmcMap";
 import { SafetyGuard } from "@/components/dashboard/SafetyGuard";
