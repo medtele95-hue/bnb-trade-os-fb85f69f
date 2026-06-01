@@ -15,6 +15,7 @@ import {
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
 import { useLiveTable } from "@/hooks/useLiveTable";
+import { useState } from "react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
