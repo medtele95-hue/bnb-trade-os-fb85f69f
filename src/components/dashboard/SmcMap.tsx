@@ -4,6 +4,8 @@ import { Waiting } from "@/components/dashboard/Waiting";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { sanitizeCandles, fmtTime, type CandleDiagnostics, type RawCandle } from "@/lib/candles";
+
 
 const SYMBOLS = ["BTCUSD", "GOLD#", "EURUSD"] as const;
 const TIMEFRAMES = ["M5", "M15", "H1", "H4"] as const;
