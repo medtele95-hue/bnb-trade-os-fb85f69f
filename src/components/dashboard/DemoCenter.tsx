@@ -140,15 +140,15 @@ export function DemoModeBanner() {
 
 // ============ DEMO PILOT STATUS ============
 export function DemoPilotStatus() {
-  const { rows: status } = useLiveTable<any>("bot_status", { limit: 5 });
+  const ds = useDashboardStatusPayload();
+  const { rows: status } = useLiveTable<any>("bot_status", { orderBy: "updated_at", ascending: false, limit: 5 });
   const bs = status[0] ?? {};
   const bsRP = getRP(bs);
-  const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
-  const snapRP = getRP(snaps[0]);
   const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 5 });
   const decRP = getRP(dec[0]);
 
-  const sources = [bsRP, bs, snapRP, decRP];
+  // dashboard_status wins; do not consult account_snapshots for these fields.
+  const sources = [ds, bsRP, bs, decRP];
   const demoPilotEnabled = getField(sources, "demo_pilot_enabled");
   const demoTrading = getField(sources, "demo_trading");
   const demoOnly = getField(sources, "demo_only");
