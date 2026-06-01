@@ -4,6 +4,8 @@ import { Waiting } from "@/components/dashboard/Waiting";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { sanitizeCandles, fmtTime, type CandleDiagnostics, type RawCandle } from "@/lib/candles";
+
 
 const SYMBOLS = ["BTCUSD", "GOLD#", "EURUSD"] as const;
 const TIMEFRAMES = ["M5", "M15", "H1", "H4"] as const;
@@ -64,7 +66,7 @@ function matchSymbol(rowSymbol: any, target: Symbol): boolean {
 }
 
 function useCandles(symbol: Symbol, timeframe: Timeframe, limit = 150) {
-  const [candles, setCandles] = useState<Candle[] | null>(null);
+  const [raw, setRaw] = useState<RawCandle[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,10 +79,9 @@ function useCandles(symbol: Symbol, timeframe: Timeframe, limit = 150) {
         .in("symbol", aliases)
         .eq("timeframe", timeframe)
         .order("candle_time", { ascending: false })
-        .limit(limit);
+        .limit(limit * 2);
       if (cancelled) return;
-      const rows = ((data ?? []) as unknown as Candle[]).slice().reverse();
-      setCandles(rows);
+      setRaw((data ?? []) as unknown as RawCandle[]);
     };
     load();
 
@@ -105,8 +106,13 @@ function useCandles(symbol: Symbol, timeframe: Timeframe, limit = 150) {
     };
   }, [symbol, timeframe, limit]);
 
-  return candles;
+  const result = useMemo(
+    () => sanitizeCandles(raw, { limit, timeframe }),
+    [raw, limit, timeframe],
+  );
+  return { candles: result.candles, diagnostics: result.diagnostics, loading: raw === null };
 }
+
 
 function formatPrice(p: number): string {
   if (Math.abs(p) >= 1000) return p.toFixed(2);
@@ -117,7 +123,7 @@ function formatPrice(p: number): string {
 type Level = { price: number; label: string; color: string; dashed?: boolean };
 type Zone = { top: number; bottom: number; label: string; fill: string; stroke: string };
 
-function SmcChart({ candles, raw }: { candles: Candle[]; raw: any }) {
+function SmcChart({ candles, raw, diagnostics }: { candles: import("@/lib/candles").CleanCandle[]; raw: any; diagnostics: CandleDiagnostics }) {
   const entry = num(getField(raw, "entry"));
   const sl = num(getField(raw, "sl"));
   const tp = num(getField(raw, "tp"));
@@ -178,7 +184,7 @@ function SmcChart({ candles, raw }: { candles: Candle[]; raw: any }) {
   if (hasOb && hasOb !== "NONE" && candles.length >= 2) {
     const bullish = String(hasOb).toUpperCase().includes("BULL");
     // Find most recent opposite-direction candle (OB is usually last opposite candle before move)
-    let obCandle: Candle | null = null;
+    let obCandle: import("@/lib/candles").CleanCandle | null = null;
     for (let i = candles.length - 2; i >= Math.max(0, candles.length - 20); i--) {
       const c = candles[i];
       const up = Number(c.close) > Number(c.open);
@@ -288,7 +294,13 @@ function SmcChart({ candles, raw }: { candles: Candle[]; raw: any }) {
           <text x={18} y={4} fontSize={11} fill="#000" className="font-bold">WAIT</text>
         </g>
       )}
+      {diagnostics.gaps_detected > 0 && (
+        <text x={padL + 4} y={padT + 10} fontSize={10} fill="#b91c1c" className="font-bold uppercase">
+          ⚠ DATA GAP DETECTED ({diagnostics.gaps_detected})
+        </text>
+      )}
     </svg>
+
   );
 }
 
@@ -401,7 +413,7 @@ export function SmcMap() {
   const [autoSym, setAutoSym] = useState(true);
   const activeSymbol = autoSym ? latestSymbol : symbol;
 
-  const candles = useCandles(activeSymbol, timeframe, 150);
+  const { candles, diagnostics, loading } = useCandles(activeSymbol, timeframe, 150);
 
   const raw = useMemo(() => {
     const found = decisions.find((r) => matchSymbol(r.symbol, activeSymbol));
@@ -476,14 +488,26 @@ export function SmcMap() {
 
       {/* Chart */}
       <div className="border border-black bg-background">
-        {candles === null ? (
+        {loading ? (
           <div className="p-6"><Waiting label="LOADING CANDLES" /></div>
         ) : candles.length === 0 ? (
           <FallbackMap raw={raw} />
         ) : (
-          <SmcChart candles={candles} raw={raw} />
+          <SmcChart candles={candles} raw={raw} diagnostics={diagnostics} />
         )}
       </div>
+      {!loading && candles.length > 0 && (
+        <div className="mt-1 text-[9px] uppercase tracking-wider opacity-70 font-mono flex flex-wrap gap-x-3 gap-y-0.5">
+          <span>loaded:{diagnostics.candles_loaded}</span>
+          <span>visible:{diagnostics.visible_candles}</span>
+          <span>dup-removed:{diagnostics.duplicate_candles_removed}</span>
+          <span>invalid:{diagnostics.invalid_removed}</span>
+          <span>gaps:{diagnostics.gaps_detected}</span>
+          <span>first:{fmtTime(diagnostics.first_visible_time)}</span>
+          <span>last:{fmtTime(diagnostics.last_visible_time)}</span>
+        </div>
+      )}
+
 
       {/* Checklist */}
       <div className="mt-2 border border-dashed border-black/50 p-2">
