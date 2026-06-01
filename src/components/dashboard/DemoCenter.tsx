@@ -246,26 +246,57 @@ export function KellyDemoPanel() {
 }
 
 // ============ TIME ENGINE ============
+// Extract time engine fields from backend payloads ONLY.
+// Never uses browser Date(). Missing → UNKNOWN.
+export function useBackendTime() {
+  const { rows: decRows } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const { rows: bsRows } = useLiveTable<any>("bot_status", { limit: 5 });
+  const dRP = getRP(decRows[0]);
+  const bsRP = getRP(bsRows[0]);
+  const sources = [dRP, bsRP, bsRows[0] ?? {}];
+  const pickStr = (k: string) => {
+    const v = getField(sources, k);
+    return v == null || v === "" ? null : String(v);
+  };
+  const trim = (v: string | null) => {
+    if (!v) return null;
+    // accept "HH:mm:ss", ISO, or "HH:mm"
+    const m = v.match(/\d{2}:\d{2}(:\d{2})?/);
+    return m ? m[0] : v;
+  };
+  return {
+    utc: trim(pickStr("utc_time")),
+    casa: trim(pickStr("casablanca_time")),
+    broker: trim(pickStr("broker_time_estimate") ?? pickStr("broker_time")),
+    session: pickStr("session"),
+    gate_status: pickStr("time_gate_status"),
+    gate_reason: pickStr("time_gate_reason"),
+    broker_utc_offset: pickStr("broker_utc_offset"),
+    market_open: pickStr("market_open"),
+    is_weekend: pickStr("is_weekend") ?? pickStr("safety_guard_is_weekend"),
+    bad_hour: pickStr("bad_hour"),
+  };
+}
+
 export function TimeEnginePanel() {
-  const { rows } = useLiveTable<any>("ai_decisions", { limit: 1 });
-  const d = rows[0];
-  const rp = getRP(d);
-  const utc = new Date().toISOString().slice(11, 19);
-  const casa = new Date(Date.now() + 1 * 3600 * 1000).toISOString().slice(11, 19); // Casablanca = UTC+1
+  const t = useBackendTime();
   return (
-    <Panel title="TIME ENGINE" right="UTC · CASA · BROKER">
+    <Panel title="TIME ENGINE" right="BACKEND · UTC · CASA · BROKER">
       <div className="grid grid-cols-2 gap-x-3">
-        <KV k="UTC" v={utc} />
-        <KV k="Casablanca" v={casa} />
-        <KV k="Broker Time Est." v={String(u(rp.broker_time))} />
-        <KV k="Broker UTC Offset" v={String(u(rp.broker_utc_offset))} />
-        <KV k="Session" v={String(u(rp.session))} />
-        <KV k="Market Open" v={String(u(rp.market_open))} />
-        <KV k="Weekend" v={String(u(rp.is_weekend ?? rp.safety_guard_is_weekend))} />
-        <KV k="Bad Hour" v={String(u(rp.bad_hour))} />
-        <KV k="Time Gate Status" v={String(u(rp.time_gate_status))} />
+        <KV k="UTC" v={t.utc ?? UNK} />
+        <KV k="Casablanca" v={t.casa ?? UNK} />
+        <KV k="Broker Time Est." v={t.broker ?? UNK} />
+        <KV k="Broker UTC Offset" v={t.broker_utc_offset ?? UNK} />
+        <KV k="Session" v={t.session ?? UNK} />
+        <KV k="Market Open" v={t.market_open ?? UNK} />
+        <KV k="Weekend" v={t.is_weekend ?? UNK} />
+        <KV k="Bad Hour" v={t.bad_hour ?? UNK} />
+        <KV k="Time Gate Status" v={t.gate_status ?? UNK} />
       </div>
-      <div className="mt-1 text-[10px] opacity-80"><b>TIME GATE REASON:</b> {String(u(rp.time_gate_reason))}</div>
+      <div className="mt-1 text-[10px] opacity-80"><b>TIME GATE REASON:</b> {t.gate_reason ?? UNK}</div>
+      <div className="mt-1 text-[9px] opacity-60 uppercase tracking-widest">
+        Times sourced from backend Time Engine. Browser clock not used.
+      </div>
     </Panel>
   );
 }
