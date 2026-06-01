@@ -133,10 +133,17 @@ function Header() {
 }
 
 function Hero() {
+  const ds = useDashboardStatusPayload();
   const { rows, empty } = useLiveTable<any>("account_snapshots", { limit: 1 });
   const s = rows[0];
+  const acctType = String(ds.account_type ?? "").toUpperCase();
+  const acctLabel =
+    acctType === "DEMO" ? "ACCT: DEMO VERIFIED" :
+    acctType === "LIVE" ? "ACCT: LIVE" :
+    "ACCT: UNKNOWN";
   return (
-    <Panel title="TOTAL PNL — VERIFIED FROM MT5" right="ACCT: LIVE" className="col-span-8">
+    <Panel title="TOTAL PNL — VERIFIED FROM MT5" right={acctLabel} className="col-span-8">
+
       {empty || !s ? (
         <Waiting />
       ) : (
