@@ -64,9 +64,8 @@ function Header() {
           <div>MODE: <b>READ ONLY · DEMO PILOT</b></div>
           <div>RDP: <b>{rdp}</b></div>
           <div>MT5: <b>{mt5}</b></div>
-          <div className="col-span-2 flex items-center justify-between border-t border-dashed border-black/40 pt-1 mt-0.5">
-            <span>TIME</span>
-            <Clock />
+          <div className="col-span-2 border-t border-dashed border-black/40 pt-1 mt-0.5">
+            <HeaderBackendTime />
           </div>
         </div>
       </div>
