@@ -622,15 +622,24 @@ export function DemoAlerts() {
 
 // ============ MISSING FIELDS ============
 const REQUIRED_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) => any }> = [
-  { name: "demo_pilot_enabled", source: "bot_status.raw_payload", lookup: (c) => getField([c.bsRP, c.bs], "demo_pilot_enabled") },
-  { name: "demo_trading", source: "bot_status", lookup: (c) => getField([c.bsRP, c.bs], "demo_trading") },
-  { name: "demo_only", source: "bot_status.raw_payload", lookup: (c) => getField([c.bsRP, c.bs], "demo_only") },
-  { name: "allow_live_trading", source: "bot_status", lookup: (c) => getField([c.bsRP, c.bs], "allow_live_trading") },
-  { name: "account_type", source: "bot_status / account_snapshots", lookup: (c) => getField([c.bsRP, c.bs, c.snapRP, c.snap], "account_type") },
-  { name: "mt5_connected", source: "bot_status", lookup: (c) => getField([c.bsRP, c.bs], "mt5_connected") },
-  { name: "pilot_started_at", source: "bot_status.raw_payload", lookup: (c) => getField([c.bsRP], "pilot_started_at") ?? getField([c.bsRP], "demo_pilot_started_at") },
-  { name: "pilot_expires_at", source: "bot_status.raw_payload", lookup: (c) => getField([c.bsRP], "pilot_expires_at") ?? getField([c.bsRP], "demo_pilot_expires_at") },
-  { name: "last_demo_gate_decision", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP, c.dec], "last_demo_gate_decision") ?? getField([c.decRP], "demo_gate_decision") },
+  { name: "mode", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds], "mode") },
+  { name: "account_type", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "account_type") },
+  { name: "demo_pilot_enabled", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "demo_pilot_enabled") },
+  { name: "demo_trading", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "demo_trading") },
+  { name: "demo_only", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "demo_only") },
+  { name: "allow_live_trading", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "allow_live_trading") },
+  { name: "live_trading_blocked", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "live_trading_blocked") },
+  { name: "magic_number", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "demo_magic_number") ?? getField([c.ds, c.bsRP, c.bs], "magic_number") },
+  { name: "mt5_connected", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP, c.bs], "mt5_connected") },
+  { name: "pilot_started_at", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP], "pilot_started_at") ?? getField([c.ds, c.bsRP], "demo_pilot_started_at") },
+  { name: "pilot_expires_at", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.bsRP], "pilot_expires_at") ?? getField([c.ds, c.bsRP], "demo_pilot_expires_at") },
+  { name: "utc_time", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.bsRP], "utc_time") },
+  { name: "casablanca_time", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.bsRP], "casablanca_time") },
+  { name: "broker_time_estimate", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.bsRP], "broker_time_estimate") ?? getField([c.ds, c.decRP, c.bsRP], "broker_time") },
+  { name: "session", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.bsRP], "session") ?? getField([c.ds, c.decRP, c.bsRP], "session_name") },
+  { name: "time_gate_status", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.bsRP], "time_gate_status") },
+  { name: "time_gate_reason", source: "bot_status.dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.bsRP], "time_gate_reason") },
+  { name: "last_demo_gate_decision", source: "ai_decisions / dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.dec], "last_demo_gate_decision") ?? getField([c.ds, c.decRP], "demo_gate_decision") },
   { name: "kelly_suggested_lot", source: "kelly_risk.raw_payload", lookup: (c) => getField([c.kRP, c.k], "kelly_suggested_lot") ?? getField([c.kRP], "raw_lot") },
   { name: "final_capped_lot", source: "kelly_risk.raw_payload", lookup: (c) => getField([c.kRP, c.k], "final_capped_lot") ?? c.k?.lot_size },
   { name: "m1_confirmation", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "m1_confirmation") },
@@ -638,22 +647,16 @@ const REQUIRED_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) 
   { name: "smc_confluence_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "smc_confluence_status") ?? getField([c.decRP], "smc_status") },
   { name: "mtfa_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "mtfa_status") },
   { name: "safety_guard_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "safety_guard_status") },
-  { name: "time_gate_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "time_gate_status") },
-  { name: "utc_time", source: "ai_decisions.raw_payload / bot_status", lookup: (c) => getField([c.decRP, c.bsRP], "utc_time") },
-  { name: "casablanca_time", source: "ai_decisions.raw_payload / bot_status", lookup: (c) => getField([c.decRP, c.bsRP], "casablanca_time") },
-  { name: "broker_time_estimate", source: "ai_decisions.raw_payload / bot_status", lookup: (c) => getField([c.decRP, c.bsRP], "broker_time_estimate") ?? getField([c.decRP, c.bsRP], "broker_time") },
-  { name: "session", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP, c.bsRP], "session") },
-  { name: "time_gate_reason", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "time_gate_reason") },
 ];
 
 export function MissingFieldsPanel() {
-  const { rows: bsRows } = useLiveTable<any>("bot_status", { limit: 1 });
-  const { rows: snapRows } = useLiveTable<any>("account_snapshots", { limit: 1 });
+  const ds = useDashboardStatusPayload();
+  const { rows: bsRows } = useLiveTable<any>("bot_status", { orderBy: "updated_at", ascending: false, limit: 1 });
   const { rows: decRows } = useLiveTable<any>("ai_decisions", { limit: 1 });
   const { rows: kRows } = useLiveTable<any>("kelly_risk", { limit: 1 });
   const ctx = {
+    ds,
     bs: bsRows[0] ?? {}, bsRP: getRP(bsRows[0]),
-    snap: snapRows[0] ?? {}, snapRP: getRP(snapRows[0]),
     dec: decRows[0] ?? {}, decRP: getRP(decRows[0]),
     k: kRows[0] ?? {}, kRP: getRP(kRows[0]),
   };
