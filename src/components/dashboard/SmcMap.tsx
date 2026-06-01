@@ -294,7 +294,13 @@ function SmcChart({ candles, raw, diagnostics }: { candles: import("@/lib/candle
           <text x={18} y={4} fontSize={11} fill="#000" className="font-bold">WAIT</text>
         </g>
       )}
+      {diagnostics.gaps_detected > 0 && (
+        <text x={padL + 4} y={padT + 10} fontSize={10} fill="#b91c1c" className="font-bold uppercase">
+          ⚠ DATA GAP DETECTED ({diagnostics.gaps_detected})
+        </text>
+      )}
     </svg>
+
   );
 }
 
