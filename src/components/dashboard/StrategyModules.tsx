@@ -49,6 +49,9 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
+  const role = ROLES[name] ?? "LEGACY_OBSERVER";
+  const entryAllowed = role === "ENTRY_STRATEGY" && kind === "ACTIVE";
+
   return (
     <div className={`border ${kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
       <div className="flex items-center justify-between">
@@ -56,6 +59,8 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
         <Badge value={String(statusTxt)} tone={tone as any} />
       </div>
       <div className="mt-1 flex flex-wrap gap-1">
+        <Badge value={`ROLE: ${role}`} tone={roleTone(role) as any} />
+        <Badge value={`ENTRY: ${entryAllowed ? "ALLOWED" : "BLOCKED"}`} tone={entryAllowed ? "green" : "red"} />
         <Badge value={`SETUP: ${setupGrade}`} tone={gradeTone(setupGrade)} />
         <Badge value={`SAFETY: ${safety}`} tone={statusTone(safety)} />
         <Badge value={`RISK: ${riskDiag}`} tone={statusTone(riskDiag)} />
@@ -63,7 +68,7 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
       <div className="mt-1.5 space-y-0.5">
         <KV k="Signal" v={String(signal)} />
         <KV k="Confidence" v={conf != null ? `${conf}%` : "UNKNOWN"} />
-        {strategyScore != null && <KV k="Strategy Score" v={String(strategyScore)} />}
+        {strategyScore != null && <KV k="Score" v={String(strategyScore)} />}
         <KV k="Win Rate" v={sig?.win_rate != null ? `${sig.win_rate}%` : "UNKNOWN"} />
         <KV
           k="Today PnL"
