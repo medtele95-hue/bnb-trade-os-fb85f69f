@@ -32,6 +32,36 @@ function StatusDot({ ok = true, label }: { ok?: boolean; label: string }) {
   );
 }
 
+function HeaderBackendTime() {
+  const t = useBackendTime();
+  const cell = (label: string, v: string | null) => (
+    <div className="flex items-center justify-between gap-2">
+      <span className="opacity-70">{label}</span>
+      <b className={v ? "" : "opacity-60"}>{v ?? "UNKNOWN"}</b>
+    </div>
+  );
+  const gateTone = t.gate_status?.toUpperCase() === "PASS" || t.gate_status?.toUpperCase() === "OPEN"
+    ? "text-profit"
+    : t.gate_status?.toUpperCase() === "BLOCK" || t.gate_status?.toUpperCase() === "CLOSED"
+    ? "text-loss"
+    : "opacity-70";
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
+      {cell("UTC", t.utc)}
+      {cell("CASA", t.casa)}
+      {cell("BRK", t.broker)}
+      {cell("SESS", t.session)}
+      <div className="flex items-center justify-between gap-2 col-span-2">
+        <span className="opacity-70">GATE</span>
+        <b className={gateTone}>{t.gate_status ?? "UNKNOWN"}</b>
+      </div>
+      <div className="col-span-2 truncate opacity-80" title={t.gate_reason ?? ""}>
+        <span className="opacity-70">REASON:</span> {t.gate_reason ?? "UNKNOWN"}
+      </div>
+    </div>
+  );
+}
+
 function Header() {
   const { rows: statuses } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 20 });
   const byKey: Record<string, any> = {};
