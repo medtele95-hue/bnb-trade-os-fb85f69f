@@ -804,7 +804,7 @@ function Dashboard() {
         <div className="col-span-3"><Kelly /></div>
         <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · EXIT" className="col-span-6">
           <ChartPrice />
-          <CandleChart />
+          <CandleChart variant="main" />
         </Panel>
       </div>
 
