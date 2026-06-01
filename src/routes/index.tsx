@@ -60,7 +60,7 @@ function Header() {
         </div>
         <div className="col-span-4 p-3 text-[10px] uppercase tracking-wider grid grid-cols-2 gap-x-3 gap-y-1">
           <div>BOT STATUS: <b>{bot}</b><span className="blink ml-1">_</span></div>
-          <div>MODE: <b>READ ONLY · PAPER</b></div>
+          <div>MODE: <b>READ ONLY · DEMO PILOT</b></div>
           <div>RDP: <b>{rdp}</b></div>
           <div>MT5: <b>{mt5}</b></div>
           <div className="col-span-2 flex items-center justify-between border-t border-dashed border-black/40 pt-1 mt-0.5">
