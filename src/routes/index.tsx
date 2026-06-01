@@ -9,6 +9,10 @@ import { BigSetupDetector } from "@/components/dashboard/BigSetupDetector";
 import { StrategyModules } from "@/components/dashboard/StrategyModules";
 import { PaperReport } from "@/components/dashboard/PaperReport";
 import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
+import {
+  DemoModeBanner, DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
+  TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
+} from "@/components/dashboard/DemoCenter";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
 export const Route = createFileRoute("/")({
@@ -56,7 +60,7 @@ function Header() {
         </div>
         <div className="col-span-4 p-3 text-[10px] uppercase tracking-wider grid grid-cols-2 gap-x-3 gap-y-1">
           <div>BOT STATUS: <b>{bot}</b><span className="blink ml-1">_</span></div>
-          <div>MODE: <b>READ ONLY · PAPER</b></div>
+          <div>MODE: <b>READ ONLY · DEMO PILOT</b></div>
           <div>RDP: <b>{rdp}</b></div>
           <div>MT5: <b>{mt5}</b></div>
           <div className="col-span-2 flex items-center justify-between border-t border-dashed border-black/40 pt-1 mt-0.5">
@@ -667,6 +671,13 @@ function Dashboard() {
     <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
       <Header />
 
+      <DemoModeBanner />
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-6"><DemoPilotStatus /></div>
+        <div className="col-span-6"><DemoAlerts /></div>
+      </div>
+
       <div className="grid grid-cols-12 gap-3 mt-3">
         <Hero />
         <Panel title="BTCUSD / USD · 5-MIN" right="LIVE" className="col-span-4">
@@ -681,6 +692,11 @@ function Dashboard() {
       <MetricsRow />
 
       <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-6"><DemoGateChecklist /></div>
+        <div className="col-span-6"><KellyDemoPanel /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-3"><Markov /></div>
         <div className="col-span-3"><Kelly /></div>
         <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · EXIT" className="col-span-6">
@@ -692,6 +708,11 @@ function Dashboard() {
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-7"><Decision /></div>
         <div className="col-span-5"><SafetyGuard /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-6"><SmcMtfaPanel /></div>
+        <div className="col-span-6"><TimeEnginePanel /></div>
       </div>
 
       <div className="mt-3"><SmcMap /></div>
@@ -715,7 +736,12 @@ function Dashboard() {
         <div className="col-span-8"><VideoAgents /></div>
       </div>
 
-      <div className="mt-3"><Journal /></div>
+      <div className="mt-3"><TradeJournalTabs /></div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-7"><DemoReport /></div>
+        <div className="col-span-5"><MissingFieldsPanel /></div>
+      </div>
 
       <div className="mt-3"><PaperReport /></div>
 
@@ -724,9 +750,14 @@ function Dashboard() {
         <div className="col-span-5"><ControlPanel /></div>
       </div>
 
-      <footer className="mt-4 border-t border-black pt-2 text-[10px] uppercase tracking-widest flex justify-between opacity-80">
-        <div>HERMES TRADING TERMINAL · BUILD 0.2.0 · SUPABASE LIVE</div>
-        <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
+      <footer className="mt-4 border-t-2 border-black pt-2 text-[10px] uppercase tracking-widest">
+        <div className="bg-foreground text-background px-3 py-2 text-center font-bold tracking-widest">
+          DASHBOARD IS READ-ONLY. EXECUTION CAN ONLY HAPPEN FROM BACKEND DEMO ROUTER AFTER ALL SAFETY GATES PASS. LIVE TRADING IS BLOCKED.
+        </div>
+        <div className="flex justify-between mt-2 opacity-80">
+          <div>HERMES TRADING TERMINAL · BUILD 0.3.0 · DEMO PILOT 24H</div>
+          <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
+        </div>
       </footer>
     </div>
   );

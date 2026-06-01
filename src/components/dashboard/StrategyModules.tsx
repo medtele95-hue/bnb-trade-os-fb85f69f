@@ -6,6 +6,21 @@ import { useLiveTable } from "@/hooks/useLiveTable";
 const ACTIVE = ["BREAKOUT_RETEST", "CRT_TBS_REVERSAL", "AMD_FVG_IFVG_REVERSAL", "FIB_OTE_RETEST", "EMA_PULLBACK"] as const;
 const LEGACY = ["SECOND_ENTRY", "SCALPING_AGENT"] as const;
 
+const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "LEGACY_OBSERVER"> = {
+  BREAKOUT_RETEST: "ENTRY_STRATEGY",
+  CRT_TBS_REVERSAL: "ENTRY_STRATEGY",
+  AMD_FVG_IFVG_REVERSAL: "ENTRY_STRATEGY",
+  FIB_OTE_RETEST: "ENTRY_STRATEGY",
+  EMA_PULLBACK: "CONFIRMATION_ONLY",
+  SECOND_ENTRY: "LEGACY_OBSERVER",
+  SCALPING_AGENT: "LEGACY_OBSERVER",
+};
+function roleTone(r: string) {
+  if (r === "ENTRY_STRATEGY") return "green";
+  if (r === "CONFIRMATION_ONLY") return "yellow";
+  return "gray";
+}
+
 function pickLatest(rows: any[]): Record<string, any> {
   const out: Record<string, any> = {};
   for (const r of rows) {
@@ -34,6 +49,9 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
+  const role = ROLES[name] ?? "LEGACY_OBSERVER";
+  const entryAllowed = role === "ENTRY_STRATEGY" && kind === "ACTIVE";
+
   return (
     <div className={`border ${kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
       <div className="flex items-center justify-between">
@@ -41,6 +59,8 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
         <Badge value={String(statusTxt)} tone={tone as any} />
       </div>
       <div className="mt-1 flex flex-wrap gap-1">
+        <Badge value={`ROLE: ${role}`} tone={roleTone(role) as any} />
+        <Badge value={`ENTRY: ${entryAllowed ? "ALLOWED" : "BLOCKED"}`} tone={entryAllowed ? "green" : "red"} />
         <Badge value={`SETUP: ${setupGrade}`} tone={gradeTone(setupGrade)} />
         <Badge value={`SAFETY: ${safety}`} tone={statusTone(safety)} />
         <Badge value={`RISK: ${riskDiag}`} tone={statusTone(riskDiag)} />
@@ -48,7 +68,7 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
       <div className="mt-1.5 space-y-0.5">
         <KV k="Signal" v={String(signal)} />
         <KV k="Confidence" v={conf != null ? `${conf}%` : "UNKNOWN"} />
-        {strategyScore != null && <KV k="Strategy Score" v={String(strategyScore)} />}
+        {strategyScore != null && <KV k="Score" v={String(strategyScore)} />}
         <KV k="Win Rate" v={sig?.win_rate != null ? `${sig.win_rate}%` : "UNKNOWN"} />
         <KV
           k="Today PnL"
