@@ -482,14 +482,26 @@ export function SmcMap() {
 
       {/* Chart */}
       <div className="border border-black bg-background">
-        {candles === null ? (
+        {loading ? (
           <div className="p-6"><Waiting label="LOADING CANDLES" /></div>
         ) : candles.length === 0 ? (
           <FallbackMap raw={raw} />
         ) : (
-          <SmcChart candles={candles} raw={raw} />
+          <SmcChart candles={candles} raw={raw} diagnostics={diagnostics} />
         )}
       </div>
+      {!loading && candles.length > 0 && (
+        <div className="mt-1 text-[9px] uppercase tracking-wider opacity-70 font-mono flex flex-wrap gap-x-3 gap-y-0.5">
+          <span>loaded:{diagnostics.candles_loaded}</span>
+          <span>visible:{diagnostics.visible_candles}</span>
+          <span>dup-removed:{diagnostics.duplicate_candles_removed}</span>
+          <span>invalid:{diagnostics.invalid_removed}</span>
+          <span>gaps:{diagnostics.gaps_detected}</span>
+          <span>first:{fmtTime(diagnostics.first_visible_time)}</span>
+          <span>last:{fmtTime(diagnostics.last_visible_time)}</span>
+        </div>
+      )}
+
 
       {/* Checklist */}
       <div className="mt-2 border border-dashed border-black/50 p-2">
