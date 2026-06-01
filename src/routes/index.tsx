@@ -12,6 +12,7 @@ import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
 import {
   DemoModeBanner, DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
+  useBackendTime,
 } from "@/components/dashboard/DemoCenter";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
