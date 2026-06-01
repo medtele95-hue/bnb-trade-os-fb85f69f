@@ -662,12 +662,46 @@ function pickTimeStr(rp: any, key: string): string {
 }
 
 function LogsTerminal() {
-  const { rows, empty } = useLiveTable<any>("bot_logs", { limit: 25 });
-  const ordered = [...rows].reverse();
+  const { rows, empty } = useLiveTable<any>("bot_logs", { orderBy: "created_at", ascending: false, limit: 50 });
+  const ds = useDashboardStatusPayload();
+  const [showHistorical, setShowHistorical] = useState(false);
+  const pilotStartedAt = ds?.pilot_started_at ?? ds?.demo_pilot_started_at ?? null;
+  const pilotStartMs = pilotStartedAt ? Date.parse(pilotStartedAt) : NaN;
+  const headerTs = ds?.updated_at ?? ds?.utc_time ?? null;
+
+  const filtered = !showHistorical && !isNaN(pilotStartMs)
+    ? rows.filter((l: any) => {
+        const t = Date.parse(l.created_at);
+        return isNaN(t) || t >= pilotStartMs;
+      })
+    : rows;
+  // DESC fetch → reverse for chronological display (oldest first, newest at bottom)
+  const ordered = [...filtered].reverse();
+  const hiddenCount = rows.length - filtered.length;
+
   return (
-    <Panel title="LOGS TERMINAL" right="BACKEND TIME ENGINE">
-      <div className="bg-foreground text-background p-2 text-[10px] leading-snug font-mono">
-        {empty ? (
+    <Panel title="LOGS TERMINAL" right={`BACKEND TIME · ${headerTs ?? "UNKNOWN"}`}>
+      <div className="flex items-center justify-between mb-1 text-[10px] uppercase tracking-widest">
+        <span className="opacity-70">
+          {pilotStartedAt
+            ? `PILOT START: ${pilotStartedAt}`
+            : "PILOT START: UNKNOWN"}
+          {hiddenCount > 0 && !showHistorical && (
+            <span className="ml-2 opacity-60">({hiddenCount} hidden)</span>
+          )}
+        </span>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showHistorical}
+            onChange={(e) => setShowHistorical(e.target.checked)}
+            className="accent-black"
+          />
+          SHOW HISTORICAL LOGS
+        </label>
+      </div>
+      <div className="bg-foreground text-background p-2 text-[10px] leading-snug font-mono max-h-[320px] overflow-auto">
+        {empty || ordered.length === 0 ? (
           <div className="opacity-70">$ WAITING FOR HERMES LIVE LOGS <span className="blink">█</span></div>
         ) : (
           <>
@@ -691,7 +725,7 @@ function LogsTerminal() {
         )}
       </div>
       <div className="mt-1 text-[9px] uppercase tracking-widest opacity-70">
-        Times are from backend Time Engine (raw_payload). Missing → UNKNOWN. Browser clock not used.
+        Latest 50 · Times from backend Time Engine. Missing → UNKNOWN. Browser clock not used.
       </div>
     </Panel>
   );
