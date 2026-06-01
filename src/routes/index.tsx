@@ -63,12 +63,20 @@ function HeaderBackendTime() {
 }
 
 function Header() {
+  const ds = useDashboardStatusPayload();
   const { rows: statuses } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 20 });
   const byKey: Record<string, any> = {};
   statuses.forEach((s) => (byKey[s.component] = s));
   const rdp = byKey["RDP"]?.status ?? "—";
-  const mt5 = byKey["MT5"]?.status ?? "—";
+  const mt5Component = byKey["MT5"]?.status;
+  const mt5Connected = ds.mt5_connected;
+  const mt5 = mt5Component ?? (mt5Connected == null ? "—" : mt5Connected ? "CONNECTED" : "DISCONNECTED");
   const bot = byKey["HERMES"]?.status ?? (statuses.length ? "ONLINE" : "WAITING");
+
+  const modeRaw = ds.mode;
+  const headerMode = modeRaw
+    ? `READ ONLY · ${String(modeRaw).replace(/_/g, " ").toUpperCase()}`
+    : "READ ONLY · DEMO PILOT";
 
   return (
     <header className="panel border-b-2">
@@ -91,9 +99,10 @@ function Header() {
         </div>
         <div className="col-span-4 p-3 text-[10px] uppercase tracking-wider grid grid-cols-2 gap-x-3 gap-y-1">
           <div>BOT STATUS: <b>{bot}</b><span className="blink ml-1">_</span></div>
-          <div>MODE: <b>READ ONLY · DEMO PILOT</b></div>
+          <div>MODE: <b>{headerMode}</b></div>
           <div>RDP: <b>{rdp}</b></div>
           <div>MT5: <b>{mt5}</b></div>
+
           <div className="col-span-2 border-t border-dashed border-black/40 pt-1 mt-0.5">
             <HeaderBackendTime />
           </div>
