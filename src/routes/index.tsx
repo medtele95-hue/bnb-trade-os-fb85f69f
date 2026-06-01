@@ -9,6 +9,10 @@ import { BigSetupDetector } from "@/components/dashboard/BigSetupDetector";
 import { StrategyModules } from "@/components/dashboard/StrategyModules";
 import { PaperReport } from "@/components/dashboard/PaperReport";
 import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
+import {
+  DemoModeBanner, DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
+  TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
+} from "@/components/dashboard/DemoCenter";
 import { useLiveTable } from "@/hooks/useLiveTable";
 
 export const Route = createFileRoute("/")({
