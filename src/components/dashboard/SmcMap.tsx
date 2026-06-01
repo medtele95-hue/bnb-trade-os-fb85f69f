@@ -66,7 +66,7 @@ function matchSymbol(rowSymbol: any, target: Symbol): boolean {
 }
 
 function useCandles(symbol: Symbol, timeframe: Timeframe, limit = 150) {
-  const [candles, setCandles] = useState<Candle[] | null>(null);
+  const [raw, setRaw] = useState<RawCandle[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,10 +79,9 @@ function useCandles(symbol: Symbol, timeframe: Timeframe, limit = 150) {
         .in("symbol", aliases)
         .eq("timeframe", timeframe)
         .order("candle_time", { ascending: false })
-        .limit(limit);
+        .limit(limit * 2);
       if (cancelled) return;
-      const rows = ((data ?? []) as unknown as Candle[]).slice().reverse();
-      setCandles(rows);
+      setRaw((data ?? []) as unknown as RawCandle[]);
     };
     load();
 
@@ -107,8 +106,13 @@ function useCandles(symbol: Symbol, timeframe: Timeframe, limit = 150) {
     };
   }, [symbol, timeframe, limit]);
 
-  return candles;
+  const result = useMemo(
+    () => sanitizeCandles(raw, { limit, timeframe }),
+    [raw, limit, timeframe],
+  );
+  return { candles: result.candles, diagnostics: result.diagnostics, loading: raw === null };
 }
+
 
 function formatPrice(p: number): string {
   if (Math.abs(p) >= 1000) return p.toFixed(2);
