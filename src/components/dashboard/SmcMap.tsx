@@ -184,7 +184,7 @@ function SmcChart({ candles, raw, diagnostics }: { candles: import("@/lib/candle
   if (hasOb && hasOb !== "NONE" && candles.length >= 2) {
     const bullish = String(hasOb).toUpperCase().includes("BULL");
     // Find most recent opposite-direction candle (OB is usually last opposite candle before move)
-    let obCandle: Candle | null = null;
+    let obCandle: import("@/lib/candles").CleanCandle | null = null;
     for (let i = candles.length - 2; i >= Math.max(0, candles.length - 20); i--) {
       const c = candles[i];
       const up = Number(c.close) > Number(c.open);
