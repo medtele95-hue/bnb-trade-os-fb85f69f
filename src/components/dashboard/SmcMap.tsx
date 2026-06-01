@@ -407,7 +407,7 @@ export function SmcMap() {
   const [autoSym, setAutoSym] = useState(true);
   const activeSymbol = autoSym ? latestSymbol : symbol;
 
-  const candles = useCandles(activeSymbol, timeframe, 150);
+  const { candles, diagnostics, loading } = useCandles(activeSymbol, timeframe, 150);
 
   const raw = useMemo(() => {
     const found = decisions.find((r) => matchSymbol(r.symbol, activeSymbol));
