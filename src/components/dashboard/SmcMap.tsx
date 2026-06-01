@@ -123,7 +123,7 @@ function formatPrice(p: number): string {
 type Level = { price: number; label: string; color: string; dashed?: boolean };
 type Zone = { top: number; bottom: number; label: string; fill: string; stroke: string };
 
-function SmcChart({ candles, raw }: { candles: Candle[]; raw: any }) {
+function SmcChart({ candles, raw, diagnostics }: { candles: import("@/lib/candles").CleanCandle[]; raw: any; diagnostics: CandleDiagnostics }) {
   const entry = num(getField(raw, "entry"));
   const sl = num(getField(raw, "sl"));
   const tp = num(getField(raw, "tp"));
