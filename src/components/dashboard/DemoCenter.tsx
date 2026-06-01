@@ -563,13 +563,14 @@ export function DemoReport() {
 
 // ============ ALERTS ============
 export function DemoAlerts() {
-  const { rows: status } = useLiveTable<any>("bot_status", { limit: 5 });
+  const ds = useDashboardStatusPayload();
+  const { rows: status } = useLiveTable<any>("bot_status", { orderBy: "updated_at", ascending: false, limit: 5 });
   const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 5 });
   const { rows: trades } = useLiveTable<any>("trades", { limit: 50 });
 
   const bsRP = getRP(status[0]);
   const decRP = getRP(dec[0]);
-  const sources = [bsRP, status[0] ?? {}, decRP, dec[0] ?? {}];
+  const sources = [ds, bsRP, status[0] ?? {}, decRP, dec[0] ?? {}];
 
   const accountType = String(getField(sources, "account_type") ?? "").toUpperCase();
   const demoPilotEnabled = getField(sources, "demo_pilot_enabled");
