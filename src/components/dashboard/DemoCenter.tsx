@@ -3,6 +3,49 @@ import { Panel, KV } from "./Panel";
 import { Waiting } from "./Waiting";
 import { Badge, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
+import { supabase } from "@/integrations/supabase/client";
+
+const DEMO_SYMBOLS = ["GOLD#", "GOLD", "BTCUSD#", "BTCUSD", "EURUSD"];
+
+function useDemoTrades(heartbeatKey?: string) {
+  const [rows, setRows] = React.useState<any[]>([]);
+  const load = React.useCallback(async () => {
+    const { data } = await supabase
+      .from("trades" as any)
+      .select("*")
+      .eq("magic_number", 909002)
+      .order("opened_at", { ascending: false })
+      .limit(500);
+    setRows((data ?? []) as any[]);
+  }, []);
+  React.useEffect(() => {
+    load();
+    const t = setInterval(load, 5000);
+    const ch = supabase
+      .channel(`demo-trades:${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, () => load())
+      .subscribe();
+    return () => { clearInterval(t); supabase.removeChannel(ch); };
+  }, [load]);
+  React.useEffect(() => { load(); }, [heartbeatKey, load]);
+  return { rows };
+}
+
+function isClosedTrade(t: any): boolean {
+  const rp = (t?.raw_payload ?? {}) as any;
+  const result = String(t?.result ?? "").toUpperCase();
+  const rpStatus = String(rp?.status ?? "").toUpperCase();
+  return result === "CLOSED" || t?.closed_at != null || rpStatus === "CLOSED";
+}
+
+function isOpenDemo(t: any): boolean {
+  if (Number(t?.magic_number) !== 909002) return false;
+  if (String(t?.result ?? "").toUpperCase() !== "OPEN") return false;
+  if (t?.closed_at != null) return false;
+  if (String(((t?.raw_payload ?? {}) as any).status ?? "").toUpperCase() === "CLOSED") return false;
+  if (!DEMO_SYMBOLS.includes(String(t?.symbol ?? ""))) return false;
+  return true;
+}
 
 const DEMO_MAGIC = 909002;
 const DEMO_COMMENT = "HERMES_DEMO_KELLY_24H";
