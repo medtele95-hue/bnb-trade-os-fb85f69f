@@ -549,7 +549,7 @@ function Telegram() {
             {r ? (
               (() => {
                 const p = (r.payload ?? r.raw_payload ?? {}) as Record<string, any>;
-                const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
+                const u = (v: any) => (v == null || v === "" ? "WAITING FOR NIGHTLY REPORT" : v);
                 return (
                   <>
                     <KV k="Trades" v={u(r.trades_reviewed)} />
@@ -563,7 +563,7 @@ function Telegram() {
                     <KV k="Big Setup Grades" v={
                       p.big_setup_grade_summary && typeof p.big_setup_grade_summary === "object"
                         ? Object.entries(p.big_setup_grade_summary).map(([g, n]) => `${g}:${n}`).join(" ")
-                        : "UNKNOWN"
+                        : "WAITING FOR NIGHTLY REPORT"
                     } />
                     <div className="text-[10px] mt-1 opacity-80 italic">▶ {u(r.suggestion ?? p.suggestion)}</div>
                   </>
