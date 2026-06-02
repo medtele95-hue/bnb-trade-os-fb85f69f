@@ -136,7 +136,7 @@ function Header() {
 function Hero() {
   const ds = useDashboardStatusPayload();
   const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
-  const { rows: trades } = useLiveTable<any>("trades", { limit: 200 });
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 500 });
   const s = snaps[0] ?? {};
   const acctType = String(ds.account_type ?? "").toUpperCase();
   const isDemo = acctType === "DEMO";
@@ -145,12 +145,25 @@ function Hero() {
     acctType === "LIVE" ? "ACCT: LIVE" :
     "ACCT: UNKNOWN";
 
-  // Demo PnL: prefer dashboard_status demo report, else sum closed demo trades.
+  // Demo-only datasets (single source of truth = trades table, magic 909002)
+  const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
+  const openDemoTrades = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
+  );
+  const closedDemoTrades = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "CLOSED" || t.closed_at != null
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
+  const openedToday = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
+  const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
+  const demoHistTotal = closedDemoTrades.reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
+  const wins = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
+  const losses = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
+  const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
+
   const demoPnlToday =
     ds.demo_pnl_today ?? ds.pnl_today ?? ds.demo_report_pnl_today ?? null;
-  const demoHistTotal = trades
-    .filter((t: any) => Number(t.magic_number ?? t.magic) === 909002 && (t.result === "CLOSED" || t.closed_at != null))
-    .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
   const totalPnlNum = isDemo
     ? Number(demoPnlToday ?? demoHistTotal ?? 0)
     : Number(s.total_pnl ?? 0);
@@ -162,13 +175,14 @@ function Hero() {
     : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
 
   const winRateDisplay = isDemo
-    ? (ds.demo_win_rate ?? ds.win_rate_today ?? s.win_rate ?? 0)
+    ? (ds.demo_win_rate ?? demoWinRate ?? ds.win_rate_today ?? s.win_rate ?? "—")
     : (s.win_rate ?? 0);
   const tradesTodayDisplay = isDemo
-    ? (ds.opened_today ?? ds.demo_opened_today ?? s.trades_today ?? "—")
+    ? (ds.opened_today ?? ds.demo_opened_today ?? openedToday ?? s.trades_today ?? "—")
     : (s.trades_today ?? "—");
+  // Open positions MUST match Open Demo table source of truth.
   const openPosDisplay = isDemo
-    ? (ds.open_now ?? ds.demo_open_now ?? 0)
+    ? openDemoTrades.length
     : (s.open_positions ?? 0);
   const dailyPnlDisplay = isDemo
     ? Number(demoPnlToday ?? demoHistTotal ?? 0)
@@ -193,9 +207,9 @@ function Hero() {
           </div>
         </div>
         <div className="border-l border-black p-2 space-y-0.5">
-          <KV k="Trades Today" v={tradesTodayDisplay} />
+          <KV k="Trades Today" v={isDemo ? `${tradesTodayDisplay} opened / ${closedToday} closed` : tradesTodayDisplay} />
           <KV k="Daily PnL" v={`${dailyPnlDisplay >= 0 ? "+" : ""}$${dailyPnlDisplay.toFixed(2)}`} accent={dailyPnlDisplay >= 0 ? "profit" : "loss"} />
-          <KV k="Win Rate" v={`${winRateDisplay}%`} />
+          <KV k="Win Rate" v={winRateDisplay === "—" ? "—" : `${winRateDisplay}%`} />
           <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
           <KV k="Open Positions" v={openPosDisplay} />
           <KV k="Max DD" v={`${s.max_drawdown ?? 0}%`} accent="loss" />
