@@ -220,20 +220,48 @@ function Hero() {
 }
 
 function MetricsRow() {
+  const ds = useDashboardStatusPayload();
   const { rows, empty } = useLiveTable<any>("account_snapshots", { limit: 1 });
-  const s = rows[0];
-  if (empty || !s) {
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 500 });
+  const s = rows[0] ?? {};
+  const acctType = String(ds.account_type ?? "").toUpperCase();
+  const isDemo = acctType === "DEMO";
+
+  if (!isDemo && (empty || !rows[0])) {
     return <div className="border border-black -mt-px p-2"><Waiting label="WAITING FOR HERMES LIVE METRICS" /></div>;
   }
+
+  // Demo-aware aggregates from trades table
+  const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
+  const closedDemo = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "CLOSED" || t.closed_at != null
+  );
+  const openDemo = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
+  const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
+  const demoPnl = closedDemo.reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const wins = closedDemo.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
+  const losses = closedDemo.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
+  const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
+
+  const tradesToday = isDemo ? (ds.opened_today ?? openedTodayDemo) : (s.trades_today ?? 0);
+  const totalTrades = isDemo ? demoTrades.length : (s.total_trades ?? 0);
+  const winRate = isDemo ? (ds.demo_win_rate ?? demoWinRate ?? "—") : (s.win_rate ?? 0);
+  const dailyPnl = isDemo ? Number(ds.demo_pnl_today ?? demoPnl ?? 0) : Number(s.daily_pnl ?? 0);
+  const openPos = isDemo ? openDemo.length : (s.open_positions ?? 0);
+
   const items = [
-    { k: "Trades Today", v: s.trades_today ?? 0 },
-    { k: "Total Trades", v: (s.total_trades ?? 0).toLocaleString() },
-    { k: "Win Rate", v: `${s.win_rate ?? 0}%` },
-    { k: "Daily PnL", v: `${(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${s.daily_pnl ?? 0}`, a: ((s.daily_pnl ?? 0) >= 0 ? "profit" : "loss") as "profit" | "loss" },
+    { k: "Trades Today", v: tradesToday },
+    { k: "Total Trades", v: Number(totalTrades).toLocaleString() },
+    { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
+    { k: "Daily PnL", v: `${dailyPnl >= 0 ? "+" : ""}$${dailyPnl.toFixed(2)}`, a: (dailyPnl >= 0 ? "profit" : "loss") as "profit" | "loss" },
     { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString()}` },
     { k: "Profit Factor", v: s.profit_factor ?? "—" },
     { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" as const },
-    { k: "Open Pos", v: s.open_positions ?? 0 },
+    { k: "Open Pos", v: openPos },
   ];
   return (
     <div className="grid grid-cols-8 gap-0 border border-black -mt-px">
