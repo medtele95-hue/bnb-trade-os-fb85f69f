@@ -42,9 +42,12 @@ function isOpenDemo(t: any): boolean {
   if (Number(t?.magic_number) !== 909002) return false;
   if (String(t?.result ?? "").toUpperCase() !== "OPEN") return false;
   if (t?.closed_at != null) return false;
-  if (String(((t?.raw_payload ?? {}) as any).status ?? "").toUpperCase() === "CLOSED") return false;
-  if (!DEMO_SYMBOLS.includes(String(t?.symbol ?? ""))) return false;
   return true;
+}
+
+function isHistDemo(t: any): boolean {
+  if (Number(t?.magic_number) !== 909002) return false;
+  return String(t?.result ?? "").toUpperCase() === "CLOSED";
 }
 
 const DEMO_MAGIC = 909002;
@@ -297,17 +300,32 @@ export function KellyDemoPanel() {
   const k = rows[0];
   const rp = getRP(k);
   const sources = [rp, k ?? {}];
+  const gateStatuses = (rp as any)?.gate_statuses ?? {};
 
   const kellySuggested = getField(sources, "kelly_suggested_lot") ?? getField(sources, "suggested_lot") ?? getField(sources, "raw_lot");
-  const rawLot = getField(sources, "raw_lot") ?? getField(sources, "calculated_lot") ?? getField(sources, "theoretical_lot");
-  const finalCapped = getField(sources, "final_capped_lot") ?? getField(sources, "demo_capped_lot") ?? k?.lot_size;
+  const rawLot = getField(sources, "raw_lot") ?? getField(sources, "calculated_lot") ?? getField(sources, "theoretical_lot") ?? kellySuggested;
+
+  // Final capped lot = backend-provided cap. Never display raw lot here.
+  // Priority: final_capped_lot → gate_statuses.final_lot → DEMO_MAX_LOT (hard cap).
+  const backendFinalCap =
+    getField(sources, "final_capped_lot") ??
+    getField(sources, "demo_capped_lot") ??
+    (gateStatuses?.final_lot);
+  const finalCappedDisplay =
+    backendFinalCap != null
+      ? Math.min(Number(backendFinalCap), DEMO_MAX_LOT)
+      : DEMO_MAX_LOT;
+
   const riskPct = getField(sources, "final_risk") ?? getField(sources, "risk_pct") ?? k?.final_risk;
   const capReason = getField(sources, "cap_reason") ?? getField(sources, "demo_cap_reason");
   const decision = getField(sources, "kelly_demo_decision") ?? getField(sources, "kelly_decision") ?? k?.status;
   const blockReason = getField(sources, "kelly_block_reason") ?? k?.blocked_reason;
 
-  const cappedNum = Number(finalCapped ?? 0);
-  const overCap = cappedNum > DEMO_MAX_LOT;
+  // Warning only if the backend-reported final cap itself exceeds DEMO_MAX_LOT.
+  // Raw Kelly lot being > 0.01 is expected and NOT a warning.
+  const backendCapNum = backendFinalCap != null ? Number(backendFinalCap) : null;
+  const overCap = backendCapNum != null && backendCapNum > DEMO_MAX_LOT;
+
   const decisionTone = String(decision ?? "").toUpperCase() === "PASS" ? "green" : String(decision ?? "").toUpperCase().includes("BLOCK") ? "red" : "gray";
 
   return (
@@ -316,19 +334,19 @@ export function KellyDemoPanel() {
         <>
           <div className="grid grid-cols-2 gap-x-3">
             <KV k="Kelly Suggested Lot" v={kellySuggested != null ? Number(kellySuggested).toFixed(4) : UNK} />
-            <KV k="Theoretical Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : UNK} />
-            <KV k="Final Capped Lot" v={finalCapped != null ? Number(finalCapped).toFixed(4) : UNK} accent={overCap ? "loss" : "profit"} />
+            <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : UNK} />
+            <KV k="Final Capped Lot" v={finalCappedDisplay.toFixed(4)} accent={overCap ? "loss" : "profit"} />
             <KV k="Max Lot Cap" v={DEMO_MAX_LOT.toFixed(2)} />
             <KV k="Risk %" v={riskPct != null ? `${riskPct}%` : UNK} />
             <KV k="Cap Reason" v={String(u(capReason))} />
           </div>
           <div className="flex items-center justify-between mt-2">
             <Badge value={`KELLY: ${u(decision)}`} tone={decisionTone as any} />
-            {overCap && <Badge value="⚠ FINAL LOT EXCEEDS DEMO CAP" tone="red" />}
+            {overCap && <Badge value="⚠ BACKEND FINAL CAP EXCEEDS DEMO MAX LOT" tone="red" />}
           </div>
           {blockReason && <div className="mt-1 text-[10px] opacity-80"><b>BLOCK:</b> {String(blockReason)}</div>}
           <div className="mt-2 border border-dashed border-black/60 p-1 text-[10px] uppercase tracking-widest text-center">
-            ⚠ RAW KELLY LOT IS NOT EXECUTABLE. FINAL CAPPED LOT IS THE ONLY EXECUTABLE LOT.
+            ⚠ RAW KELLY LOT IS NOT EXECUTABLE. ONLY FINAL CAPPED LOT (≤ {DEMO_MAX_LOT}) IS EXECUTABLE.
           </div>
         </>
       )}
@@ -438,7 +456,7 @@ export function TradeJournalTabs() {
 
   const openDemo = React.useMemo(() => demoRows.filter(isOpenDemo), [demoRows]);
   const histDemo = React.useMemo(
-    () => demoRows.filter((t) => Number(t.magic_number) === DEMO_MAGIC && isClosedTrade(t)),
+    () => demoRows.filter(isHistDemo),
     [demoRows],
   );
 
