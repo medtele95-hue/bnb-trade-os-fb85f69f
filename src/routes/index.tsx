@@ -496,7 +496,7 @@ function SelfLearn() {
   const { rows, empty } = useLiveTable<any>("nightly_reports", { orderBy: "report_date", ascending: false, limit: 1 });
   const r = rows[0];
   const p = (r?.payload ?? r?.raw_payload ?? {}) as Record<string, any>;
-  const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
+                const u = (v: any) => (v == null || v === "" ? "WAITING FOR NIGHTLY REPORT" : v);
   return (
     <Panel title="SELF-LEARNING NIGHTLY LOOP" right="03:00 UTC">
       {empty || !r ? (
