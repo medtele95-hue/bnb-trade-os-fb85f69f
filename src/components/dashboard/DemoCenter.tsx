@@ -432,8 +432,8 @@ export function SmcMtfaPanel() {
           <KV k="H4 Bias" v={String(u(rp.h4_bias ?? rp.smc_h4_direction))} />
           <KV k="H4 Zone" v={String(u(rp.h4_zone))} />
           <KV k="H1 Trend" v={String(u(rp.h1_trend))} />
-          <KV k="M15 Confirmation" v={String(u(rp.m15_confirmation))} />
-          <KV k="M1 Confirmation" v={String(u(rp.m1_confirmation))} />
+          <KV k="M15 Confirmation" v={String(u(rp.m15_confirmation ?? rp.m15_entry_confirmation ?? (rp.gate_statuses ?? {}).m15_confirmation))} />
+          <KV k="M1 Confirmation" v={String(u(rp.m1_confirmation ?? rp.m1_entry_confirmation ?? rp.m1_trigger_status ?? (rp.gate_statuses ?? {}).m1_entry_confirmation ?? (rp.gate_statuses ?? {}).m1_confirmation))} />
         </div>
       )}
       {d && (
