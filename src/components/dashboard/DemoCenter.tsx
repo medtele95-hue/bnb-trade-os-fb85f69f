@@ -257,8 +257,8 @@ const GATE_KEYS: Array<{ label: string; keys: string[]; truthy?: any[] }> = [
   { label: "Safety Guard PASS", keys: ["safety_guard_status"] },
   { label: "MTFA not FAIL", keys: ["mtfa_status"], truthy: ["PASS", "OK", "NEUTRAL", "CAUTION"] },
   { label: "SMC PASS", keys: ["smc_confluence_status", "smc_status"] },
-  { label: "M15 confirmation", keys: ["m15_confirmation", "m15_confirmation_pass"] },
-  { label: "M1 confirmation", keys: ["m1_confirmation", "m1_confirmation_pass"] },
+  { label: "M15 confirmation", keys: ["m15_confirmation", "m15_confirmation_pass", "m15_entry_confirmation"] },
+  { label: "M1 confirmation", keys: ["m1_confirmation", "m1_confirmation_pass", "m1_entry_confirmation", "m1_trigger_status"] },
   { label: "Big Setup grade ≥ B", keys: ["big_setup_grade"], truthy: ["A+", "A", "B"] },
   { label: "Strategy allowed for entry", keys: ["gate_strategy_allowed", "strategy_entry_allowed"] },
 ];
@@ -267,6 +267,7 @@ export function DemoGateChecklist() {
   const { rows } = useLiveTable<any>("ai_decisions", { limit: 1 });
   const d = rows[0];
   const rp = getRP(d);
+  const gateStatuses = (rp.gate_statuses ?? {}) as Record<string, any>;
   return (
     <Panel title="DEMO GATE CHECKLIST" right={d ? `${d.symbol ?? ""} ${d.timeframe ?? ""}` : "—"}>
       {!d ? <Waiting label="WAITING FOR LATEST SIGNAL" /> : (
@@ -274,8 +275,8 @@ export function DemoGateChecklist() {
           {GATE_KEYS.map((g) => {
             let val: any = undefined;
             for (const k of g.keys) {
-              const v = rp[k] ?? d[k];
-              if (v != null) { val = v; break; }
+              const v = rp[k] ?? gateStatuses[k] ?? d[k];
+              if (v != null && v !== "") { val = v; break; }
             }
             let res: GateResult;
             if (val == null) res = "UNKNOWN";
