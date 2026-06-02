@@ -363,6 +363,12 @@ function Kelly() {
 function Decision() {
   const { rows, empty } = useLiveTable<any>("ai_decisions", { limit: 1 });
   const d = rows[0];
+  const rp = ((d?.raw_payload ?? {}) as any);
+  const inner = (rp?.raw_payload ?? {}) as any;
+  const merged = { ...rp, ...inner };
+  const finalCap = merged.final_capped_lot ?? merged.demo_capped_lot ?? merged.gate_statuses?.final_lot;
+  const executableLot = finalCap != null ? Math.min(Number(finalCap), 0.01) : null;
+  const rawLot = merged.raw_lot ?? merged.calculated_lot ?? merged.kelly_suggested_lot ?? d?.lot_size;
   return (
     <Panel title="AI DECISION OBJECT" right="LATEST BACKEND DECISION">
       {empty || !d ? (
@@ -378,7 +384,9 @@ function Decision() {
             <KV k="Signal" v={d.signal ?? "—"} accent="profit" />
             <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
             <KV k="Risk Status" v={d.risk_status ?? "—"} />
-            <KV k="Lot" v={d.lot_size ?? "—"} />
+            <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : "—"} />
+            <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
+            <KV k="Max Lot Cap" v="0.0100" />
             <KV k="Entry" v={d.entry ?? "—"} />
             <KV k="SL" v={d.sl ?? "—"} accent="loss" />
             <KV k="TP" v={d.tp ?? "—"} accent="profit" />
@@ -388,6 +396,7 @@ function Decision() {
             <div className="pixel text-[20px]">{d.decision ?? "—"}</div>
             <div className="text-[10px] mt-1 opacity-80"><b>REASON:</b> {d.reason ?? "—"}</div>
             <div className="text-[10px] opacity-80"><b>BLOCKED:</b> {d.blocked_reason ?? "None"}</div>
+            <div className="text-[10px] opacity-70 mt-1 italic">⚠ Raw Lot is theoretical only. Executable Lot = backend final_capped_lot (≤ 0.01).</div>
           </div>
         </>
       )}
