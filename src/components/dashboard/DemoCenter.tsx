@@ -42,9 +42,12 @@ function isOpenDemo(t: any): boolean {
   if (Number(t?.magic_number) !== 909002) return false;
   if (String(t?.result ?? "").toUpperCase() !== "OPEN") return false;
   if (t?.closed_at != null) return false;
-  if (String(((t?.raw_payload ?? {}) as any).status ?? "").toUpperCase() === "CLOSED") return false;
-  if (!DEMO_SYMBOLS.includes(String(t?.symbol ?? ""))) return false;
   return true;
+}
+
+function isHistDemo(t: any): boolean {
+  if (Number(t?.magic_number) !== 909002) return false;
+  return String(t?.result ?? "").toUpperCase() === "CLOSED";
 }
 
 const DEMO_MAGIC = 909002;
