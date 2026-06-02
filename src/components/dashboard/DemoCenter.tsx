@@ -364,15 +364,17 @@ export function useBackendTime() {
   const { rows: bsRows } = useLiveTable<any>("bot_status", { orderBy: "updated_at", ascending: false, limit: 5 });
   const dRP = getRP(decRows[0]);
   const bsRP = getRP(bsRows[0]);
-  // dashboard_status ALWAYS wins.
-  const sources = [ds, dRP, bsRP, bsRows[0] ?? {}];
+  const dGate = (dRP.gate_statuses ?? {}) as Record<string, any>;
+  const dsGate = ((ds as any).gate_statuses ?? {}) as Record<string, any>;
+  const bsGate = (bsRP.gate_statuses ?? {}) as Record<string, any>;
+  // dashboard_status ALWAYS wins, then gate_statuses, then bot_status row.
+  const sources = [ds, dsGate, dRP, dGate, bsRP, bsGate, bsRows[0] ?? {}];
   const pickStr = (k: string) => {
     const v = getField(sources, k);
     return v == null || v === "" ? null : String(v);
   };
   const trim = (v: string | null) => {
     if (!v) return null;
-    // accept "HH:mm:ss", ISO, or "HH:mm"
     const m = v.match(/\d{2}:\d{2}(:\d{2})?/);
     return m ? m[0] : v;
   };
@@ -380,9 +382,9 @@ export function useBackendTime() {
     utc: trim(pickStr("utc_time")),
     casa: trim(pickStr("casablanca_time")),
     broker: trim(pickStr("broker_time_estimate") ?? pickStr("broker_time")),
-    session: pickStr("session") ?? pickStr("session_name"),
-    gate_status: pickStr("time_gate_status"),
-    gate_reason: pickStr("time_gate_reason"),
+    session: pickStr("session") ?? pickStr("session_name") ?? pickStr("current_session"),
+    gate_status: pickStr("time_gate_status") ?? pickStr("gate_time"),
+    gate_reason: pickStr("time_gate_reason") ?? pickStr("gate_time_reason"),
     broker_utc_offset: pickStr("broker_utc_offset") ?? pickStr("broker_utc_offset_hours"),
     market_open: pickStr("market_open"),
     is_weekend: pickStr("is_weekend") ?? pickStr("safety_guard_is_weekend"),
