@@ -135,42 +135,72 @@ function Header() {
 
 function Hero() {
   const ds = useDashboardStatusPayload();
-  const { rows, empty } = useLiveTable<any>("account_snapshots", { limit: 1 });
-  const s = rows[0];
+  const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 200 });
+  const s = snaps[0] ?? {};
   const acctType = String(ds.account_type ?? "").toUpperCase();
+  const isDemo = acctType === "DEMO";
   const acctLabel =
     acctType === "DEMO" ? "ACCT: DEMO VERIFIED" :
     acctType === "LIVE" ? "ACCT: LIVE" :
     "ACCT: UNKNOWN";
-  return (
-    <Panel title="TOTAL PNL — VERIFIED FROM MT5" right={acctLabel} className="col-span-8">
 
-      {empty || !s ? (
-        <Waiting />
-      ) : (
-        <div className="grid grid-cols-3 gap-3 items-center">
-          <div className="col-span-2 px-2 py-3">
-            <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
-            <div className="pixel text-[88px] leading-none tracking-tighter text-profit">
-              ${Number(s.total_pnl ?? 0).toLocaleString()}
-            </div>
-            <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
-              <StatusDot label="Verified from MT5" />
-              <StatusDot label="Account: Live" />
-              <StatusDot label="Broker Connected" />
-              <Badge value="LIVE ACCOUNT READ-ONLY — PAPER EXECUTION ONLY" tone="orange" />
-            </div>
+  // Demo PnL: prefer dashboard_status demo report, else sum closed demo trades.
+  const demoPnlToday =
+    ds.demo_pnl_today ?? ds.pnl_today ?? ds.demo_report_pnl_today ?? null;
+  const demoHistTotal = trades
+    .filter((t: any) => Number(t.magic_number ?? t.magic) === 909002 && (t.result === "CLOSED" || t.closed_at != null))
+    .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
+  const totalPnlNum = isDemo
+    ? Number(demoPnlToday ?? demoHistTotal ?? 0)
+    : Number(s.total_pnl ?? 0);
+  const totalPnlSource = isDemo
+    ? "Verified from HERMES demo history / MT5 sync"
+    : "Verified from MT5";
+  const accountStatusLabel = isDemo
+    ? "Account: DEMO VERIFIED"
+    : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
+
+  const winRateDisplay = isDemo
+    ? (ds.demo_win_rate ?? ds.win_rate_today ?? s.win_rate ?? 0)
+    : (s.win_rate ?? 0);
+  const tradesTodayDisplay = isDemo
+    ? (ds.opened_today ?? ds.demo_opened_today ?? s.trades_today ?? "—")
+    : (s.trades_today ?? "—");
+  const openPosDisplay = isDemo
+    ? (ds.open_now ?? ds.demo_open_now ?? 0)
+    : (s.open_positions ?? 0);
+  const dailyPnlDisplay = isDemo
+    ? Number(demoPnlToday ?? demoHistTotal ?? 0)
+    : Number(s.daily_pnl ?? 0);
+
+  return (
+    <Panel title={isDemo ? "TOTAL PNL — VERIFIED FROM HERMES DEMO" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
+      <div className="grid grid-cols-3 gap-3 items-center">
+        <div className="col-span-2 px-2 py-3">
+          <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
+          <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
+            {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="border-l border-black p-2 space-y-0.5">
-            <KV k="Trades Today" v={s.trades_today ?? "—"} />
-            <KV k="Daily PnL" v={`${(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${s.daily_pnl ?? 0}`} accent={(s.daily_pnl ?? 0) >= 0 ? "profit" : "loss"} />
-            <KV k="Win Rate" v={`${s.win_rate ?? 0}%`} />
-            <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
-            <KV k="Open Positions" v={s.open_positions ?? 0} />
-            <KV k="Max DD" v={`${s.max_drawdown ?? 0}%`} accent="loss" />
+          <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
+            <StatusDot label={totalPnlSource} />
+            <StatusDot label={accountStatusLabel} />
+            <StatusDot label="Broker Connected" />
+            <Badge
+              value={isDemo ? "DEMO PILOT READ-ONLY — NO LIVE EXECUTION" : "LIVE ACCOUNT READ-ONLY — PAPER EXECUTION ONLY"}
+              tone="orange"
+            />
           </div>
         </div>
-      )}
+        <div className="border-l border-black p-2 space-y-0.5">
+          <KV k="Trades Today" v={tradesTodayDisplay} />
+          <KV k="Daily PnL" v={`${dailyPnlDisplay >= 0 ? "+" : ""}$${dailyPnlDisplay.toFixed(2)}`} accent={dailyPnlDisplay >= 0 ? "profit" : "loss"} />
+          <KV k="Win Rate" v={`${winRateDisplay}%`} />
+          <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
+          <KV k="Open Positions" v={openPosDisplay} />
+          <KV k="Max DD" v={`${s.max_drawdown ?? 0}%`} accent="loss" />
+        </div>
+      </div>
     </Panel>
   );
 }
