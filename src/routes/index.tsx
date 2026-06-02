@@ -136,7 +136,7 @@ function Header() {
 function Hero() {
   const ds = useDashboardStatusPayload();
   const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
-  const { rows: trades } = useLiveTable<any>("trades", { limit: 200 });
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 500 });
   const s = snaps[0] ?? {};
   const acctType = String(ds.account_type ?? "").toUpperCase();
   const isDemo = acctType === "DEMO";
@@ -145,12 +145,25 @@ function Hero() {
     acctType === "LIVE" ? "ACCT: LIVE" :
     "ACCT: UNKNOWN";
 
-  // Demo PnL: prefer dashboard_status demo report, else sum closed demo trades.
+  // Demo-only datasets (single source of truth = trades table, magic 909002)
+  const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
+  const openDemoTrades = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
+  );
+  const closedDemoTrades = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "CLOSED" || t.closed_at != null
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
+  const openedToday = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
+  const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
+  const demoHistTotal = closedDemoTrades.reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
+  const wins = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
+  const losses = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
+  const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
+
   const demoPnlToday =
     ds.demo_pnl_today ?? ds.pnl_today ?? ds.demo_report_pnl_today ?? null;
-  const demoHistTotal = trades
-    .filter((t: any) => Number(t.magic_number ?? t.magic) === 909002 && (t.result === "CLOSED" || t.closed_at != null))
-    .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
   const totalPnlNum = isDemo
     ? Number(demoPnlToday ?? demoHistTotal ?? 0)
     : Number(s.total_pnl ?? 0);
@@ -162,13 +175,14 @@ function Hero() {
     : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
 
   const winRateDisplay = isDemo
-    ? (ds.demo_win_rate ?? ds.win_rate_today ?? s.win_rate ?? 0)
+    ? (ds.demo_win_rate ?? demoWinRate ?? ds.win_rate_today ?? s.win_rate ?? "—")
     : (s.win_rate ?? 0);
   const tradesTodayDisplay = isDemo
-    ? (ds.opened_today ?? ds.demo_opened_today ?? s.trades_today ?? "—")
+    ? (ds.opened_today ?? ds.demo_opened_today ?? openedToday ?? s.trades_today ?? "—")
     : (s.trades_today ?? "—");
+  // Open positions MUST match Open Demo table source of truth.
   const openPosDisplay = isDemo
-    ? (ds.open_now ?? ds.demo_open_now ?? 0)
+    ? openDemoTrades.length
     : (s.open_positions ?? 0);
   const dailyPnlDisplay = isDemo
     ? Number(demoPnlToday ?? demoHistTotal ?? 0)
@@ -193,9 +207,9 @@ function Hero() {
           </div>
         </div>
         <div className="border-l border-black p-2 space-y-0.5">
-          <KV k="Trades Today" v={tradesTodayDisplay} />
+          <KV k="Trades Today" v={isDemo ? `${tradesTodayDisplay} opened / ${closedToday} closed` : tradesTodayDisplay} />
           <KV k="Daily PnL" v={`${dailyPnlDisplay >= 0 ? "+" : ""}$${dailyPnlDisplay.toFixed(2)}`} accent={dailyPnlDisplay >= 0 ? "profit" : "loss"} />
-          <KV k="Win Rate" v={`${winRateDisplay}%`} />
+          <KV k="Win Rate" v={winRateDisplay === "—" ? "—" : `${winRateDisplay}%`} />
           <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
           <KV k="Open Positions" v={openPosDisplay} />
           <KV k="Max DD" v={`${s.max_drawdown ?? 0}%`} accent="loss" />
@@ -206,20 +220,48 @@ function Hero() {
 }
 
 function MetricsRow() {
+  const ds = useDashboardStatusPayload();
   const { rows, empty } = useLiveTable<any>("account_snapshots", { limit: 1 });
-  const s = rows[0];
-  if (empty || !s) {
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 500 });
+  const s = rows[0] ?? {};
+  const acctType = String(ds.account_type ?? "").toUpperCase();
+  const isDemo = acctType === "DEMO";
+
+  if (!isDemo && (empty || !rows[0])) {
     return <div className="border border-black -mt-px p-2"><Waiting label="WAITING FOR HERMES LIVE METRICS" /></div>;
   }
+
+  // Demo-aware aggregates from trades table
+  const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
+  const closedDemo = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "CLOSED" || t.closed_at != null
+  );
+  const openDemo = demoTrades.filter((t: any) =>
+    String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
+  const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
+  const demoPnl = closedDemo.reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const wins = closedDemo.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
+  const losses = closedDemo.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
+  const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
+
+  const tradesToday = isDemo ? (ds.opened_today ?? openedTodayDemo) : (s.trades_today ?? 0);
+  const totalTrades = isDemo ? demoTrades.length : (s.total_trades ?? 0);
+  const winRate = isDemo ? (ds.demo_win_rate ?? demoWinRate ?? "—") : (s.win_rate ?? 0);
+  const dailyPnl = isDemo ? Number(ds.demo_pnl_today ?? demoPnl ?? 0) : Number(s.daily_pnl ?? 0);
+  const openPos = isDemo ? openDemo.length : (s.open_positions ?? 0);
+
   const items = [
-    { k: "Trades Today", v: s.trades_today ?? 0 },
-    { k: "Total Trades", v: (s.total_trades ?? 0).toLocaleString() },
-    { k: "Win Rate", v: `${s.win_rate ?? 0}%` },
-    { k: "Daily PnL", v: `${(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${s.daily_pnl ?? 0}`, a: ((s.daily_pnl ?? 0) >= 0 ? "profit" : "loss") as "profit" | "loss" },
+    { k: "Trades Today", v: tradesToday },
+    { k: "Total Trades", v: Number(totalTrades).toLocaleString() },
+    { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
+    { k: "Daily PnL", v: `${dailyPnl >= 0 ? "+" : ""}$${dailyPnl.toFixed(2)}`, a: (dailyPnl >= 0 ? "profit" : "loss") as "profit" | "loss" },
     { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString()}` },
     { k: "Profit Factor", v: s.profit_factor ?? "—" },
     { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" as const },
-    { k: "Open Pos", v: s.open_positions ?? 0 },
+    { k: "Open Pos", v: openPos },
   ];
   return (
     <div className="grid grid-cols-8 gap-0 border border-black -mt-px">
@@ -321,6 +363,12 @@ function Kelly() {
 function Decision() {
   const { rows, empty } = useLiveTable<any>("ai_decisions", { limit: 1 });
   const d = rows[0];
+  const rp = ((d?.raw_payload ?? {}) as any);
+  const inner = (rp?.raw_payload ?? {}) as any;
+  const merged = { ...rp, ...inner };
+  const finalCap = merged.final_capped_lot ?? merged.demo_capped_lot ?? merged.gate_statuses?.final_lot;
+  const executableLot = finalCap != null ? Math.min(Number(finalCap), 0.01) : null;
+  const rawLot = merged.raw_lot ?? merged.calculated_lot ?? merged.kelly_suggested_lot ?? d?.lot_size;
   return (
     <Panel title="AI DECISION OBJECT" right="LATEST BACKEND DECISION">
       {empty || !d ? (
@@ -336,7 +384,9 @@ function Decision() {
             <KV k="Signal" v={d.signal ?? "—"} accent="profit" />
             <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
             <KV k="Risk Status" v={d.risk_status ?? "—"} />
-            <KV k="Lot" v={d.lot_size ?? "—"} />
+            <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : "—"} />
+            <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
+            <KV k="Max Lot Cap" v="0.0100" />
             <KV k="Entry" v={d.entry ?? "—"} />
             <KV k="SL" v={d.sl ?? "—"} accent="loss" />
             <KV k="TP" v={d.tp ?? "—"} accent="profit" />
@@ -346,6 +396,7 @@ function Decision() {
             <div className="pixel text-[20px]">{d.decision ?? "—"}</div>
             <div className="text-[10px] mt-1 opacity-80"><b>REASON:</b> {d.reason ?? "—"}</div>
             <div className="text-[10px] opacity-80"><b>BLOCKED:</b> {d.blocked_reason ?? "None"}</div>
+            <div className="text-[10px] opacity-70 mt-1 italic">⚠ Raw Lot is theoretical only. Executable Lot = backend final_capped_lot (≤ 0.01).</div>
           </div>
         </>
       )}
@@ -445,7 +496,7 @@ function SelfLearn() {
   const { rows, empty } = useLiveTable<any>("nightly_reports", { orderBy: "report_date", ascending: false, limit: 1 });
   const r = rows[0];
   const p = (r?.payload ?? r?.raw_payload ?? {}) as Record<string, any>;
-  const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
+                const u = (v: any) => (v == null || v === "" ? "WAITING FOR NIGHTLY REPORT" : v);
   return (
     <Panel title="SELF-LEARNING NIGHTLY LOOP" right="03:00 UTC">
       {empty || !r ? (
@@ -498,7 +549,7 @@ function Telegram() {
             {r ? (
               (() => {
                 const p = (r.payload ?? r.raw_payload ?? {}) as Record<string, any>;
-                const u = (v: any) => (v == null || v === "" ? "UNKNOWN" : v);
+                const u = (v: any) => (v == null || v === "" ? "WAITING FOR NIGHTLY REPORT" : v);
                 return (
                   <>
                     <KV k="Trades" v={u(r.trades_reviewed)} />
@@ -512,7 +563,7 @@ function Telegram() {
                     <KV k="Big Setup Grades" v={
                       p.big_setup_grade_summary && typeof p.big_setup_grade_summary === "object"
                         ? Object.entries(p.big_setup_grade_summary).map(([g, n]) => `${g}:${n}`).join(" ")
-                        : "UNKNOWN"
+                        : "WAITING FOR NIGHTLY REPORT"
                     } />
                     <div className="text-[10px] mt-1 opacity-80 italic">▶ {u(r.suggestion ?? p.suggestion)}</div>
                   </>

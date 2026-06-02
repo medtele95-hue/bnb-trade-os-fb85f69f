@@ -257,8 +257,8 @@ const GATE_KEYS: Array<{ label: string; keys: string[]; truthy?: any[] }> = [
   { label: "Safety Guard PASS", keys: ["safety_guard_status"] },
   { label: "MTFA not FAIL", keys: ["mtfa_status"], truthy: ["PASS", "OK", "NEUTRAL", "CAUTION"] },
   { label: "SMC PASS", keys: ["smc_confluence_status", "smc_status"] },
-  { label: "M15 confirmation", keys: ["m15_confirmation", "m15_confirmation_pass"] },
-  { label: "M1 confirmation", keys: ["m1_confirmation", "m1_confirmation_pass"] },
+  { label: "M15 confirmation", keys: ["m15_confirmation", "m15_confirmation_pass", "m15_entry_confirmation"] },
+  { label: "M1 confirmation", keys: ["m1_confirmation", "m1_confirmation_pass", "m1_entry_confirmation", "m1_trigger_status"] },
   { label: "Big Setup grade ≥ B", keys: ["big_setup_grade"], truthy: ["A+", "A", "B"] },
   { label: "Strategy allowed for entry", keys: ["gate_strategy_allowed", "strategy_entry_allowed"] },
 ];
@@ -267,6 +267,7 @@ export function DemoGateChecklist() {
   const { rows } = useLiveTable<any>("ai_decisions", { limit: 1 });
   const d = rows[0];
   const rp = getRP(d);
+  const gateStatuses = (rp.gate_statuses ?? {}) as Record<string, any>;
   return (
     <Panel title="DEMO GATE CHECKLIST" right={d ? `${d.symbol ?? ""} ${d.timeframe ?? ""}` : "—"}>
       {!d ? <Waiting label="WAITING FOR LATEST SIGNAL" /> : (
@@ -274,8 +275,8 @@ export function DemoGateChecklist() {
           {GATE_KEYS.map((g) => {
             let val: any = undefined;
             for (const k of g.keys) {
-              const v = rp[k] ?? d[k];
-              if (v != null) { val = v; break; }
+              const v = rp[k] ?? gateStatuses[k] ?? d[k];
+              if (v != null && v !== "") { val = v; break; }
             }
             let res: GateResult;
             if (val == null) res = "UNKNOWN";
@@ -363,15 +364,17 @@ export function useBackendTime() {
   const { rows: bsRows } = useLiveTable<any>("bot_status", { orderBy: "updated_at", ascending: false, limit: 5 });
   const dRP = getRP(decRows[0]);
   const bsRP = getRP(bsRows[0]);
-  // dashboard_status ALWAYS wins.
-  const sources = [ds, dRP, bsRP, bsRows[0] ?? {}];
+  const dGate = (dRP.gate_statuses ?? {}) as Record<string, any>;
+  const dsGate = ((ds as any).gate_statuses ?? {}) as Record<string, any>;
+  const bsGate = (bsRP.gate_statuses ?? {}) as Record<string, any>;
+  // dashboard_status ALWAYS wins, then gate_statuses, then bot_status row.
+  const sources = [ds, dsGate, dRP, dGate, bsRP, bsGate, bsRows[0] ?? {}];
   const pickStr = (k: string) => {
     const v = getField(sources, k);
     return v == null || v === "" ? null : String(v);
   };
   const trim = (v: string | null) => {
     if (!v) return null;
-    // accept "HH:mm:ss", ISO, or "HH:mm"
     const m = v.match(/\d{2}:\d{2}(:\d{2})?/);
     return m ? m[0] : v;
   };
@@ -379,9 +382,9 @@ export function useBackendTime() {
     utc: trim(pickStr("utc_time")),
     casa: trim(pickStr("casablanca_time")),
     broker: trim(pickStr("broker_time_estimate") ?? pickStr("broker_time")),
-    session: pickStr("session") ?? pickStr("session_name"),
-    gate_status: pickStr("time_gate_status"),
-    gate_reason: pickStr("time_gate_reason"),
+    session: pickStr("session") ?? pickStr("session_name") ?? pickStr("current_session"),
+    gate_status: pickStr("time_gate_status") ?? pickStr("gate_time"),
+    gate_reason: pickStr("time_gate_reason") ?? pickStr("gate_time_reason"),
     broker_utc_offset: pickStr("broker_utc_offset") ?? pickStr("broker_utc_offset_hours"),
     market_open: pickStr("market_open"),
     is_weekend: pickStr("is_weekend") ?? pickStr("safety_guard_is_weekend"),
@@ -429,8 +432,8 @@ export function SmcMtfaPanel() {
           <KV k="H4 Bias" v={String(u(rp.h4_bias ?? rp.smc_h4_direction))} />
           <KV k="H4 Zone" v={String(u(rp.h4_zone))} />
           <KV k="H1 Trend" v={String(u(rp.h1_trend))} />
-          <KV k="M15 Confirmation" v={String(u(rp.m15_confirmation))} />
-          <KV k="M1 Confirmation" v={String(u(rp.m1_confirmation))} />
+          <KV k="M15 Confirmation" v={String(u(rp.m15_confirmation ?? rp.m15_entry_confirmation ?? (rp.gate_statuses ?? {}).m15_confirmation))} />
+          <KV k="M1 Confirmation" v={String(u(rp.m1_confirmation ?? rp.m1_entry_confirmation ?? rp.m1_trigger_status ?? (rp.gate_statuses ?? {}).m1_entry_confirmation ?? (rp.gate_statuses ?? {}).m1_confirmation))} />
         </div>
       )}
       {d && (
@@ -716,8 +719,18 @@ const REQUIRED_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) 
   { name: "last_demo_gate_decision", source: "ai_decisions / dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.dec], "last_demo_gate_decision") ?? getField([c.ds, c.decRP], "demo_gate_decision") },
   { name: "kelly_suggested_lot", source: "kelly_risk.raw_payload", lookup: (c) => getField([c.kRP, c.k], "kelly_suggested_lot") ?? getField([c.kRP], "raw_lot") },
   { name: "final_capped_lot", source: "kelly_risk.raw_payload", lookup: (c) => getField([c.kRP, c.k], "final_capped_lot") ?? c.k?.lot_size },
-  { name: "m1_confirmation", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "m1_confirmation") },
-  { name: "m15_confirmation", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "m15_confirmation") },
+  { name: "m1_confirmation", source: "ai_decisions.raw_payload (or m1_entry_confirmation / m1_trigger_status / gate_statuses.m1_entry_confirmation)", lookup: (c) => {
+    const g = (c.decRP?.gate_statuses ?? {}) as Record<string, any>;
+    return getField([c.decRP], "m1_confirmation")
+      ?? getField([c.decRP], "m1_entry_confirmation")
+      ?? getField([c.decRP], "m1_trigger_status")
+      ?? getField([g], "m1_entry_confirmation")
+      ?? getField([g], "m1_confirmation");
+  } },
+  { name: "m15_confirmation", source: "ai_decisions.raw_payload", lookup: (c) => {
+    const g = (c.decRP?.gate_statuses ?? {}) as Record<string, any>;
+    return getField([c.decRP], "m15_confirmation") ?? getField([c.decRP], "m15_entry_confirmation") ?? getField([g], "m15_confirmation");
+  } },
   { name: "smc_confluence_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "smc_confluence_status") ?? getField([c.decRP], "smc_status") },
   { name: "mtfa_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "mtfa_status") },
   { name: "safety_guard_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "safety_guard_status") },
