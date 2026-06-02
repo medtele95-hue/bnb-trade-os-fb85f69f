@@ -719,8 +719,18 @@ const REQUIRED_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) 
   { name: "last_demo_gate_decision", source: "ai_decisions / dashboard_status", lookup: (c) => getField([c.ds, c.decRP, c.dec], "last_demo_gate_decision") ?? getField([c.ds, c.decRP], "demo_gate_decision") },
   { name: "kelly_suggested_lot", source: "kelly_risk.raw_payload", lookup: (c) => getField([c.kRP, c.k], "kelly_suggested_lot") ?? getField([c.kRP], "raw_lot") },
   { name: "final_capped_lot", source: "kelly_risk.raw_payload", lookup: (c) => getField([c.kRP, c.k], "final_capped_lot") ?? c.k?.lot_size },
-  { name: "m1_confirmation", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "m1_confirmation") },
-  { name: "m15_confirmation", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "m15_confirmation") },
+  { name: "m1_confirmation", source: "ai_decisions.raw_payload (or m1_entry_confirmation / m1_trigger_status / gate_statuses.m1_entry_confirmation)", lookup: (c) => {
+    const g = (c.decRP?.gate_statuses ?? {}) as Record<string, any>;
+    return getField([c.decRP], "m1_confirmation")
+      ?? getField([c.decRP], "m1_entry_confirmation")
+      ?? getField([c.decRP], "m1_trigger_status")
+      ?? getField([g], "m1_entry_confirmation")
+      ?? getField([g], "m1_confirmation");
+  } },
+  { name: "m15_confirmation", source: "ai_decisions.raw_payload", lookup: (c) => {
+    const g = (c.decRP?.gate_statuses ?? {}) as Record<string, any>;
+    return getField([c.decRP], "m15_confirmation") ?? getField([c.decRP], "m15_entry_confirmation") ?? getField([g], "m15_confirmation");
+  } },
   { name: "smc_confluence_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "smc_confluence_status") ?? getField([c.decRP], "smc_status") },
   { name: "mtfa_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "mtfa_status") },
   { name: "safety_guard_status", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "safety_guard_status") },
