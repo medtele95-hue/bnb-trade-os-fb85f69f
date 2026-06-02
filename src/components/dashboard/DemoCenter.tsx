@@ -3,6 +3,49 @@ import { Panel, KV } from "./Panel";
 import { Waiting } from "./Waiting";
 import { Badge, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
+import { supabase } from "@/integrations/supabase/client";
+
+const DEMO_SYMBOLS = ["GOLD#", "GOLD", "BTCUSD#", "BTCUSD", "EURUSD"];
+
+function useDemoTrades(heartbeatKey?: string) {
+  const [rows, setRows] = React.useState<any[]>([]);
+  const load = React.useCallback(async () => {
+    const { data } = await supabase
+      .from("trades" as any)
+      .select("*")
+      .eq("magic_number", 909002)
+      .order("opened_at", { ascending: false })
+      .limit(500);
+    setRows((data ?? []) as any[]);
+  }, []);
+  React.useEffect(() => {
+    load();
+    const t = setInterval(load, 5000);
+    const ch = supabase
+      .channel(`demo-trades:${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, () => load())
+      .subscribe();
+    return () => { clearInterval(t); supabase.removeChannel(ch); };
+  }, [load]);
+  React.useEffect(() => { load(); }, [heartbeatKey, load]);
+  return { rows };
+}
+
+function isClosedTrade(t: any): boolean {
+  const rp = (t?.raw_payload ?? {}) as any;
+  const result = String(t?.result ?? "").toUpperCase();
+  const rpStatus = String(rp?.status ?? "").toUpperCase();
+  return result === "CLOSED" || t?.closed_at != null || rpStatus === "CLOSED";
+}
+
+function isOpenDemo(t: any): boolean {
+  if (Number(t?.magic_number) !== 909002) return false;
+  if (String(t?.result ?? "").toUpperCase() !== "OPEN") return false;
+  if (t?.closed_at != null) return false;
+  if (String(((t?.raw_payload ?? {}) as any).status ?? "").toUpperCase() === "CLOSED") return false;
+  if (!DEMO_SYMBOLS.includes(String(t?.symbol ?? ""))) return false;
+  return true;
+}
 
 const DEMO_MAGIC = 909002;
 const DEMO_COMMENT = "HERMES_DEMO_KELLY_24H";
@@ -384,47 +427,55 @@ export function SmcMtfaPanel() {
 }
 
 // ============ TRADE JOURNAL TABS ============
-type Tab = "DEMO" | "PAPER" | "HIST_PAPER";
+type Tab = "OPEN_DEMO" | "HIST_DEMO" | "PAPER" | "HIST_PAPER";
 
 export function TradeJournalTabs() {
-  const [tab, setTab] = React.useState<Tab>("DEMO");
-  const { rows } = useLiveTable<any>("trades", { limit: 200 });
+  const [tab, setTab] = React.useState<Tab>("OPEN_DEMO");
+  const ds = useDashboardStatusPayload();
+  const heartbeat = String(ds.updated_at ?? ds.utc_time ?? ds.last_heartbeat ?? "");
+  const { rows: demoRows } = useDemoTrades(heartbeat);
+  const { rows: paperRows } = useLiveTable<any>("trades", { limit: 200 });
 
-  const filtered = React.useMemo(() => {
-    return rows.filter((t) => {
-      const rp = getRP(t);
-      const magic = t.magic_number ?? t.magic ?? rp.magic_number ?? rp.magic;
-      const mode = String(rp.mode ?? t.signal ?? "").toUpperCase();
-      const comment = String(rp.comment ?? "").toUpperCase();
-      if (tab === "DEMO") {
-        return Number(magic) === DEMO_MAGIC || mode === "DEMO" || comment.includes("DEMO_KELLY");
-      }
-      if (tab === "PAPER") {
-        const isPaper = Number(magic) === 909001 || mode === "PAPER";
-        const isOpen = !t.closed_at && (t.result == null);
-        return isPaper && isOpen;
-      }
-      // HIST_PAPER
-      const isPaper = Number(magic) === 909001 || mode === "PAPER";
-      return isPaper && (t.closed_at != null || t.result != null);
-    });
-  }, [rows, tab]);
+  const openDemo = React.useMemo(() => demoRows.filter(isOpenDemo), [demoRows]);
+  const histDemo = React.useMemo(
+    () => demoRows.filter((t) => Number(t.magic_number) === DEMO_MAGIC && isClosedTrade(t)),
+    [demoRows],
+  );
 
-  const sorted = [...filtered].sort((a, b) => {
+  const paperOpen = React.useMemo(() => paperRows.filter((t) => {
+    const rp = getRP(t);
+    const magic = t.magic_number ?? t.magic ?? rp.magic_number ?? rp.magic;
+    const mode = String(rp.mode ?? t.signal ?? "").toUpperCase();
+    const isPaper = Number(magic) === 909001 || mode === "PAPER";
+    return isPaper && !isClosedTrade(t);
+  }), [paperRows]);
+  const paperHist = React.useMemo(() => paperRows.filter((t) => {
+    const rp = getRP(t);
+    const magic = t.magic_number ?? t.magic ?? rp.magic_number ?? rp.magic;
+    const mode = String(rp.mode ?? t.signal ?? "").toUpperCase();
+    const isPaper = Number(magic) === 909001 || mode === "PAPER";
+    return isPaper && isClosedTrade(t);
+  }), [paperRows]);
+
+  const dataset = tab === "OPEN_DEMO" ? openDemo : tab === "HIST_DEMO" ? histDemo : tab === "PAPER" ? paperOpen : paperHist;
+  const sorted = [...dataset].sort((a, b) => {
     const ta = new Date(a.opened_at ?? a.created_at).getTime();
     const tb = new Date(b.opened_at ?? b.created_at).getTime();
     return tb - ta;
-  }).slice(0, 30);
+  }).slice(0, 50);
 
   const tabs: { id: Tab; label: string; count: number }[] = [
-    { id: "DEMO", label: "DEMO TRADES (909002)", count: rows.filter(t => Number(t.magic_number ?? t.magic) === DEMO_MAGIC).length },
-    { id: "PAPER", label: "PAPER TRADES (909001 OPEN)", count: rows.filter(t => Number(t.magic_number ?? t.magic) === 909001 && !t.closed_at).length },
-    { id: "HIST_PAPER", label: "HISTORICAL PAPER", count: rows.filter(t => Number(t.magic_number ?? t.magic) === 909001 && t.closed_at).length },
+    { id: "OPEN_DEMO", label: "OPEN DEMO (909002)", count: openDemo.length },
+    { id: "HIST_DEMO", label: "HISTORICAL DEMO", count: histDemo.length },
+    { id: "PAPER", label: "PAPER OPEN (909001)", count: paperOpen.length },
+    { id: "HIST_PAPER", label: "HISTORICAL PAPER", count: paperHist.length },
   ];
 
+  const emptyLabel = tab === "OPEN_DEMO" ? "No open HERMES demo trades" : `NO ${tab} TRADES`;
+
   return (
-    <Panel title="TRADE JOURNALS" right={`${sorted.length} ROWS`}>
-      <div className="flex border-b border-black mb-2">
+    <Panel title="TRADE JOURNALS" right={`${sorted.length} ROWS · AUTO 5s`}>
+      <div className="flex border-b border-black mb-2 flex-wrap">
         {tabs.map((tb) => (
           <button
             key={tb.id}
@@ -435,7 +486,7 @@ export function TradeJournalTabs() {
           </button>
         ))}
       </div>
-      {sorted.length === 0 ? <Waiting label={`NO ${tab} TRADES`} /> : (
+      {sorted.length === 0 ? <Waiting label={emptyLabel} /> : (
         <div className="overflow-x-auto">
           <table className="w-full text-[10px]">
             <thead>
@@ -451,15 +502,20 @@ export function TradeJournalTabs() {
                 const ks = rp.kelly_suggested_lot ?? rp.raw_lot;
                 const fc = rp.final_capped_lot ?? rp.demo_capped_lot ?? t.lot ?? t.lot_size;
                 const fcNum = Number(fc ?? 0);
-                const overCap = tab === "DEMO" && fcNum > DEMO_MAX_LOT;
-                const gate = rp.demo_gate_decision ?? rp.gate_status ?? UNK;
-                const status = t.closed_at ? "CLOSED" : (rp.status ?? "OPEN");
+                const isDemoTab = tab === "OPEN_DEMO" || tab === "HIST_DEMO";
+                const overCap = isDemoTab && fcNum > DEMO_MAX_LOT;
+                const gate = rp.gate_statuses?.safety_guard_status ?? rp.demo_gate_decision ?? rp.gate_status ?? t.reason ?? UNK;
+                const closed = isClosedTrade(t);
+                const status = closed ? "CLOSED" : (String(t.result ?? rp.status ?? "OPEN").toUpperCase());
+                const sym = rp.display_symbol ?? t.symbol;
+                const rr = rp.rr ?? rp.reward_risk ?? "-";
+                const closeReason = status === "CLOSED" ? (t.reason ?? rp.close_reason ?? "-") : "-";
                 return (
                   <tr key={t.id} className="border-b border-dashed border-black/40">
                     <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
                     <td className="pr-2">{t.ticket ?? "—"}</td>
-                    <td className="pr-2">{t.magic ?? t.magic_number ?? "—"}</td>
-                    <td className="pr-2">{t.symbol}</td>
+                    <td className="pr-2">{t.magic_number ?? t.magic ?? "—"}</td>
+                    <td className="pr-2">{sym}</td>
                     <td className="pr-2">{t.dir}</td>
                     <td className="pr-2 pixel">{t.entry ?? "—"}</td>
                     <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
@@ -467,12 +523,12 @@ export function TradeJournalTabs() {
                     <td className="pr-2">{t.lot ?? t.lot_size ?? "—"}</td>
                     <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
                     <td className="pr-2">{t.strategy ?? "—"}</td>
-                    <td className="pr-2">{rp.rr ?? rp.reward_risk ?? "—"}</td>
-                    <td className="pr-2">{ks != null ? Number(ks).toFixed(4) : "—"}</td>
-                    <td className={`pr-2 ${overCap ? "text-loss font-bold" : ""}`}>{fc != null ? Number(fc).toFixed(4) : "—"}</td>
+                    <td className="pr-2">{rr}</td>
+                    <td className="pr-2">{ks != null ? Number(ks).toFixed(4) : "-"}</td>
+                    <td className={`pr-2 ${overCap ? "text-loss font-bold" : ""}`}>{fc != null ? Number(fc).toFixed(4) : "-"}</td>
                     <td className="pr-2"><Badge value={String(gate)} tone={statusTone(String(gate))} /></td>
                     <td className="pr-2">{status}</td>
-                    <td className="pr-2 italic opacity-80">{t.reason ?? rp.close_reason ?? ""}</td>
+                    <td className="pr-2 italic opacity-80">{closeReason}</td>
                   </tr>
                 );
               })}
