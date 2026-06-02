@@ -441,7 +441,7 @@ export function TradeJournalTabs() {
 
   const openDemo = React.useMemo(() => demoRows.filter(isOpenDemo), [demoRows]);
   const histDemo = React.useMemo(
-    () => demoRows.filter((t) => Number(t.magic_number) === DEMO_MAGIC && isClosedTrade(t)),
+    () => demoRows.filter(isHistDemo),
     [demoRows],
   );
 
