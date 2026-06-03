@@ -508,7 +508,7 @@ export function TradeJournalTabs() {
   const emptyLabel = tab === "OPEN_DEMO" ? "No open HERMES demo trades" : `NO ${tab} TRADES`;
 
   return (
-    <Panel title="TRADE JOURNALS" right={`${sorted.length} ROWS · AUTO 5s`}>
+    <Panel title="TRADE JOURNALS" right={`${sorted.length} ROWS · REALTIME + 30s FALLBACK`}>
       <div className="flex border-b border-black mb-2 flex-wrap">
         {tabs.map((tb) => (
           <button
