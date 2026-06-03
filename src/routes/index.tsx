@@ -16,6 +16,7 @@ import {
 } from "@/components/dashboard/DemoCenter";
 import { QuantStrategyPanel, QuantProStrategyPanel, ConfirmationRibbon, QuantChartLabel, StrategyCountCard } from "@/components/dashboard/QuantStrategy";
 import { WspChartWorkspace } from "@/components/dashboard/WspIntelligence";
+import { TimeframeHierarchyPanel } from "@/components/dashboard/TimeframeHierarchy";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useState } from "react";
 
