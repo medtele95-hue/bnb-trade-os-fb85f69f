@@ -1013,6 +1013,24 @@ function ChartPrice() {
   );
 }
 
+function ChartLiveTag() {
+  const ds = useDashboardStatusPayload();
+  const rt = useRealtimeStatus();
+  const hb = ds.utc_time ?? ds.updated_at ?? ds.last_heartbeat ?? null;
+  const hbDate = hb ? new Date(String(hb).replace(" ", "T")) : null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const i = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(i);
+  }, []);
+  const ageSec = hbDate && !isNaN(hbDate.getTime()) ? Math.max(0, Math.floor((now - hbDate.getTime()) / 1000)) : null;
+  const stale = ageSec != null && ageSec > 15;
+  const offline = rt !== "CONNECTED";
+  const label = offline ? "LIVE: OFFLINE" : stale ? `LIVE · DATA STALE ${ageSec}s` : "LIVE";
+  const tone = offline ? "text-loss" : stale ? "text-orange-700" : "text-profit";
+  return <span className={`${tone} font-bold`}>{label}</span>;
+}
+
 function Dashboard() {
   return (
     <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
