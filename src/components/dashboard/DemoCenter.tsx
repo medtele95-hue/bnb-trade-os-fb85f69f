@@ -4,6 +4,7 @@ import { Waiting } from "./Waiting";
 import { Badge, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeSymbol } from "@/lib/symbol";
 
 const DEMO_SYMBOLS = ["GOLD#", "GOLD", "BTCUSD#", "BTCUSD", "EURUSD"];
 
