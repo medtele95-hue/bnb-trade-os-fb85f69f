@@ -181,23 +181,65 @@ function QuantExtras() {
   );
 }
 
+function QuantProExtras() {
+  const q = useQuantProData();
+  if (!q.has_any) {
+    return (
+      <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] italic opacity-70">
+        Waiting for Quant PRO data
+      </div>
+    );
+  }
+  const sigStr = String(q.signal ?? q.direction ?? "—").toUpperCase();
+  const tone: "green" | "orange" | "red" | "gray" = (() => {
+    if (sigStr === "CONFLICT" || sigStr === "FAIL") return "red";
+    const sc = Number(q.score);
+    if (Number.isFinite(sc) && sc >= 75 && (sigStr.includes("BUY") || sigStr.includes("SELL"))) return "green";
+    if (sigStr === "WAIT" || sigStr === "FLAT" || sigStr === "NO_EDGE") return "orange";
+    if (sigStr.includes("BUY") || sigStr.includes("SELL")) return "green";
+    return "gray";
+  })();
+  return (
+    <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] space-y-0.5">
+      <div className="flex flex-wrap gap-1">
+        <Badge value={`REGIME: ${String(q.regime ?? "—").toUpperCase()}`} tone={String(q.regime).toUpperCase() === "FLAT" ? "orange" : "green"} />
+        <Badge value={`SIG: ${sigStr}`} tone={tone} />
+      </div>
+      <KV k="Score" v={q.score != null ? `${q.score}/100` : "—"} />
+      <KV k="Grade" v={q.grade ?? "—"} />
+      <KV k="OLS t" v={q.ols_tstat != null ? Number(q.ols_tstat).toFixed(2) : "—"} />
+      <KV k="Kalman Z" v={q.kalman_z != null ? Number(q.kalman_z).toFixed(2) : "—"} />
+      <KV k="OU Half-Life" v={q.ou_half_life != null ? Number(q.ou_half_life).toFixed(2) : "—"} />
+      <KV k="Hurst" v={q.hurst != null ? Number(q.hurst).toFixed(2) : "—"} />
+      <KV k="EWMA Vol" v={q.ewma_vol != null ? Number(q.ewma_vol).toFixed(4) : "—"} />
+      {q.reason && <div className="italic opacity-80">"{String(q.reason)}"</div>}
+    </div>
+  );
+}
+
 export function StrategyModules() {
   const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 100 });
   const latest = pickLatest(rows);
 
   return (
-    <Panel title="STRATEGY MODULES" right="ACTIVE + LEGACY OBSERVER">
+    <Panel title="STRATEGY MODULES" right="7 ENTRY · 3 CONFIRMATION · 2 OBSERVER">
       {empty ? (
         <Waiting />
       ) : (
         <>
-          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Strategies</div>
-          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (7)</div>
+          <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {ACTIVE.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" />
             ))}
           </div>
-          <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Legacy Observer (Disabled for Paper Entry)</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Confirmation / Market Readers (3)</div>
+          <div className="grid grid-cols-3 gap-2">
+            {CONFIRMATION.map((name) => (
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="CONFIRMATION" />
+            ))}
+          </div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Observer Only (Disabled for Paper Entry)</div>
           <div className="grid grid-cols-2 gap-2">
             {LEGACY.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="LEGACY" />
@@ -208,3 +250,4 @@ export function StrategyModules() {
     </Panel>
   );
 }
+
