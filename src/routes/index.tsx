@@ -1048,6 +1048,10 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><TimeframeHierarchyPanel /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-6"><SmcMtfaPanel /></div>
         <div className="col-span-6"><TimeEnginePanel /></div>
       </div>
