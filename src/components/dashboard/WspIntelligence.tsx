@@ -392,6 +392,10 @@ export function WspRibbon() {
   );
   const safe = String(intel.safetyGuard ?? "").toUpperCase();
   const wspTone: Tone = safe === "SECURE" || safe === "OK" ? "green" : safe === "DANGER" ? "red" : "gray";
+  const DEMO_MAX_LOT = 0.01;
+  const rawLotVal = pickFrom(intel.raw, "raw_lot", "calculated_lot", "kelly_suggested_lot", "theoretical_lot");
+  const capRaw = intel.lot;
+  const execLotNum = capRaw != null ? Math.min(Number(capRaw), DEMO_MAX_LOT) : null;
   return (
     <div className="border border-black bg-secondary text-[10px] uppercase tracking-widest flex flex-wrap items-center py-1">
       {cell("WSP", safe || "—", wspTone)}
@@ -400,7 +404,8 @@ export function WspRibbon() {
       {cell("Z", fmtN(intel.zScore, 2))}
       {cell("RR", intel.rr ?? "—")}
       {cell("SPREAD", intel.spread ?? "—")}
-      {cell("LOT", intel.lot ?? "—")}
+      {cell("LOT", execLotNum != null ? execLotNum.toFixed(2) : "—")}
+      {cell("RAW LOT", rawLotVal != null ? Number(rawLotVal).toFixed(4) : "—")}
     </div>
   );
 }
