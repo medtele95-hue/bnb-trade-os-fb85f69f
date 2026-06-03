@@ -50,10 +50,18 @@ function unknownIf(v: any) {
   return v == null || v === "" ? "UNKNOWN" : v;
 }
 
-function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined; kind: "ACTIVE" | "LEGACY" }) {
+function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined; kind: "ACTIVE" | "CONFIRMATION" | "LEGACY" }) {
   const rp = sig?.raw_payload ?? {};
-  const statusTxt = kind === "LEGACY" ? "LEGACY_OBSERVER" : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
-  const tone = kind === "LEGACY" ? "gray" : statusTone(String(statusTxt));
+  const role = ROLES[name] ?? "OBSERVER_ONLY";
+  const defaultStatus =
+    kind === "LEGACY" ? "OBSERVER_ONLY" :
+    kind === "CONFIRMATION" ? role :
+    "ACTIVE";
+  const statusTxt = kind !== "ACTIVE"
+    ? defaultStatus
+    : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
+  const tone = kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
+
 
   const signal = unknownIf(sig?.signal);
   const conf = sig?.confidence ?? rp.confidence;
