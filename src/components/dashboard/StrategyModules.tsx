@@ -2,24 +2,38 @@ import { Panel, KV } from "./Panel";
 import { Waiting } from "./Waiting";
 import { Badge, gradeTone, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
-import { useQuantData, signalTone as quantSignalTone } from "./QuantStrategy";
+import { useQuantData, useQuantProData, signalTone as quantSignalTone } from "./QuantStrategy";
 
-const ACTIVE = ["QUANT_STATISTICAL_PULLBACK", "BREAKOUT_RETEST", "CRT_TBS_REVERSAL", "AMD_FVG_IFVG_REVERSAL", "FIB_OTE_RETEST", "EMA_PULLBACK"] as const;
+const ACTIVE = [
+  "TREND_CONTINUATION_BREAKDOWN",
+  "BREAKOUT_RETEST",
+  "CRT_TBS_REVERSAL",
+  "AMD_FVG_IFVG_REVERSAL",
+  "FIB_OTE_RETEST",
+  "QUANT_STATISTICAL_PULLBACK",
+  "QUANT_PRO_REGIME_SWITCHING",
+] as const;
+const CONFIRMATION = ["EMA_PULLBACK", "ACCELERATION_BANDS_HTF", "TOP_DOWN_MARKET_READER"] as const;
 const LEGACY = ["SECOND_ENTRY", "SCALPING_AGENT"] as const;
 
-const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "LEGACY_OBSERVER"> = {
+const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "OBSERVER_ONLY" | "MARKET_READER" | "HTF_CONFIRMATION"> = {
+  TREND_CONTINUATION_BREAKDOWN: "ENTRY_STRATEGY",
   QUANT_STATISTICAL_PULLBACK: "ENTRY_STRATEGY",
+  QUANT_PRO_REGIME_SWITCHING: "ENTRY_STRATEGY",
   BREAKOUT_RETEST: "ENTRY_STRATEGY",
   CRT_TBS_REVERSAL: "ENTRY_STRATEGY",
   AMD_FVG_IFVG_REVERSAL: "ENTRY_STRATEGY",
   FIB_OTE_RETEST: "ENTRY_STRATEGY",
   EMA_PULLBACK: "CONFIRMATION_ONLY",
-  SECOND_ENTRY: "LEGACY_OBSERVER",
-  SCALPING_AGENT: "LEGACY_OBSERVER",
+  ACCELERATION_BANDS_HTF: "HTF_CONFIRMATION",
+  TOP_DOWN_MARKET_READER: "MARKET_READER",
+  SECOND_ENTRY: "OBSERVER_ONLY",
+  SCALPING_AGENT: "OBSERVER_ONLY",
 };
 function roleTone(r: string) {
   if (r === "ENTRY_STRATEGY") return "green";
-  if (r === "CONFIRMATION_ONLY") return "yellow";
+  if (r === "CONFIRMATION_ONLY" || r === "HTF_CONFIRMATION") return "yellow";
+  if (r === "MARKET_READER") return "orange";
   return "gray";
 }
 
