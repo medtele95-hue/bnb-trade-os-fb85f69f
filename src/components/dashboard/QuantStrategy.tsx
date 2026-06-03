@@ -395,6 +395,7 @@ export function QuantStrategyPanel() {
 export function ConfirmationRibbon() {
   const ds = useDashboardStatusPayload();
   const q = useQuantData();
+  const qp = useQuantProData();
   const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
   const d = dec[0] ?? {};
   const rp = (d.raw_payload ?? {}) as any;
@@ -428,6 +429,18 @@ export function ConfirmationRibbon() {
     if (s === "AVOID") return "red" as const;
     return "gray" as const;
   })();
+  const accel = v("acceleration_bands_status", "accel_bands_status", "accel_bands");
+  const accelTone = (() => {
+    const s = String(accel ?? "").toUpperCase();
+    if (s === "PASS" || s === "CONFIRM") return "green" as const;
+    if (s === "WAIT") return "orange" as const;
+    if (s === "FAIL" || s === "CONFLICT") return "red" as const;
+    return "gray" as const;
+  })();
+
+  const qpLabel = qp.signal != null || qp.regime != null
+    ? `${String(qp.regime ?? "—").toUpperCase()} ${String(qp.signal ?? qp.direction ?? "").toUpperCase()}${qp.score != null ? ` ${qp.score}/100` : ""}`.trim()
+    : "—";
 
   return (
     <div className="border border-black bg-secondary text-[10px] uppercase tracking-widest flex flex-wrap items-center py-1">
@@ -438,6 +451,7 @@ export function ConfirmationRibbon() {
       {cell("SMC", v("smc_confluence_status", "smc"))}
       {cell("MTFA", v("mtfa_status", "mtfa"))}
       {cell("TOP-DOWN", String(topDown ?? "—").toUpperCase(), topDownTone)}
+      {cell("ACCEL BANDS", String(accel ?? "—").toUpperCase(), accelTone)}
       {cell(
         "QUANT",
         q.signal != null
@@ -445,8 +459,10 @@ export function ConfirmationRibbon() {
           : "—",
         signalTone(q.signal),
       )}
-      {cell("R²", q.r2 != null ? Number(q.r2).toFixed(2) : "—")}
-      {cell("Z", q.z != null ? `${Number(q.z) >= 0 ? "+" : ""}${Number(q.z).toFixed(2)}` : "—")}
+      {cell("QUANT PRO", qpLabel, qpSignalTone(qp.score, qp.signal ?? qp.direction))}
+      {cell("OLS t", qp.ols_tstat != null ? Number(qp.ols_tstat).toFixed(2) : "—")}
+      {cell("KZ", qp.kalman_z != null ? `${Number(qp.kalman_z) >= 0 ? "+" : ""}${Number(qp.kalman_z).toFixed(2)}` : "—")}
+      {cell("HURST", qp.hurst != null ? Number(qp.hurst).toFixed(2) : "—")}
       {cell("RR", v("rr", "reward_risk"))}
       {cell("SPREAD", v("spread"))}
       {cell("LOT", v("final_capped_lot", "demo_capped_lot", "lot_size"))}
@@ -457,25 +473,53 @@ export function ConfirmationRibbon() {
 // Floating chart label overlay (positioned via parent relative wrapper)
 export function QuantChartLabel() {
   const q = useQuantData();
-  if (!q.has_any || q.signal == null) return null;
-  const sig = String(q.signal).toUpperCase();
-  let label = "";
-  let tone: "green" | "orange" | "red" | "gray" = "gray";
-  if (sig === "CONFIRM_BUY") { label = "QUANT BUY PULLBACK ✓"; tone = "green"; }
-  else if (sig === "CONFIRM_SELL") { label = "QUANT SELL PULLBACK ✓"; tone = "green"; }
-  else if (sig === "WAIT") { label = "QUANT WAIT"; tone = "orange"; }
-  else if (sig === "NO_EDGE") { label = "QUANT NO EDGE"; tone = "orange"; }
-  else if (sig === "CONFLICT") { label = "QUANT CONFLICT ✕"; tone = "red"; }
-  else label = `QUANT ${sig}`;
+  const qp = useQuantProData();
+
+  const qpStrategyActive = String(qp.strategy ?? "").toUpperCase() === "QUANT_PRO_REGIME_SWITCHING";
+  const qpLabel = qpStrategyActive ? qpLabelFor(qp.regime, qp.signal, qp.direction) : null;
+
+  const qNode = (() => {
+    if (!q.has_any || q.signal == null) return null;
+    const sig = String(q.signal).toUpperCase();
+    let label = "";
+    let tone: "green" | "orange" | "red" | "gray" = "gray";
+    if (sig === "CONFIRM_BUY") { label = "QUANT BUY PULLBACK ✓"; tone = "green"; }
+    else if (sig === "CONFIRM_SELL") { label = "QUANT SELL PULLBACK ✓"; tone = "green"; }
+    else if (sig === "WAIT") { label = "QUANT WAIT"; tone = "orange"; }
+    else if (sig === "NO_EDGE") { label = "QUANT NO EDGE"; tone = "orange"; }
+    else if (sig === "CONFLICT") { label = "QUANT CONFLICT ✕"; tone = "red"; }
+    else label = `QUANT ${sig}`;
+    return (
+      <>
+        <Badge value={label} tone={tone} />
+        <div className="text-[9px] font-mono bg-background/90 border border-black px-1 py-px">
+          R² {q.r2 != null ? Number(q.r2).toFixed(2) : "—"}
+          {"  "}Z {q.z != null ? `${Number(q.z) >= 0 ? "+" : ""}${Number(q.z).toFixed(2)}` : "—"}
+          {"  "}Score {q.score != null ? `${q.score}/100` : "—"}
+        </div>
+      </>
+    );
+  })();
+
+  if (!qpLabel && !qNode) return null;
 
   return (
     <div className="absolute top-1 right-1 z-10 flex flex-col items-end gap-0.5 pointer-events-none">
-      <Badge value={label} tone={tone} />
-      <div className="text-[9px] font-mono bg-background/90 border border-black px-1 py-px">
-        R² {q.r2 != null ? Number(q.r2).toFixed(2) : "—"}
-        {"  "}Z {q.z != null ? `${Number(q.z) >= 0 ? "+" : ""}${Number(q.z).toFixed(2)}` : "—"}
-        {"  "}Score {q.score != null ? `${q.score}/100` : "—"}
-      </div>
+      {qpLabel && (
+        <>
+          <Badge value={qpLabel} tone={qpSignalTone(qp.score, qp.signal ?? qp.direction)} />
+          <div className="text-[9px] font-mono bg-background/90 border border-black px-1 py-px">
+            REGIME {String(qp.regime ?? "—").toUpperCase()}
+            {"  "}SCORE {qp.score != null ? `${qp.score}/100` : "—"}
+            {"  "}OLS t {qp.ols_tstat != null ? Number(qp.ols_tstat).toFixed(2) : "—"}
+            {"  "}KZ {qp.kalman_z != null ? `${Number(qp.kalman_z) >= 0 ? "+" : ""}${Number(qp.kalman_z).toFixed(2)}` : "—"}
+            {"  "}HURST {qp.hurst != null ? Number(qp.hurst).toFixed(2) : "—"}
+            {"  "}RR {qp.rr ?? "—"}
+            {"  "}LOT {qp.final_lot != null ? Number(qp.final_lot).toFixed(2) : "0.01"}
+          </div>
+        </>
+      )}
+      {qNode}
     </div>
   );
 }
