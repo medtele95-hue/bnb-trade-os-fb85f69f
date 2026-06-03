@@ -119,6 +119,8 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
         </div>
       )}
 
+      {name === "QUANT_STATISTICAL_PULLBACK" && <QuantExtras />}
+
       {skipReason && (
         <div className="mt-1 text-[10px] opacity-80"><b>SKIP:</b> {String(skipReason)}</div>
       )}
