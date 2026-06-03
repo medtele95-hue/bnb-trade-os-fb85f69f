@@ -971,7 +971,7 @@ function ChartPrice() {
   const m = rows[0];
   return (
     <div className="flex items-baseline justify-between">
-      <div className="pixel text-[36px] leading-none">{m?.price ? `$${Number(m.price).toLocaleString()}` : "—"}</div>
+      <div className="pixel text-[36px] leading-none">{m?.price ? `$${Number(m.price).toLocaleString("en-US")}` : "—"}</div>
       <div className="text-profit pixel text-[14px]">{m?.state ?? "WAITING"}</div>
     </div>
   );
