@@ -256,10 +256,10 @@ function MetricsRow() {
 
   const items = [
     { k: "Trades Today", v: tradesToday },
-    { k: "Total Trades", v: Number(totalTrades).toLocaleString() },
+    { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
     { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
     { k: "Daily PnL", v: `${dailyPnl >= 0 ? "+" : ""}$${dailyPnl.toFixed(2)}`, a: (dailyPnl >= 0 ? "profit" : "loss") as "profit" | "loss" },
-    { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString()}` },
+    { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
     { k: "Profit Factor", v: s.profit_factor ?? "—" },
     { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" as const },
     { k: "Open Pos", v: openPos },
