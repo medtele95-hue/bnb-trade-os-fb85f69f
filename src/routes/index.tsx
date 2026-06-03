@@ -15,6 +15,7 @@ import {
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
 import { QuantStrategyPanel, QuantProStrategyPanel, ConfirmationRibbon, QuantChartLabel, StrategyCountCard } from "@/components/dashboard/QuantStrategy";
+import { WspChartWorkspace } from "@/components/dashboard/WspIntelligence";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useState } from "react";
 
