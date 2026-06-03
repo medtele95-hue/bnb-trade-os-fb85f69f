@@ -458,6 +458,12 @@ function TogglesBar({ value, onChange }: { value: ToggleState; onChange: (t: Tog
 export function WspChartWorkspace({ symbol = "BTCUSD", timeframe = "M5" }: { symbol?: string; timeframe?: string }) {
   const [toggles, setToggles] = useState<ToggleState>(DEFAULT_TOGGLES);
   const intel = useWspIntel();
+  const decisionSymbol = (intel.decision?.symbol ?? intel.raw?.symbol ?? null) as string | null;
+  const openTradeSymbol = (intel.openDemo?.symbol ?? null) as string | null;
+  const autoMode = String(intel.raw?.symbol_mode ?? intel.raw?.auto_symbol_mode ?? "").toUpperCase() === "AUTO"
+    || intel.raw?.auto_symbol === true
+    || intel.raw?.symbol_selection === "AUTO";
+  const autoActive = autoMode ? (intel.raw?.active_symbol ?? intel.raw?.auto_active_symbol ?? decisionSymbol ?? "—") : null;
 
   return (
     <div className="grid grid-cols-12 gap-3">
@@ -466,6 +472,18 @@ export function WspChartWorkspace({ symbol = "BTCUSD", timeframe = "M5" }: { sym
         right={intel.allowDemo ? "DEMO ENTRY ALLOWED" : intel.topDownPresent ? "READ-ONLY · WAITING CONFIRMATION" : "READ-ONLY · WAITING TOP-DOWN"}
         className="col-span-9"
       >
+        <div className="border border-dashed border-black/40 px-2 py-1 mb-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-x-4 gap-y-0.5">
+          <span>CHART SYMBOL: <b>{symbol}</b></span>
+          <span>LATEST DECISION SYMBOL: <b>{decisionSymbol ?? "—"}</b></span>
+          <span>OPEN TRADE SYMBOL: <b>{openTradeSymbol ?? "—"}</b></span>
+          {autoMode && <span>AUTO ACTIVE SYMBOL: <b>{autoActive}</b></span>}
+          {decisionSymbol && decisionSymbol !== symbol && (
+            <span className="text-orange-700 font-bold">⚠ DECISION SYMBOL DIFFERS FROM CHART</span>
+          )}
+          {openTradeSymbol && openTradeSymbol !== symbol && (
+            <span className="text-orange-700 font-bold">⚠ OPEN TRADE SYMBOL DIFFERS FROM CHART</span>
+          )}
+        </div>
         <TogglesBar value={toggles} onChange={setToggles} />
         <WspRibbon />
         <div className="mt-1"><ConfirmationRibbon /></div>
