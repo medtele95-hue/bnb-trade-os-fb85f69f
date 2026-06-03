@@ -277,15 +277,17 @@ function MetricsRow() {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const demoPnl = closedDemo.reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const demoPnl = closedDemo
+    .filter((t: any) => isToday(t.closed_at))
+    .reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
   const wins = closedDemo.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemo.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
-  const tradesToday = isDemo ? (ds.opened_today ?? openedTodayDemo) : (s.trades_today ?? 0);
+  const tradesToday = isDemo ? openedTodayDemo : (s.trades_today ?? 0);
   const totalTrades = isDemo ? demoTrades.length : (s.total_trades ?? 0);
-  const winRate = isDemo ? (ds.demo_win_rate ?? demoWinRate ?? "—") : (s.win_rate ?? 0);
-  const dailyPnl = isDemo ? Number(ds.demo_pnl_today ?? demoPnl ?? 0) : Number(s.daily_pnl ?? 0);
+  const winRate = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
+  const dailyPnl = isDemo ? demoPnl : Number(s.daily_pnl ?? 0);
   const openPos = isDemo ? openDemo.length : (s.open_positions ?? 0);
 
   const items = [
