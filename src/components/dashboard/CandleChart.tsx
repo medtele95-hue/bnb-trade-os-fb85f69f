@@ -41,9 +41,19 @@ export function CandleChart({
         () => load(),
       )
       .subscribe();
+    const poll = window.setInterval(load, 5000);
+    const onFocus = () => load();
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       supabase.removeChannel(ch);
+      window.clearInterval(poll);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [symbol, timeframe, fetchLimit]);
 

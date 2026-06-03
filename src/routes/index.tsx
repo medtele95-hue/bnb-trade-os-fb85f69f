@@ -18,7 +18,34 @@ import { QuantStrategyPanel, QuantProStrategyPanel, ConfirmationRibbon, QuantCha
 import { WspChartWorkspace } from "@/components/dashboard/WspIntelligence";
 import { TimeframeHierarchyPanel } from "@/components/dashboard/TimeframeHierarchy";
 import { useLiveTable } from "@/hooks/useLiveTable";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+function HeartbeatIndicator() {
+  const ds = useDashboardStatusPayload();
+  const hb = ds.utc_time ?? ds.updated_at ?? ds.last_heartbeat ?? null;
+  const hbDate = hb ? new Date(String(hb).replace(" ", "T")) : null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const i = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(i);
+  }, []);
+  const ageSec = hbDate && !isNaN(hbDate.getTime()) ? Math.max(0, Math.floor((now - hbDate.getTime()) / 1000)) : null;
+  const tone =
+    ageSec == null ? "opacity-60" : ageSec > 60 ? "text-loss" : ageSec > 15 ? "text-orange-700" : "text-profit";
+  const warn = ageSec == null ? null : ageSec > 60 ? "BACKEND STALE / CHECK RDP" : ageSec > 15 ? "DATA STALE" : null;
+  return (
+    <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest">
+      <span className="opacity-70">AUTO REFRESH:</span>
+      <b>ON · every 3s</b>
+      <span className="opacity-50">|</span>
+      <span className="opacity-70">HB:</span>
+      <b>{hb ? String(hb).slice(11, 19) || String(hb) : "—"}</b>
+      <span className="opacity-50">|</span>
+      <span className={tone}>AGE: {ageSec == null ? "—" : `${ageSec}s`}</span>
+      {warn && <span className={`px-1 border ${ageSec! > 60 ? "border-loss text-loss" : "border-orange-700 text-orange-700"} font-bold`}>{warn}</span>}
+    </span>
+  );
+}
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -127,8 +154,8 @@ function Header() {
           </Link>
         ))}
         <div className="ml-auto px-3 py-1.5 flex items-center gap-4">
+          <HeartbeatIndicator />
           <StatusDot label="SUPABASE: LIVE" />
-          <StatusDot label="REALTIME: ON" />
           <span>v0.2.0 — HERMES</span>
         </div>
       </nav>
