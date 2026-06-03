@@ -762,8 +762,13 @@ const REQUIRED_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) 
     const td = (c.decRP?.top_down ?? c.decRP?.raw_payload?.top_down ?? {}) as Record<string, any>;
     return getField([td], "status") ?? getField([td], "decision") ?? getField([c.decRP], "top_down_status") ?? getField([c.decRP], "top_down_decision");
   } },
-  { name: "acceleration_bands_htf", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "acceleration_bands_status") ?? getField([c.decRP], "accel_bands_status") ?? getField([c.decRP], "acceleration_bands_htf") },
-  { name: "volume_profile", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "volume_profile") ?? getField([c.decRP], "volume_profile_status") ?? getField([c.decRP], "vol_profile") },
+];
+
+// Optional fields — backend may not emit these yet. They are surfaced as
+// "missing optional" in the Hermes Audit Panel and do NOT block readiness.
+const OPTIONAL_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) => any }> = [
+  { name: "acceleration_bands_htf", source: "ai_decisions.raw_payload (optional)", lookup: (c) => getField([c.decRP], "acceleration_bands_status") ?? getField([c.decRP], "accel_bands_status") ?? getField([c.decRP], "acceleration_bands_htf") },
+  { name: "volume_profile", source: "ai_decisions.raw_payload (optional)", lookup: (c) => getField([c.decRP], "volume_profile") ?? getField([c.decRP], "volume_profile_status") ?? getField([c.decRP], "vol_profile") },
 ];
 
 export function MissingFieldsPanel() {
@@ -787,9 +792,10 @@ export function MissingFieldsPanel() {
     return false;
   };
   const missing = REQUIRED_FIELDS.filter((f) => isMissing(f.lookup(ctx)));
+  const optionalMissing = OPTIONAL_FIELDS.filter((f) => isMissing(f.lookup(ctx)));
 
   return (
-    <Panel title="MISSING BACKEND FIELDS" right={`${missing.length} MISSING`}>
+    <Panel title="MISSING BACKEND FIELDS" right={`${missing.length} REQUIRED MISSING · ${optionalMissing.length} OPTIONAL`}>
       {missing.length === 0 ? (
         <div className="text-[11px] text-profit uppercase tracking-widest text-center py-2">✓ ALL REQUIRED FIELDS PRESENT</div>
       ) : (
@@ -809,6 +815,22 @@ export function MissingFieldsPanel() {
             ))}
           </tbody>
         </table>
+      )}
+      {optionalMissing.length > 0 && (
+        <div className="mt-2 border-t border-dashed border-black/50 pt-2">
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Missing optional fields (backend may not emit yet)</div>
+          <table className="w-full text-[10px]">
+            <tbody>
+              {optionalMissing.map((f) => (
+                <tr key={f.name} className="border-b border-dashed border-black/30">
+                  <td className="py-0.5 pr-2 font-bold">{f.name}</td>
+                  <td className="pr-2 opacity-70">{f.source}</td>
+                  <td className="pr-2"><Badge value="MISSING (OPTIONAL)" tone="orange" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Panel>
   );
