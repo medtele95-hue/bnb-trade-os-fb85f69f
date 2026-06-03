@@ -154,8 +154,8 @@ function Header() {
           </Link>
         ))}
         <div className="ml-auto px-3 py-1.5 flex items-center gap-4">
+          <HeartbeatIndicator />
           <StatusDot label="SUPABASE: LIVE" />
-          <StatusDot label="REALTIME: ON" />
           <span>v0.2.0 — HERMES</span>
         </div>
       </nav>
