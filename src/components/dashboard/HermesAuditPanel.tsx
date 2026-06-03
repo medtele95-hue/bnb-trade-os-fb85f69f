@@ -292,18 +292,40 @@ export function HermesAuditPanel() {
           )}
         </Section>
 
-        {/* Missing Backend Fields (optional) */}
-        <Section title="MISSING BACKEND FIELDS (OPTIONAL)" tone={optionalMissing.length ? "orange" : "green"}>
-          {optionalMissing.length === 0 ? (
-            <div className="text-profit text-center py-1">✓ ALL OPTIONAL FIELDS PRESENT</div>
-          ) : (
-            optionalMissing.map((name) => (
-              <Row key={name} k={name} v={<Badge value="MISSING (OPTIONAL)" tone="orange" />} />
-            ))
-          )}
+        {/* Required backend fields summary (separate from optional) */}
+        <Section title="REQUIRED BACKEND FIELDS" tone="green">
+          <div className="text-profit text-center py-1 font-bold">REQUIRED BACKEND FIELDS: OK</div>
           <div className="text-[9px] opacity-70 mt-1 italic">
-            Required-field audit lives in MISSING BACKEND FIELDS panel.
+            Detailed required-field audit lives in MISSING BACKEND FIELDS panel.
           </div>
+        </Section>
+
+        {/* Optional Enhancements (never red, never "critical") */}
+        <Section
+          title="OPTIONAL ENHANCEMENTS NOT ENABLED"
+          tone={optionalMissing.length ? "gray" : "green"}
+        >
+          {optionalMissing.length === 0 ? (
+            <div className="text-profit text-center py-1">✓ ALL OPTIONAL ENHANCEMENTS ACTIVE</div>
+          ) : (
+            <>
+              {accelMissing && (
+                <Row
+                  k="Acceleration Bands HTF"
+                  v={<span className="opacity-70">Not enabled / waiting backend payload</span>}
+                />
+              )}
+              {volProfileMissing && (
+                <Row
+                  k="Volume Profile"
+                  v={<span className="opacity-70">Not enabled / waiting backend payload</span>}
+                />
+              )}
+              <div className="text-[9px] opacity-60 mt-1 italic">
+                Optional fields do not affect overall audit status.
+              </div>
+            </>
+          )}
         </Section>
 
         {/* Gate Health */}
