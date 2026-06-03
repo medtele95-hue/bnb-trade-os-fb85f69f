@@ -64,6 +64,21 @@ export function useWspIntel() {
 
   const backendDecision = String(pickFrom(m, "decision") ?? d.decision ?? "").toUpperCase();
 
+  // Strict gate: only show DEMO ENTRY ALLOWED if there's a real open demo trade
+  // OR backend decision is exactly ALLOW_DEMO AND top-down/SMC/MTFA are not failing.
+  const _smc = String(pickFrom(m, "smc_confluence_status", "smc_status") ?? "").toUpperCase();
+  const _mtfa = String(pickFrom(m, "mtfa_status") ?? "").toUpperCase();
+  const _topDownPresent =
+    pickFrom(m, "top_down_status") != null ||
+    pickFrom(m, "top_down_decision") != null ||
+    pickFrom(m, "entry_readiness_score", "top_down_score") != null;
+  const _allowDemo =
+    !!openDemo ||
+    (backendDecision === "ALLOW_DEMO" &&
+      _topDownPresent &&
+      _smc !== "FAIL" &&
+      _mtfa !== "FAIL");
+
   return {
     raw: m,
     decision: d,
@@ -75,7 +90,8 @@ export function useWspIntel() {
     gates: gs,
     openDemo,
     backendDecision,
-    allowDemo: backendDecision === "ALLOW_DEMO" || !!openDemo,
+    allowDemo: _allowDemo,
+    topDownPresent: _topDownPresent,
     // top-level resolved fields
     h4: pickFrom(m, "h4_bias", "htf_bias", "h4_state"),
     h1: pickFrom(m, "h1_bias", "h1_state"),
