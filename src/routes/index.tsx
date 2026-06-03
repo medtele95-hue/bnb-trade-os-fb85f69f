@@ -19,6 +19,7 @@ import { WspChartWorkspace } from "@/components/dashboard/WspIntelligence";
 import { TimeframeHierarchyPanel } from "@/components/dashboard/TimeframeHierarchy";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
+import { LiveSyncDebugPanel } from "@/components/dashboard/LiveSyncDebugPanel";
 import { useEffect, useState } from "react";
 
 function HeartbeatIndicator() {
