@@ -14,7 +14,7 @@ import {
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
-import { QuantStrategyPanel, ConfirmationRibbon, QuantChartLabel } from "@/components/dashboard/QuantStrategy";
+import { QuantStrategyPanel, QuantProStrategyPanel, ConfirmationRibbon, QuantChartLabel, StrategyCountCard } from "@/components/dashboard/QuantStrategy";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useState } from "react";
 
@@ -1026,8 +1026,14 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-4"><StrategyCountCard /></div>
+        <div className="col-span-8"><QuantProStrategyPanel /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-12"><QuantStrategyPanel /></div>
       </div>
+
 
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-12"><TopDownReader /></div>

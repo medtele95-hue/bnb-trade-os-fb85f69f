@@ -2,24 +2,38 @@ import { Panel, KV } from "./Panel";
 import { Waiting } from "./Waiting";
 import { Badge, gradeTone, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
-import { useQuantData, signalTone as quantSignalTone } from "./QuantStrategy";
+import { useQuantData, useQuantProData, signalTone as quantSignalTone } from "./QuantStrategy";
 
-const ACTIVE = ["QUANT_STATISTICAL_PULLBACK", "BREAKOUT_RETEST", "CRT_TBS_REVERSAL", "AMD_FVG_IFVG_REVERSAL", "FIB_OTE_RETEST", "EMA_PULLBACK"] as const;
+const ACTIVE = [
+  "TREND_CONTINUATION_BREAKDOWN",
+  "BREAKOUT_RETEST",
+  "CRT_TBS_REVERSAL",
+  "AMD_FVG_IFVG_REVERSAL",
+  "FIB_OTE_RETEST",
+  "QUANT_STATISTICAL_PULLBACK",
+  "QUANT_PRO_REGIME_SWITCHING",
+] as const;
+const CONFIRMATION = ["EMA_PULLBACK", "ACCELERATION_BANDS_HTF", "TOP_DOWN_MARKET_READER"] as const;
 const LEGACY = ["SECOND_ENTRY", "SCALPING_AGENT"] as const;
 
-const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "LEGACY_OBSERVER"> = {
+const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "OBSERVER_ONLY" | "MARKET_READER" | "HTF_CONFIRMATION"> = {
+  TREND_CONTINUATION_BREAKDOWN: "ENTRY_STRATEGY",
   QUANT_STATISTICAL_PULLBACK: "ENTRY_STRATEGY",
+  QUANT_PRO_REGIME_SWITCHING: "ENTRY_STRATEGY",
   BREAKOUT_RETEST: "ENTRY_STRATEGY",
   CRT_TBS_REVERSAL: "ENTRY_STRATEGY",
   AMD_FVG_IFVG_REVERSAL: "ENTRY_STRATEGY",
   FIB_OTE_RETEST: "ENTRY_STRATEGY",
   EMA_PULLBACK: "CONFIRMATION_ONLY",
-  SECOND_ENTRY: "LEGACY_OBSERVER",
-  SCALPING_AGENT: "LEGACY_OBSERVER",
+  ACCELERATION_BANDS_HTF: "HTF_CONFIRMATION",
+  TOP_DOWN_MARKET_READER: "MARKET_READER",
+  SECOND_ENTRY: "OBSERVER_ONLY",
+  SCALPING_AGENT: "OBSERVER_ONLY",
 };
 function roleTone(r: string) {
   if (r === "ENTRY_STRATEGY") return "green";
-  if (r === "CONFIRMATION_ONLY") return "yellow";
+  if (r === "CONFIRMATION_ONLY" || r === "HTF_CONFIRMATION") return "yellow";
+  if (r === "MARKET_READER") return "orange";
   return "gray";
 }
 
@@ -36,10 +50,18 @@ function unknownIf(v: any) {
   return v == null || v === "" ? "UNKNOWN" : v;
 }
 
-function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined; kind: "ACTIVE" | "LEGACY" }) {
+function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined; kind: "ACTIVE" | "CONFIRMATION" | "LEGACY" }) {
   const rp = sig?.raw_payload ?? {};
-  const statusTxt = kind === "LEGACY" ? "LEGACY_OBSERVER" : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
-  const tone = kind === "LEGACY" ? "gray" : statusTone(String(statusTxt));
+  const role = ROLES[name] ?? "OBSERVER_ONLY";
+  const defaultStatus =
+    kind === "LEGACY" ? "OBSERVER_ONLY" :
+    kind === "CONFIRMATION" ? role :
+    "ACTIVE";
+  const statusTxt = kind !== "ACTIVE"
+    ? defaultStatus
+    : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
+  const tone = kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
+
 
   const signal = unknownIf(sig?.signal);
   const conf = sig?.confidence ?? rp.confidence;
@@ -51,8 +73,8 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
-  const role = ROLES[name] ?? "LEGACY_OBSERVER";
   const entryAllowed = role === "ENTRY_STRATEGY" && kind === "ACTIVE";
+
 
   return (
     <div className={`border ${kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
@@ -120,6 +142,8 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
       )}
 
       {name === "QUANT_STATISTICAL_PULLBACK" && <QuantExtras />}
+      {name === "QUANT_PRO_REGIME_SWITCHING" && <QuantProExtras />}
+
 
       {skipReason && (
         <div className="mt-1 text-[10px] opacity-80"><b>SKIP:</b> {String(skipReason)}</div>
@@ -157,23 +181,65 @@ function QuantExtras() {
   );
 }
 
+function QuantProExtras() {
+  const q = useQuantProData();
+  if (!q.has_any) {
+    return (
+      <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] italic opacity-70">
+        Waiting for Quant PRO data
+      </div>
+    );
+  }
+  const sigStr = String(q.signal ?? q.direction ?? "—").toUpperCase();
+  const tone: "green" | "orange" | "red" | "gray" = (() => {
+    if (sigStr === "CONFLICT" || sigStr === "FAIL") return "red";
+    const sc = Number(q.score);
+    if (Number.isFinite(sc) && sc >= 75 && (sigStr.includes("BUY") || sigStr.includes("SELL"))) return "green";
+    if (sigStr === "WAIT" || sigStr === "FLAT" || sigStr === "NO_EDGE") return "orange";
+    if (sigStr.includes("BUY") || sigStr.includes("SELL")) return "green";
+    return "gray";
+  })();
+  return (
+    <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] space-y-0.5">
+      <div className="flex flex-wrap gap-1">
+        <Badge value={`REGIME: ${String(q.regime ?? "—").toUpperCase()}`} tone={String(q.regime).toUpperCase() === "FLAT" ? "orange" : "green"} />
+        <Badge value={`SIG: ${sigStr}`} tone={tone} />
+      </div>
+      <KV k="Score" v={q.score != null ? `${q.score}/100` : "—"} />
+      <KV k="Grade" v={q.grade ?? "—"} />
+      <KV k="OLS t" v={q.ols_tstat != null ? Number(q.ols_tstat).toFixed(2) : "—"} />
+      <KV k="Kalman Z" v={q.kalman_z != null ? Number(q.kalman_z).toFixed(2) : "—"} />
+      <KV k="OU Half-Life" v={q.ou_half_life != null ? Number(q.ou_half_life).toFixed(2) : "—"} />
+      <KV k="Hurst" v={q.hurst != null ? Number(q.hurst).toFixed(2) : "—"} />
+      <KV k="EWMA Vol" v={q.ewma_vol != null ? Number(q.ewma_vol).toFixed(4) : "—"} />
+      {q.reason && <div className="italic opacity-80">"{String(q.reason)}"</div>}
+    </div>
+  );
+}
+
 export function StrategyModules() {
   const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 100 });
   const latest = pickLatest(rows);
 
   return (
-    <Panel title="STRATEGY MODULES" right="ACTIVE + LEGACY OBSERVER">
+    <Panel title="STRATEGY MODULES" right="7 ENTRY · 3 CONFIRMATION · 2 OBSERVER">
       {empty ? (
         <Waiting />
       ) : (
         <>
-          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Strategies</div>
-          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (7)</div>
+          <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {ACTIVE.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" />
             ))}
           </div>
-          <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Legacy Observer (Disabled for Paper Entry)</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Confirmation / Market Readers (3)</div>
+          <div className="grid grid-cols-3 gap-2">
+            {CONFIRMATION.map((name) => (
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="CONFIRMATION" />
+            ))}
+          </div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Observer Only (Disabled for Paper Entry)</div>
           <div className="grid grid-cols-2 gap-2">
             {LEGACY.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="LEGACY" />
@@ -184,3 +250,4 @@ export function StrategyModules() {
     </Panel>
   );
 }
+
