@@ -458,7 +458,7 @@ export function WspChartWorkspace({ symbol = "BTCUSD", timeframe = "M5" }: { sym
     <div className="grid grid-cols-12 gap-3">
       <Panel
         title={`${symbol} / USD · 5-MIN — WSP MAIN CHART`}
-        right={intel.allowDemo ? "DEMO ENTRY ALLOWED" : "READ-ONLY"}
+        right={intel.allowDemo ? "DEMO ENTRY ALLOWED" : intel.topDownPresent ? "READ-ONLY · WAITING CONFIRMATION" : "READ-ONLY · WAITING TOP-DOWN"}
         className="col-span-9"
       >
         <TogglesBar value={toggles} onChange={setToggles} />
