@@ -541,7 +541,9 @@ export function TradeJournalTabs() {
                 const gate = rp.gate_statuses?.safety_guard_status ?? rp.demo_gate_decision ?? rp.gate_status ?? t.reason ?? UNK;
                 const closed = isClosedTrade(t);
                 const status = closed ? "CLOSED" : (String(t.result ?? rp.status ?? "OPEN").toUpperCase());
-                const sym = rp.display_symbol ?? t.symbol;
+                const rawSym = rp.display_symbol ?? t.symbol;
+                const brokerSym = (t as any).broker_symbol ?? rp.broker_symbol ?? null;
+                const sym = normalizeSymbol(rawSym, brokerSym);
                 const rr = rp.rr ?? rp.reward_risk ?? "-";
                 const closeReason = status === "CLOSED" ? (t.reason ?? rp.close_reason ?? "-") : "-";
                 return (
