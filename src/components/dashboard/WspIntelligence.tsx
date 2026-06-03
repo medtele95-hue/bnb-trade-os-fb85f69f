@@ -307,9 +307,15 @@ function MissingConfirmationsBox({ intel }: { intel: ReturnType<typeof useWspInt
       </div>
     );
   }
+  const waitingTopDown = !intel.topDownPresent;
+  const headline = waitingTopDown
+    ? "WAITING FOR TOP-DOWN READER DATA — NO DEMO ENTRY YET"
+    : intel.backendDecision === "ENTER_ANALYSIS_ONLY"
+      ? "ANALYSIS ONLY — NO DEMO ENTRY YET"
+      : "WAITING CONFIRMATION — NO DEMO ENTRY YET";
   return (
     <div className="mt-1 border border-black bg-yellow-100 text-black px-2 py-1 text-[10px] uppercase tracking-widest">
-      <div className="font-bold">NO DEMO ENTRY YET — WAITING CONFIRMATION</div>
+      <div className="font-bold">{headline}</div>
       <div className="opacity-80 mt-0.5">
         Missing: {all.length ? all.join(", ") : "Waiting data"}
       </div>
