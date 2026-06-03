@@ -168,7 +168,7 @@ export function StrategyModules() {
       ) : (
         <>
           <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Strategies</div>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
             {ACTIVE.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" />
             ))}
