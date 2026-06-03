@@ -762,8 +762,13 @@ const REQUIRED_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) 
     const td = (c.decRP?.top_down ?? c.decRP?.raw_payload?.top_down ?? {}) as Record<string, any>;
     return getField([td], "status") ?? getField([td], "decision") ?? getField([c.decRP], "top_down_status") ?? getField([c.decRP], "top_down_decision");
   } },
-  { name: "acceleration_bands_htf", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "acceleration_bands_status") ?? getField([c.decRP], "accel_bands_status") ?? getField([c.decRP], "acceleration_bands_htf") },
-  { name: "volume_profile", source: "ai_decisions.raw_payload", lookup: (c) => getField([c.decRP], "volume_profile") ?? getField([c.decRP], "volume_profile_status") ?? getField([c.decRP], "vol_profile") },
+];
+
+// Optional fields — backend may not emit these yet. They are surfaced as
+// "missing optional" in the Hermes Audit Panel and do NOT block readiness.
+const OPTIONAL_FIELDS: Array<{ name: string; source: string; lookup: (ctx: any) => any }> = [
+  { name: "acceleration_bands_htf", source: "ai_decisions.raw_payload (optional)", lookup: (c) => getField([c.decRP], "acceleration_bands_status") ?? getField([c.decRP], "accel_bands_status") ?? getField([c.decRP], "acceleration_bands_htf") },
+  { name: "volume_profile", source: "ai_decisions.raw_payload (optional)", lookup: (c) => getField([c.decRP], "volume_profile") ?? getField([c.decRP], "volume_profile_status") ?? getField([c.decRP], "vol_profile") },
 ];
 
 export function MissingFieldsPanel() {
