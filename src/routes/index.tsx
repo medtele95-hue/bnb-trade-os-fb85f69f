@@ -190,35 +190,37 @@ function Hero() {
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedToday = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
-  const demoHistTotal = closedDemoTrades.reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
+  // Single source of truth for demo PnL = sum of closed demo trades closed TODAY
+  // (this matches DemoReport's "PnL Today").
+  const demoPnlTodayCalc = closedDemoTrades
+    .filter((t: any) => isToday(t.closed_at))
+    .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
   const wins = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
-  const demoPnlToday =
-    ds.demo_pnl_today ?? ds.pnl_today ?? ds.demo_report_pnl_today ?? null;
   const totalPnlNum = isDemo
-    ? Number(demoPnlToday ?? demoHistTotal ?? 0)
+    ? Number(demoPnlTodayCalc)
     : Number(s.total_pnl ?? 0);
   const totalPnlSource = isDemo
-    ? "Verified from HERMES demo history / MT5 sync"
+    ? "Demo PnL Today — HERMES magic 909002"
     : "Verified from MT5";
   const accountStatusLabel = isDemo
     ? "Account: DEMO VERIFIED"
     : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
 
   const winRateDisplay = isDemo
-    ? (ds.demo_win_rate ?? demoWinRate ?? ds.win_rate_today ?? s.win_rate ?? "—")
+    ? (demoWinRate ?? "—")
     : (s.win_rate ?? 0);
   const tradesTodayDisplay = isDemo
-    ? (ds.opened_today ?? ds.demo_opened_today ?? openedToday ?? s.trades_today ?? "—")
+    ? openedToday
     : (s.trades_today ?? "—");
   // Open positions MUST match Open Demo table source of truth.
   const openPosDisplay = isDemo
     ? openDemoTrades.length
     : (s.open_positions ?? 0);
   const dailyPnlDisplay = isDemo
-    ? Number(demoPnlToday ?? demoHistTotal ?? 0)
+    ? Number(demoPnlTodayCalc)
     : Number(s.daily_pnl ?? 0);
 
   return (
@@ -275,15 +277,17 @@ function MetricsRow() {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const demoPnl = closedDemo.reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const demoPnl = closedDemo
+    .filter((t: any) => isToday(t.closed_at))
+    .reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
   const wins = closedDemo.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemo.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
-  const tradesToday = isDemo ? (ds.opened_today ?? openedTodayDemo) : (s.trades_today ?? 0);
+  const tradesToday = isDemo ? openedTodayDemo : (s.trades_today ?? 0);
   const totalTrades = isDemo ? demoTrades.length : (s.total_trades ?? 0);
-  const winRate = isDemo ? (ds.demo_win_rate ?? demoWinRate ?? "—") : (s.win_rate ?? 0);
-  const dailyPnl = isDemo ? Number(ds.demo_pnl_today ?? demoPnl ?? 0) : Number(s.daily_pnl ?? 0);
+  const winRate = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
+  const dailyPnl = isDemo ? demoPnl : Number(s.daily_pnl ?? 0);
   const openPos = isDemo ? openDemo.length : (s.open_positions ?? 0);
 
   const items = [
@@ -1009,6 +1013,24 @@ function ChartPrice() {
   );
 }
 
+function ChartLiveTag() {
+  const ds = useDashboardStatusPayload();
+  const rt = useRealtimeStatus();
+  const hb = ds.utc_time ?? ds.updated_at ?? ds.last_heartbeat ?? null;
+  const hbDate = hb ? new Date(String(hb).replace(" ", "T")) : null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const i = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(i);
+  }, []);
+  const ageSec = hbDate && !isNaN(hbDate.getTime()) ? Math.max(0, Math.floor((now - hbDate.getTime()) / 1000)) : null;
+  const stale = ageSec != null && ageSec > 15;
+  const offline = rt !== "CONNECTED";
+  const label = offline ? "LIVE: OFFLINE" : stale ? `LIVE · DATA STALE ${ageSec}s` : "LIVE";
+  const tone = offline ? "text-loss" : stale ? "text-orange-700" : "text-profit";
+  return <span className={`${tone} font-bold`}>{label}</span>;
+}
+
 function Dashboard() {
   return (
     <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
@@ -1023,7 +1045,7 @@ function Dashboard() {
 
       <div className="grid grid-cols-12 gap-3 mt-3">
         <Hero />
-        <Panel title="BTCUSD / USD · 5-MIN" right="LIVE" className="col-span-4">
+        <Panel title="BTCUSD / USD · 5-MIN" right={<ChartLiveTag />} className="col-span-4">
           <ChartPrice />
           <div className="text-[10px] uppercase opacity-70 mt-1">Mini snapshot</div>
           <div className="mt-2">
@@ -1121,15 +1143,23 @@ function Dashboard() {
         <div className="col-span-5"><ControlPanel /></div>
       </div>
 
-      <footer className="mt-4 border-t-2 border-black pt-2 text-[10px] uppercase tracking-widest">
-        <div className="bg-foreground text-background px-3 py-2 text-center font-bold tracking-widest">
-          DASHBOARD IS READ-ONLY. EXECUTION CAN ONLY HAPPEN FROM BACKEND DEMO ROUTER AFTER ALL SAFETY GATES PASS. LIVE TRADING IS BLOCKED.
-        </div>
-        <div className="flex justify-between mt-2 opacity-80">
-          <div>HERMES TRADING TERMINAL · BUILD 0.3.0 · DEMO PILOT 24H</div>
-          <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
-        </div>
-      </footer>
+      <FooterRibbon />
     </div>
+  );
+}
+
+function FooterRibbon() {
+  const ds = useDashboardStatusPayload();
+  const hrs = Number(ds.demo_pilot_hours ?? ds.pilot_hours_total ?? ds.demo_pilot_hours_total ?? 48);
+  return (
+    <footer className="mt-4 border-t-2 border-black pt-2 text-[10px] uppercase tracking-widest">
+      <div className="bg-foreground text-background px-3 py-2 text-center font-bold tracking-widest">
+        DASHBOARD IS READ-ONLY. EXECUTION CAN ONLY HAPPEN FROM BACKEND DEMO ROUTER AFTER ALL SAFETY GATES PASS. LIVE TRADING IS BLOCKED.
+      </div>
+      <div className="flex justify-between mt-2 opacity-80">
+        <div>HERMES TRADING TERMINAL · BUILD 0.3.0 · DEMO PILOT {hrs}H</div>
+        <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
+      </div>
+    </footer>
   );
 }

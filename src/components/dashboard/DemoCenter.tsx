@@ -54,7 +54,7 @@ const DEMO_MAGIC = 909002;
 const DEMO_COMMENT = "HERMES_DEMO_KELLY_24H";
 const DEMO_MAX_LOT = 0.01;
 const DEMO_MAX_RISK_PCT = 0.25;
-const DEMO_HOURS = 24;
+const DEMO_HOURS_DEFAULT = 48;
 
 const UNK = "UNKNOWN";
 const u = (v: any) => (v == null || v === "" ? UNK : v);
@@ -136,9 +136,15 @@ export function DemoModeBanner() {
   const comment = getField(sources, "demo_comment");
   const modeRaw = getField(sources, "mode");
 
+  const pilotHoursBanner = Number(
+    getField(sources, "demo_pilot_hours") ??
+      getField(sources, "pilot_hours_total") ??
+      getField(sources, "demo_pilot_hours_total") ??
+      DEMO_HOURS_DEFAULT,
+  );
   const mode = modeRaw
     ? formatMode(modeRaw)
-    : demoPilotEnabled ? "DEMO PILOT 24H"
+    : demoPilotEnabled ? `DEMO PILOT ${pilotHoursBanner}H`
     : demoTrading ? "DEMO"
     : paperTrading ? "PAPER"
     : allowLive ? "LIVE" : UNK;
@@ -213,8 +219,14 @@ export function DemoPilotStatus() {
   const lastGateReason = getField([decRP, dec[0]], "last_demo_gate_reason") ?? getField([decRP, dec[0]], "demo_gate_reason");
   const lastDemoTicket = getField([decRP, dec[0], bsRP, bs], "last_demo_ticket");
 
+  const pilotHoursConfigured = Number(
+    getField(sources, "demo_pilot_hours") ??
+      getField(sources, "pilot_hours_total") ??
+      getField(sources, "demo_pilot_hours_total") ??
+      DEMO_HOURS_DEFAULT,
+  );
   return (
-    <Panel title="DEMO PILOT STATUS" right="24H KELLY ROUTER">
+    <Panel title="DEMO PILOT STATUS" right={`${pilotHoursConfigured}H KELLY ROUTER`}>
       <div className="grid grid-cols-2 gap-x-3">
         <KV k="demo_pilot_enabled" v={String(u(demoPilotEnabled))} />
         <KV k="demo_trading" v={String(u(demoTrading))} />
@@ -225,7 +237,7 @@ export function DemoPilotStatus() {
         <KV k="mt5_connected" v={String(u(mt5))} />
         <KV k="pilot_started_at" v={pilotStartedAt ? new Date(pilotStartedAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
         <KV k="pilot_expires_at" v={pilotExpiresAt ? new Date(pilotExpiresAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
-        <KV k="pilot_hours_remaining" v={hoursRemaining != null ? `${hoursRemaining} / ${DEMO_HOURS}h` : UNK} />
+        <KV k="pilot_hours_remaining" v={hoursRemaining != null ? `${hoursRemaining} / ${pilotHoursConfigured}h` : UNK} />
         <KV k="last_demo_gate_decision" v={String(u(lastGateDec))} />
         <KV k="last_demo_ticket" v={String(u(lastDemoTicket))} />
       </div>
@@ -586,7 +598,7 @@ export function DemoReport() {
 
   const openedToday = demo.filter(t => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = demo.filter(t => isToday(t.closed_at)).length;
-  const openNow = demo.filter(t => !t.closed_at).length;
+  const openNow = demo.filter(isOpenDemo).length;
   const pnlToday = demo.filter(t => isToday(t.closed_at)).reduce((s, t) => s + Number(t.pnl ?? 0), 0);
   const wins = demo.filter(t => Number(t.pnl ?? 0) > 0).length;
   const losses = demo.filter(t => Number(t.pnl ?? 0) < 0).length;
@@ -757,7 +769,15 @@ export function MissingFieldsPanel() {
     k: kRows[0] ?? {}, kRP: getRP(kRows[0]),
   };
 
-  const missing = REQUIRED_FIELDS.filter((f) => f.lookup(ctx) == null);
+  const isMissing = (v: any) => {
+    if (v == null) return true;
+    if (typeof v === "string") {
+      const s = v.trim().toUpperCase();
+      return s === "" || s === "UNKNOWN" || s === "WAITING" || s === "WAITING DATA" || s === "—" || s === "N/A";
+    }
+    return false;
+  };
+  const missing = REQUIRED_FIELDS.filter((f) => isMissing(f.lookup(ctx)));
 
   return (
     <Panel title="MISSING BACKEND FIELDS" right={`${missing.length} MISSING`}>

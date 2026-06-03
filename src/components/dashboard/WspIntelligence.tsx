@@ -64,6 +64,21 @@ export function useWspIntel() {
 
   const backendDecision = String(pickFrom(m, "decision") ?? d.decision ?? "").toUpperCase();
 
+  // Strict gate: only show DEMO ENTRY ALLOWED if there's a real open demo trade
+  // OR backend decision is exactly ALLOW_DEMO AND top-down/SMC/MTFA are not failing.
+  const _smc = String(pickFrom(m, "smc_confluence_status", "smc_status") ?? "").toUpperCase();
+  const _mtfa = String(pickFrom(m, "mtfa_status") ?? "").toUpperCase();
+  const _topDownPresent =
+    pickFrom(m, "top_down_status") != null ||
+    pickFrom(m, "top_down_decision") != null ||
+    pickFrom(m, "entry_readiness_score", "top_down_score") != null;
+  const _allowDemo =
+    !!openDemo ||
+    (backendDecision === "ALLOW_DEMO" &&
+      _topDownPresent &&
+      _smc !== "FAIL" &&
+      _mtfa !== "FAIL");
+
   return {
     raw: m,
     decision: d,
@@ -75,7 +90,8 @@ export function useWspIntel() {
     gates: gs,
     openDemo,
     backendDecision,
-    allowDemo: backendDecision === "ALLOW_DEMO" || !!openDemo,
+    allowDemo: _allowDemo,
+    topDownPresent: _topDownPresent,
     // top-level resolved fields
     h4: pickFrom(m, "h4_bias", "htf_bias", "h4_state"),
     h1: pickFrom(m, "h1_bias", "h1_state"),
@@ -291,9 +307,15 @@ function MissingConfirmationsBox({ intel }: { intel: ReturnType<typeof useWspInt
       </div>
     );
   }
+  const waitingTopDown = !intel.topDownPresent;
+  const headline = waitingTopDown
+    ? "WAITING FOR TOP-DOWN READER DATA — NO DEMO ENTRY YET"
+    : intel.backendDecision === "ENTER_ANALYSIS_ONLY"
+      ? "ANALYSIS ONLY — NO DEMO ENTRY YET"
+      : "WAITING CONFIRMATION — NO DEMO ENTRY YET";
   return (
     <div className="mt-1 border border-black bg-yellow-100 text-black px-2 py-1 text-[10px] uppercase tracking-widest">
-      <div className="font-bold">NO DEMO ENTRY YET — WAITING CONFIRMATION</div>
+      <div className="font-bold">{headline}</div>
       <div className="opacity-80 mt-0.5">
         Missing: {all.length ? all.join(", ") : "Waiting data"}
       </div>
@@ -370,6 +392,10 @@ export function WspRibbon() {
   );
   const safe = String(intel.safetyGuard ?? "").toUpperCase();
   const wspTone: Tone = safe === "SECURE" || safe === "OK" ? "green" : safe === "DANGER" ? "red" : "gray";
+  const DEMO_MAX_LOT = 0.01;
+  const rawLotVal = pickFrom(intel.raw, "raw_lot", "calculated_lot", "kelly_suggested_lot", "theoretical_lot");
+  const capRaw = intel.lot;
+  const execLotNum = capRaw != null ? Math.min(Number(capRaw), DEMO_MAX_LOT) : null;
   return (
     <div className="border border-black bg-secondary text-[10px] uppercase tracking-widest flex flex-wrap items-center py-1">
       {cell("WSP", safe || "—", wspTone)}
@@ -378,7 +404,8 @@ export function WspRibbon() {
       {cell("Z", fmtN(intel.zScore, 2))}
       {cell("RR", intel.rr ?? "—")}
       {cell("SPREAD", intel.spread ?? "—")}
-      {cell("LOT", intel.lot ?? "—")}
+      {cell("LOT", execLotNum != null ? execLotNum.toFixed(2) : "—")}
+      {cell("RAW LOT", rawLotVal != null ? Number(rawLotVal).toFixed(4) : "—")}
     </div>
   );
 }
@@ -436,7 +463,7 @@ export function WspChartWorkspace({ symbol = "BTCUSD", timeframe = "M5" }: { sym
     <div className="grid grid-cols-12 gap-3">
       <Panel
         title={`${symbol} / USD · 5-MIN — WSP MAIN CHART`}
-        right={intel.allowDemo ? "DEMO ENTRY ALLOWED" : "READ-ONLY"}
+        right={intel.allowDemo ? "DEMO ENTRY ALLOWED" : intel.topDownPresent ? "READ-ONLY · WAITING CONFIRMATION" : "READ-ONLY · WAITING TOP-DOWN"}
         className="col-span-9"
       >
         <TogglesBar value={toggles} onChange={setToggles} />
