@@ -1011,14 +1011,20 @@ function Dashboard() {
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-3"><Markov /></div>
         <div className="col-span-3"><Kelly /></div>
-        <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · EXIT" className="col-span-6">
-          <ChartPrice />
-          <div className="mt-1"><ConfirmationRibbon /></div>
-          <div className="relative mt-1">
-            <QuantChartLabel />
-            <CandleChart variant="main" />
-          </div>
-        </Panel>
+        <div className="col-span-6">
+          <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · EXIT">
+            <ChartPrice />
+            <div className="mt-1"><ConfirmationRibbon /></div>
+            <div className="relative mt-1">
+              <QuantChartLabel />
+              <CandleChart variant="main" />
+            </div>
+          </Panel>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <WspChartWorkspace />
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
