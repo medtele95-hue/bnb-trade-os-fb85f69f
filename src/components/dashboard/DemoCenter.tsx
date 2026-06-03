@@ -769,7 +769,15 @@ export function MissingFieldsPanel() {
     k: kRows[0] ?? {}, kRP: getRP(kRows[0]),
   };
 
-  const missing = REQUIRED_FIELDS.filter((f) => f.lookup(ctx) == null);
+  const isMissing = (v: any) => {
+    if (v == null) return true;
+    if (typeof v === "string") {
+      const s = v.trim().toUpperCase();
+      return s === "" || s === "UNKNOWN" || s === "WAITING" || s === "WAITING DATA" || s === "—" || s === "N/A";
+    }
+    return false;
+  };
+  const missing = REQUIRED_FIELDS.filter((f) => isMissing(f.lookup(ctx)));
 
   return (
     <Panel title="MISSING BACKEND FIELDS" right={`${missing.length} MISSING`}>
