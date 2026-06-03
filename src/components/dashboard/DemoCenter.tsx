@@ -54,7 +54,7 @@ const DEMO_MAGIC = 909002;
 const DEMO_COMMENT = "HERMES_DEMO_KELLY_24H";
 const DEMO_MAX_LOT = 0.01;
 const DEMO_MAX_RISK_PCT = 0.25;
-const DEMO_HOURS = 24;
+const DEMO_HOURS_DEFAULT = 48;
 
 const UNK = "UNKNOWN";
 const u = (v: any) => (v == null || v === "" ? UNK : v);
