@@ -18,10 +18,12 @@ import { QuantStrategyPanel, QuantProStrategyPanel, ConfirmationRibbon, QuantCha
 import { WspChartWorkspace } from "@/components/dashboard/WspIntelligence";
 import { TimeframeHierarchyPanel } from "@/components/dashboard/TimeframeHierarchy";
 import { useLiveTable } from "@/hooks/useLiveTable";
+import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import { useEffect, useState } from "react";
 
 function HeartbeatIndicator() {
   const ds = useDashboardStatusPayload();
+  const rt = useRealtimeStatus();
   const hb = ds.utc_time ?? ds.updated_at ?? ds.last_heartbeat ?? null;
   const hbDate = hb ? new Date(String(hb).replace(" ", "T")) : null;
   const [now, setNow] = useState(() => Date.now());
@@ -33,10 +35,11 @@ function HeartbeatIndicator() {
   const tone =
     ageSec == null ? "opacity-60" : ageSec > 60 ? "text-loss" : ageSec > 15 ? "text-orange-700" : "text-profit";
   const warn = ageSec == null ? null : ageSec > 60 ? "BACKEND STALE / CHECK RDP" : ageSec > 15 ? "DATA STALE" : null;
+  const rtTone = rt === "CONNECTED" ? "text-profit" : rt === "RECONNECTING" ? "text-orange-700" : "text-loss";
+  const rtLabel = rt === "CONNECTED" ? "LIVE: CONNECTED" : rt === "RECONNECTING" ? "LIVE: RECONNECTING" : "LIVE: OFFLINE — FALLBACK POLLING";
   return (
-    <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest">
-      <span className="opacity-70">AUTO REFRESH:</span>
-      <b>ON · every 3s</b>
+    <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest flex-wrap">
+      <span className={`${rtTone} font-bold`}>{rtLabel}</span>
       <span className="opacity-50">|</span>
       <span className="opacity-70">HB:</span>
       <b>{hb ? String(hb).slice(11, 19) || String(hb) : "—"}</b>

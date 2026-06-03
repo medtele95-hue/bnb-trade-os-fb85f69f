@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { reportChannelStatus, clearChannelStatus } from "./useRealtimeStatus";
 
 type Options = {
   orderBy?: string;
@@ -9,20 +10,21 @@ type Options = {
   pollMs?: number;
 };
 
+// Light fallback polling only — realtime is primary.
 const DEFAULT_POLL_BY_TABLE: Record<string, number> = {
-  bot_status: 3000,
-  ai_decisions: 3000,
-  trades: 3000,
-  bot_logs: 5000,
-  market_candles: 5000,
-  account_snapshots: 5000,
-  markov_predictions: 5000,
-  kelly_risk: 5000,
-  strategy_signals: 5000,
-  market_states: 5000,
-  execution_events: 5000,
-  hermes_agents: 5000,
-  nightly_reports: 10000,
+  bot_status: 30000,
+  ai_decisions: 30000,
+  trades: 30000,
+  bot_logs: 30000,
+  market_candles: 30000,
+  account_snapshots: 30000,
+  execution_events: 30000,
+  markov_predictions: 60000,
+  kelly_risk: 60000,
+  strategy_signals: 60000,
+  market_states: 60000,
+  hermes_agents: 60000,
+  nightly_reports: 120000,
 };
 
 const DEV = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV;
@@ -35,6 +37,7 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
 
   useEffect(() => {
     let cancelled = false;
+    const channelKey = `live:${table}:${filter?.column ?? ""}:${filter?.value ?? ""}:${Math.random().toString(36).slice(2)}`;
 
     const load = async () => {
       let q = supabase.from(table as any).select("*").order(orderBy, { ascending }).limit(limit);
@@ -43,7 +46,8 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
       if (cancelled) return;
       if (error) {
         setError(error.message);
-        setRows([]);
+        // keep previous rows to avoid UI flicker; only set [] if first load
+        setRows((prev) => prev ?? []);
       } else {
         setRows((data ?? []) as T[]);
         if (DEV) console.debug(`[live:${table}] refetch ok (${(data ?? []).length})`);
@@ -54,7 +58,7 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
     load();
 
     const channel = supabase
-      .channel(`live:${table}:${Math.random().toString(36).slice(2)}`)
+      .channel(channelKey)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table },
@@ -63,17 +67,19 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
           load();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (DEV) console.debug(`[live:${table}] channel status: ${status}`);
+        if (status === "SUBSCRIBED") reportChannelStatus(channelKey, "CONNECTED");
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reportChannelStatus(channelKey, "RECONNECTING");
+        else if (status === "CLOSED") reportChannelStatus(channelKey, "OFFLINE");
+      });
 
-    // Polling fallback
-    const interval = pollMs ?? DEFAULT_POLL_BY_TABLE[table] ?? 5000;
+    // Light fallback polling
+    const interval = pollMs ?? DEFAULT_POLL_BY_TABLE[table] ?? 30000;
     const poll = window.setInterval(load, interval);
 
-    // Window focus / online refetch
     const onFocus = () => load();
-    const onVisible = () => {
-      if (document.visibilityState === "visible") load();
-    };
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
     window.addEventListener("focus", onFocus);
     window.addEventListener("online", onFocus);
     document.addEventListener("visibilitychange", onVisible);
@@ -81,6 +87,7 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+      clearChannelStatus(channelKey);
       window.clearInterval(poll);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", onFocus);
