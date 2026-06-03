@@ -2,6 +2,7 @@ import { Panel, KV } from "./Panel";
 import { Waiting } from "./Waiting";
 import { Badge, gradeTone, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
+import { useQuantData, signalTone as quantSignalTone } from "./QuantStrategy";
 
 const ACTIVE = ["QUANT_STATISTICAL_PULLBACK", "BREAKOUT_RETEST", "CRT_TBS_REVERSAL", "AMD_FVG_IFVG_REVERSAL", "FIB_OTE_RETEST", "EMA_PULLBACK"] as const;
 const LEGACY = ["SECOND_ENTRY", "SCALPING_AGENT"] as const;
