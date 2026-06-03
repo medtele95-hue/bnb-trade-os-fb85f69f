@@ -41,7 +41,7 @@ export function CandleChart({
         () => load(),
       )
       .subscribe();
-    const poll = window.setInterval(load, 5000);
+    const poll = window.setInterval(load, 30000);
     const onFocus = () => load();
     const onVisible = () => { if (document.visibilityState === "visible") load(); };
     window.addEventListener("focus", onFocus);
