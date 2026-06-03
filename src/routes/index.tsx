@@ -1027,7 +1027,7 @@ function Dashboard() {
 
       <div className="grid grid-cols-12 gap-3 mt-3">
         <Hero />
-        <Panel title="BTCUSD / USD · 5-MIN" right="LIVE" className="col-span-4">
+        <Panel title="BTCUSD / USD · 5-MIN" right={<ChartLiveTag />} className="col-span-4">
           <ChartPrice />
           <div className="text-[10px] uppercase opacity-70 mt-1">Mini snapshot</div>
           <div className="mt-2">
