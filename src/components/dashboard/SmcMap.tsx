@@ -491,7 +491,12 @@ export function SmcMap() {
         {loading ? (
           <div className="p-6"><Waiting label="LOADING CANDLES" /></div>
         ) : candles.length === 0 ? (
-          <FallbackMap raw={raw} />
+          <>
+            <div className="px-2 py-1 border-b border-black bg-orange-200 text-black text-[10px] uppercase tracking-widest font-bold text-center">
+              ⚠ NO LIVE CANDLES — MAP ONLY (NOT A REAL CHART)
+            </div>
+            <FallbackMap raw={raw} />
+          </>
         ) : (
           <SmcChart candles={candles} raw={raw} diagnostics={diagnostics} />
         )}
