@@ -33,9 +33,17 @@ function HeartbeatIndicator() {
     return () => window.clearInterval(i);
   }, []);
   const ageSec = hbDate && !isNaN(hbDate.getTime()) ? Math.max(0, Math.floor((now - hbDate.getTime()) / 1000)) : null;
-  const tone =
+  const ageTone =
     ageSec == null ? "opacity-60" : ageSec > 60 ? "text-loss" : ageSec > 15 ? "text-orange-700" : "text-profit";
-  const warn = ageSec == null ? null : ageSec > 60 ? "BACKEND STALE / CHECK RDP" : ageSec > 15 ? "DATA STALE" : null;
+  const backendLabel =
+    ageSec == null
+      ? "BACKEND: WAITING"
+      : ageSec > 60
+        ? "BACKEND STALE / CHECK RDP"
+        : ageSec > 15
+          ? "DATA STALE"
+          : "BACKEND LIVE";
+  // Supabase channel status — only reflects channel, NOT data freshness
   const rtTone = rt === "CONNECTED" ? "text-profit" : rt === "RECONNECTING" ? "text-orange-700" : "text-loss";
   const rtLabel =
     rt === "CONNECTED"
@@ -47,11 +55,12 @@ function HeartbeatIndicator() {
     <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest flex-wrap">
       <span className={`${rtTone} font-bold`}>{rtLabel}</span>
       <span className="opacity-50">·</span>
-      <span className={tone}>DATA AGE: {ageSec == null ? "—" : `${ageSec}s`}</span>
+      <span className={`${ageTone} font-bold`}>{backendLabel}</span>
+      <span className="opacity-50">·</span>
+      <span className={ageTone}>DATA AGE: {ageSec == null ? "—" : `${ageSec}s`}</span>
       <span className="opacity-50">|</span>
       <span className="opacity-70">HB:</span>
       <b>{hb ? String(hb).slice(11, 19) || String(hb) : "—"}</b>
-      {warn && <span className={`px-1 border ${ageSec! > 60 ? "border-loss text-loss" : "border-orange-700 text-orange-700"} font-bold`}>{warn}</span>}
     </span>
   );
 }
@@ -237,7 +246,7 @@ function Hero() {
         <div className="col-span-2 px-2 py-3">
           <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (Closed + Floating)" : "Total PnL"}</div>
           <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
-            {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {totalPnlNum >= 0 ? "+" : "-"}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           {isDemo && (
             <div className="flex gap-3 mt-1 text-[10px] uppercase tracking-widest">
