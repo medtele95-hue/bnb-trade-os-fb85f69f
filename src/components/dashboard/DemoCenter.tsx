@@ -136,9 +136,15 @@ export function DemoModeBanner() {
   const comment = getField(sources, "demo_comment");
   const modeRaw = getField(sources, "mode");
 
+  const pilotHoursBanner = Number(
+    getField(sources, "demo_pilot_hours") ??
+      getField(sources, "pilot_hours_total") ??
+      getField(sources, "demo_pilot_hours_total") ??
+      DEMO_HOURS_DEFAULT,
+  );
   const mode = modeRaw
     ? formatMode(modeRaw)
-    : demoPilotEnabled ? "DEMO PILOT 24H"
+    : demoPilotEnabled ? `DEMO PILOT ${pilotHoursBanner}H`
     : demoTrading ? "DEMO"
     : paperTrading ? "PAPER"
     : allowLive ? "LIVE" : UNK;
