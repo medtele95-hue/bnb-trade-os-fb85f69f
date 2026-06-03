@@ -465,7 +465,18 @@ export function ConfirmationRibbon() {
       {cell("HURST", qp.hurst != null ? Number(qp.hurst).toFixed(2) : "—")}
       {cell("RR", v("rr", "reward_risk"))}
       {cell("SPREAD", v("spread"))}
-      {cell("LOT", v("final_capped_lot", "demo_capped_lot", "lot_size"))}
+      {(() => {
+        const DEMO_MAX_LOT = 0.01;
+        const raw = v("raw_lot", "calculated_lot", "kelly_suggested_lot", "theoretical_lot");
+        const capRaw = v("final_capped_lot", "demo_capped_lot", "lot_size");
+        const exec = capRaw != null ? Math.min(Number(capRaw), DEMO_MAX_LOT) : null;
+        return (
+          <>
+            {cell("LOT", exec != null ? exec.toFixed(2) : "—")}
+            {cell("RAW LOT", raw != null ? Number(raw).toFixed(4) : "—")}
+          </>
+        );
+      })()}
     </div>
   );
 }
