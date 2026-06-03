@@ -1121,15 +1121,23 @@ function Dashboard() {
         <div className="col-span-5"><ControlPanel /></div>
       </div>
 
-      <footer className="mt-4 border-t-2 border-black pt-2 text-[10px] uppercase tracking-widest">
-        <div className="bg-foreground text-background px-3 py-2 text-center font-bold tracking-widest">
-          DASHBOARD IS READ-ONLY. EXECUTION CAN ONLY HAPPEN FROM BACKEND DEMO ROUTER AFTER ALL SAFETY GATES PASS. LIVE TRADING IS BLOCKED.
-        </div>
-        <div className="flex justify-between mt-2 opacity-80">
-          <div>HERMES TRADING TERMINAL · BUILD 0.3.0 · DEMO PILOT 24H</div>
-          <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
-        </div>
-      </footer>
+      <FooterRibbon />
     </div>
+  );
+}
+
+function FooterRibbon() {
+  const ds = useDashboardStatusPayload();
+  const hrs = Number(ds.demo_pilot_hours ?? ds.pilot_hours_total ?? ds.demo_pilot_hours_total ?? 48);
+  return (
+    <footer className="mt-4 border-t-2 border-black pt-2 text-[10px] uppercase tracking-widest">
+      <div className="bg-foreground text-background px-3 py-2 text-center font-bold tracking-widest">
+        DASHBOARD IS READ-ONLY. EXECUTION CAN ONLY HAPPEN FROM BACKEND DEMO ROUTER AFTER ALL SAFETY GATES PASS. LIVE TRADING IS BLOCKED.
+      </div>
+      <div className="flex justify-between mt-2 opacity-80">
+        <div>HERMES TRADING TERMINAL · BUILD 0.3.0 · DEMO PILOT {hrs}H</div>
+        <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
+      </div>
+    </footer>
   );
 }
