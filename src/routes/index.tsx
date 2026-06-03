@@ -1178,6 +1178,11 @@ function Dashboard() {
         <div className="col-span-5"><ControlPanel /></div>
       </div>
 
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><LiveSyncDebugPanel /></div>
+      </div>
+
+
       <FooterRibbon />
     </div>
   );
