@@ -598,7 +598,7 @@ export function DemoReport() {
 
   const openedToday = demo.filter(t => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = demo.filter(t => isToday(t.closed_at)).length;
-  const openNow = demo.filter(t => !t.closed_at).length;
+  const openNow = demo.filter(isOpenDemo).length;
   const pnlToday = demo.filter(t => isToday(t.closed_at)).reduce((s, t) => s + Number(t.pnl ?? 0), 0);
   const wins = demo.filter(t => Number(t.pnl ?? 0) > 0).length;
   const losses = demo.filter(t => Number(t.pnl ?? 0) < 0).length;
