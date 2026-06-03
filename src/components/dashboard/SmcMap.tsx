@@ -13,9 +13,9 @@ type Symbol = (typeof SYMBOLS)[number];
 type Timeframe = (typeof TIMEFRAMES)[number];
 
 const SYMBOL_ALIASES: Record<Symbol, string[]> = {
-  BTCUSD: ["BTCUSD", "BTCUSDT", "BTC"],
-  "GOLD#": ["GOLD#", "GOLD", "XAUUSD", "XAU"],
-  EURUSD: ["EURUSD"],
+  BTCUSD: ["BTCUSD", "BTCUSD#", "BTCUSDT", "BTC"],
+  "GOLD#": ["GOLD#", "GOLD", "XAUUSD", "XAUUSD#", "XAU"],
+  EURUSD: ["EURUSD", "EURUSD#"],
 };
 
 type Candle = {
