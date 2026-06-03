@@ -195,7 +195,7 @@ function Hero() {
         <div className="col-span-2 px-2 py-3">
           <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
           <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
-            {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
             <StatusDot label={totalPnlSource} />
