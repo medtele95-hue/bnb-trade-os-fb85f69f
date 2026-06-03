@@ -195,7 +195,7 @@ function Hero() {
         <div className="col-span-2 px-2 py-3">
           <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
           <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
-            {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
             <StatusDot label={totalPnlSource} />
@@ -256,10 +256,10 @@ function MetricsRow() {
 
   const items = [
     { k: "Trades Today", v: tradesToday },
-    { k: "Total Trades", v: Number(totalTrades).toLocaleString() },
+    { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
     { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
     { k: "Daily PnL", v: `${dailyPnl >= 0 ? "+" : ""}$${dailyPnl.toFixed(2)}`, a: (dailyPnl >= 0 ? "profit" : "loss") as "profit" | "loss" },
-    { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString()}` },
+    { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
     { k: "Profit Factor", v: s.profit_factor ?? "—" },
     { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" as const },
     { k: "Open Pos", v: openPos },
@@ -971,7 +971,7 @@ function ChartPrice() {
   const m = rows[0];
   return (
     <div className="flex items-baseline justify-between">
-      <div className="pixel text-[36px] leading-none">{m?.price ? `$${Number(m.price).toLocaleString()}` : "—"}</div>
+      <div className="pixel text-[36px] leading-none">{m?.price ? `$${Number(m.price).toLocaleString("en-US")}` : "—"}</div>
       <div className="text-profit pixel text-[14px]">{m?.state ?? "WAITING"}</div>
     </div>
   );
