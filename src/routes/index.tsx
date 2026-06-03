@@ -197,18 +197,23 @@ function Hero() {
   const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
   // Single source of truth for demo PnL = sum of closed demo trades closed TODAY
   // (this matches DemoReport's "PnL Today").
-  const demoPnlTodayCalc = closedDemoTrades
+  const closedDemoPnlToday = closedDemoTrades
     .filter((t: any) => isToday(t.closed_at))
     .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
+  // Floating PnL = sum of open demo trades' current pnl (from trades.pnl or raw_payload).
+  const floatingDemoPnl = openDemoTrades.reduce((acc: number, t: any) => {
+    const rp = (t.raw_payload ?? {}) as any;
+    const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
+    return acc + Number(p ?? 0);
+  }, 0);
+  const totalDemoPnl = closedDemoPnlToday + floatingDemoPnl;
   const wins = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
-  const totalPnlNum = isDemo
-    ? Number(demoPnlTodayCalc)
-    : Number(s.total_pnl ?? 0);
+  const totalPnlNum = isDemo ? Number(totalDemoPnl) : Number(s.total_pnl ?? 0);
   const totalPnlSource = isDemo
-    ? "Demo PnL Today — HERMES magic 909002"
+    ? "Total Demo PnL = Closed Today + Floating · magic 909002"
     : "Verified from MT5";
   const accountStatusLabel = isDemo
     ? "Account: DEMO VERIFIED"
@@ -224,18 +229,21 @@ function Hero() {
   const openPosDisplay = isDemo
     ? openDemoTrades.length
     : (s.open_positions ?? 0);
-  const dailyPnlDisplay = isDemo
-    ? Number(demoPnlTodayCalc)
-    : Number(s.daily_pnl ?? 0);
 
   return (
-    <Panel title={isDemo ? "TOTAL PNL — VERIFIED FROM HERMES DEMO" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
+    <Panel title={isDemo ? "TOTAL DEMO PNL — HERMES MAGIC 909002" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
       <div className="grid grid-cols-3 gap-3 items-center">
         <div className="col-span-2 px-2 py-3">
-          <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
+          <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (Closed + Floating)" : "Total PnL"}</div>
           <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
             {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
+          {isDemo && (
+            <div className="flex gap-3 mt-1 text-[10px] uppercase tracking-widest">
+              <span>Closed Demo PnL: <b className={closedDemoPnlToday >= 0 ? "text-profit" : "text-loss"}>{closedDemoPnlToday >= 0 ? "+" : ""}${closedDemoPnlToday.toFixed(2)}</b></span>
+              <span>Floating Demo PnL: <b className={floatingDemoPnl >= 0 ? "text-profit" : "text-loss"}>{floatingDemoPnl >= 0 ? "+" : ""}${floatingDemoPnl.toFixed(2)}</b></span>
+            </div>
+          )}
           <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
             <StatusDot label={totalPnlSource} />
             <StatusDot label={accountStatusLabel} />
@@ -248,7 +256,8 @@ function Hero() {
         </div>
         <div className="border-l border-black p-2 space-y-0.5">
           <KV k="Trades Today" v={isDemo ? `${tradesTodayDisplay} opened / ${closedToday} closed` : tradesTodayDisplay} />
-          <KV k="Daily PnL" v={`${dailyPnlDisplay >= 0 ? "+" : ""}$${dailyPnlDisplay.toFixed(2)}`} accent={dailyPnlDisplay >= 0 ? "profit" : "loss"} />
+          <KV k="Closed Demo PnL" v={`${closedDemoPnlToday >= 0 ? "+" : ""}$${closedDemoPnlToday.toFixed(2)}`} accent={closedDemoPnlToday >= 0 ? "profit" : "loss"} />
+          <KV k="Floating Demo PnL" v={`${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`} accent={floatingDemoPnl >= 0 ? "profit" : "loss"} />
           <KV k="Win Rate" v={winRateDisplay === "—" ? "—" : `${winRateDisplay}%`} />
           <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
           <KV k="Open Positions" v={openPosDisplay} />
