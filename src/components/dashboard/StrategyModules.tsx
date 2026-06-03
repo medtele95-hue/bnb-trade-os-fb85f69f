@@ -160,7 +160,6 @@ function QuantExtras() {
 export function StrategyModules() {
   const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 100 });
   const latest = pickLatest(rows);
-  const latest = pickLatest(rows);
 
   return (
     <Panel title="STRATEGY MODULES" right="ACTIVE + LEGACY OBSERVER">
