@@ -14,6 +14,7 @@ import {
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
+import { QuantStrategyPanel, ConfirmationRibbon, QuantChartLabel } from "@/components/dashboard/QuantStrategy";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useState } from "react";
 
@@ -1011,7 +1012,11 @@ function Dashboard() {
         <div className="col-span-3"><Kelly /></div>
         <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · EXIT" className="col-span-6">
           <ChartPrice />
-          <CandleChart variant="main" />
+          <div className="mt-1"><ConfirmationRibbon /></div>
+          <div className="relative mt-1">
+            <QuantChartLabel />
+            <CandleChart variant="main" />
+          </div>
         </Panel>
       </div>
 
@@ -1021,8 +1026,7 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-7"><Decision /></div>
-        <div className="col-span-5"><SafetyGuard /></div>
+        <div className="col-span-12"><QuantStrategyPanel /></div>
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">

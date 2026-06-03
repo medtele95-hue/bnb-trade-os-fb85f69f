@@ -2,11 +2,13 @@ import { Panel, KV } from "./Panel";
 import { Waiting } from "./Waiting";
 import { Badge, gradeTone, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
+import { useQuantData, signalTone as quantSignalTone } from "./QuantStrategy";
 
-const ACTIVE = ["BREAKOUT_RETEST", "CRT_TBS_REVERSAL", "AMD_FVG_IFVG_REVERSAL", "FIB_OTE_RETEST", "EMA_PULLBACK"] as const;
+const ACTIVE = ["QUANT_STATISTICAL_PULLBACK", "BREAKOUT_RETEST", "CRT_TBS_REVERSAL", "AMD_FVG_IFVG_REVERSAL", "FIB_OTE_RETEST", "EMA_PULLBACK"] as const;
 const LEGACY = ["SECOND_ENTRY", "SCALPING_AGENT"] as const;
 
 const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "LEGACY_OBSERVER"> = {
+  QUANT_STATISTICAL_PULLBACK: "ENTRY_STRATEGY",
   BREAKOUT_RETEST: "ENTRY_STRATEGY",
   CRT_TBS_REVERSAL: "ENTRY_STRATEGY",
   AMD_FVG_IFVG_REVERSAL: "ENTRY_STRATEGY",
@@ -117,6 +119,8 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
         </div>
       )}
 
+      {name === "QUANT_STATISTICAL_PULLBACK" && <QuantExtras />}
+
       {skipReason && (
         <div className="mt-1 text-[10px] opacity-80"><b>SKIP:</b> {String(skipReason)}</div>
       )}
@@ -126,6 +130,29 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
       {kind === "LEGACY" && (
         <div className="mt-1 text-[10px] uppercase opacity-80">LEGACY OBSERVER — NO PAPER ENTRIES</div>
       )}
+    </div>
+  );
+}
+
+function QuantExtras() {
+  const q = useQuantData();
+  if (!q.has_any) {
+    return (
+      <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] italic opacity-70">
+        Waiting for Quant data
+      </div>
+    );
+  }
+  return (
+    <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] space-y-0.5">
+      <div className="flex flex-wrap gap-1">
+        <Badge value={`SIG: ${String(q.signal ?? "—").toUpperCase()}`} tone={quantSignalTone(q.signal)} />
+      </div>
+      <KV k="Score" v={q.score != null ? `${q.score}/100` : "—"} />
+      <KV k="R²" v={q.r2 != null ? Number(q.r2).toFixed(2) : "—"} />
+      <KV k="Z-Score" v={q.z != null ? Number(q.z).toFixed(2) : "—"} />
+      <KV k="Slope" v={q.slope != null ? Number(q.slope).toFixed(4) : "—"} />
+      {q.reason && <div className="italic opacity-80">"{String(q.reason)}"</div>}
     </div>
   );
 }
@@ -141,7 +168,7 @@ export function StrategyModules() {
       ) : (
         <>
           <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Strategies</div>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
             {ACTIVE.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" />
             ))}

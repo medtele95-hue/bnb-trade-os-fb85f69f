@@ -512,7 +512,7 @@ export function TradeJournalTabs() {
           <table className="w-full text-[10px]">
             <thead>
               <tr className="border-b border-black text-left uppercase tracking-wider">
-                {["Time","Ticket","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Strategy","RR","Kelly Sug.","Final Cap","Gate","Status","Close Reason"].map(h => (
+                {["Time","Ticket","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Strategy","RR","Kelly Sug.","Final Cap","Quant Score","R²","Z","Gate","Status","Close Reason"].map(h => (
                   <th key={h} className="py-1 pr-2">{h}</th>
                 ))}
               </tr>
@@ -547,6 +547,9 @@ export function TradeJournalTabs() {
                     <td className="pr-2">{rr}</td>
                     <td className="pr-2">{ks != null ? Number(ks).toFixed(4) : "-"}</td>
                     <td className={`pr-2 ${overCap ? "text-loss font-bold" : ""}`}>{fc != null ? Number(fc).toFixed(4) : "-"}</td>
+                    <td className="pr-2">{rp.quant_score ?? "-"}</td>
+                    <td className="pr-2">{rp.quant_r2 != null ? Number(rp.quant_r2).toFixed(2) : "-"}</td>
+                    <td className="pr-2">{rp.quant_z_score != null ? Number(rp.quant_z_score).toFixed(2) : "-"}</td>
                     <td className="pr-2"><Badge value={String(gate)} tone={statusTone(String(gate))} /></td>
                     <td className="pr-2">{status}</td>
                     <td className="pr-2 italic opacity-80">{closeReason}</td>
