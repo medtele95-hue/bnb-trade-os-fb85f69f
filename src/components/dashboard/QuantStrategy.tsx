@@ -3,6 +3,217 @@ import { Badge } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useDashboardStatusPayload } from "./DemoCenter";
 
+// ============ QUANT PRO REGIME SWITCHING ============
+type QuantProFields = {
+  regime: any;
+  signal: any;
+  direction: any;
+  score: any;
+  grade: any;
+  ols_tstat: any;
+  kalman_z: any;
+  ou_half_life: any;
+  hurst: any;
+  ewma_vol: any;
+  reason: any;
+  rr: any;
+  final_lot: any;
+  strategy: any;
+  top_down_decision: any;
+  backend_decision: any;
+  has_any: boolean;
+};
+
+export function useQuantProData(): QuantProFields {
+  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 50 });
+  const ds = useDashboardStatusPayload();
+  const d = dec[0] ?? {};
+  const rp = (d.raw_payload ?? {}) as any;
+  const inner = (rp.raw_payload ?? {}) as any;
+  const latest = (rp.latest_decision ?? ds?.latest_decision ?? {}) as any;
+  const tradeRp = (() => {
+    for (const t of trades) {
+      const r = (t.raw_payload ?? {}) as any;
+      const ri = (r.raw_payload ?? {}) as any;
+      if (
+        r.quant_pro_score != null || ri.quant_pro_score != null ||
+        r.quant_pro_regime != null || ri.quant_pro_regime != null ||
+        String(t.strategy ?? r.strategy ?? "").toUpperCase() === "QUANT_PRO_REGIME_SWITCHING"
+      ) {
+        return { ...ri, ...r };
+      }
+    }
+    return {};
+  })();
+  const merged = { ...ds, ...tradeRp, ...inner, ...rp, ...latest } as any;
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = merged?.[k];
+      if (v !== undefined && v !== null && v !== "") return v;
+    }
+    return undefined;
+  };
+  const fields: QuantProFields = {
+    regime: pick("quant_pro_regime", "latest_quant_pro_regime"),
+    signal: pick("latest_quant_pro_signal", "quant_pro_signal"),
+    direction: pick("quant_pro_direction", "latest_quant_pro_direction"),
+    score: pick("quant_pro_score", "latest_quant_pro_score"),
+    grade: pick("quant_pro_grade"),
+    ols_tstat: pick("quant_pro_ols_tstat"),
+    kalman_z: pick("quant_pro_kalman_z"),
+    ou_half_life: pick("quant_pro_ou_half_life"),
+    hurst: pick("quant_pro_hurst"),
+    ewma_vol: pick("quant_pro_ewma_vol"),
+    reason: pick("quant_pro_reason"),
+    rr: pick("rr", "reward_risk"),
+    final_lot: pick("final_capped_lot", "demo_capped_lot", "lot_size"),
+    strategy: pick("strategy"),
+    top_down_decision: pick("top_down_decision"),
+    backend_decision: pick("decision") ?? d.decision,
+    has_any: false,
+  };
+  fields.has_any =
+    fields.regime != null || fields.signal != null || fields.score != null ||
+    fields.ols_tstat != null || fields.kalman_z != null || fields.hurst != null ||
+    String(fields.strategy ?? "").toUpperCase() === "QUANT_PRO_REGIME_SWITCHING";
+  return fields;
+}
+
+function qpSignalTone(score: any, signal: any): "green" | "orange" | "red" | "gray" {
+  const s = String(signal ?? "").toUpperCase();
+  if (s === "CONFLICT" || s === "FAIL") return "red";
+  const sc = Number(score);
+  if (Number.isFinite(sc) && sc >= 75 && (s.includes("BUY") || s.includes("SELL"))) return "green";
+  if (s === "WAIT" || s === "FLAT" || s === "NO_EDGE") return "orange";
+  if (s.includes("BUY") || s.includes("SELL")) return "green";
+  return "gray";
+}
+
+function qpLabelFor(regime: any, signal: any, direction: any): string | null {
+  const r = String(regime ?? "").toUpperCase();
+  const s = String(signal ?? "").toUpperCase();
+  const dir = String(direction ?? "").toUpperCase();
+  const isBuy = s.includes("BUY") || dir === "BUY" || dir === "LONG";
+  const isSell = s.includes("SELL") || dir === "SELL" || dir === "SHORT";
+  if (r === "FLAT" || s === "FLAT" || s === "NO_EDGE") return "QUANT PRO FLAT / NO EDGE";
+  if (r === "TREND" || r === "TREND_CONTINUATION") {
+    if (isBuy) return "QUANT PRO TREND BUY ✓";
+    if (isSell) return "QUANT PRO TREND SELL ✓";
+  }
+  if (r === "MEAN_REVERSION" || r === "MR") {
+    if (isBuy) return "QUANT PRO MR BUY ✓";
+    if (isSell) return "QUANT PRO MR SELL ✓";
+  }
+  if (isBuy) return "QUANT PRO BUY ✓";
+  if (isSell) return "QUANT PRO SELL ✓";
+  return null;
+}
+
+function fmtN(v: any, digits = 2): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  return n.toFixed(digits);
+}
+
+export function QuantProStrategyPanel() {
+  const q = useQuantProData();
+  if (!q.has_any) {
+    return (
+      <Panel title="QUANT_PRO_REGIME_SWITCHING" right="ENTRY_STRATEGY">
+        <div className="border border-dashed border-black/40 p-3 text-[11px] italic opacity-70 text-center">
+          Waiting for Quant PRO data
+        </div>
+      </Panel>
+    );
+  }
+  const tone = qpSignalTone(q.score, q.signal ?? q.direction);
+  const sigStr = String(q.signal ?? q.direction ?? "—").toUpperCase();
+  const regimeStr = String(q.regime ?? "—").toUpperCase();
+  const topDown = String(q.top_down_decision ?? "").toUpperCase();
+  const backendDec = String(q.backend_decision ?? "").toUpperCase();
+  const waitingTopDown =
+    (sigStr.includes("BUY") || sigStr.includes("SELL")) &&
+    (topDown === "WAIT_FOR_CONFIRMATION" || topDown === "AVOID") &&
+    backendDec !== "ALLOW_DEMO";
+  return (
+    <Panel title="QUANT_PRO_REGIME_SWITCHING" right="ENTRY_STRATEGY · ENTRY: ALLOWED">
+      <div className="grid grid-cols-4 gap-2">
+        <div className="border border-black p-1.5">
+          <div className="text-[9px] uppercase opacity-70">Regime</div>
+          <Badge value={regimeStr} tone={regimeStr === "FLAT" ? "orange" : "green"} />
+        </div>
+        <div className="border border-black p-1.5">
+          <div className="text-[9px] uppercase opacity-70">Signal</div>
+          <Badge value={sigStr} tone={tone} />
+        </div>
+        <div className="border border-black p-1.5">
+          <div className="text-[9px] uppercase opacity-70">Score</div>
+          <div className="pixel text-[16px]">{q.score != null ? `${q.score}/100` : "—"}</div>
+        </div>
+        <div className="border border-black p-1.5">
+          <div className="text-[9px] uppercase opacity-70">Grade</div>
+          <div className="pixel text-[16px]">{q.grade ?? "—"}</div>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-x-3">
+        <KV k="OLS t-stat" v={fmtN(q.ols_tstat, 2)} />
+        <KV k="Kalman Z" v={fmtN(q.kalman_z, 2)} />
+        <KV k="OU Half-Life" v={fmtN(q.ou_half_life, 2)} />
+        <KV k="Hurst" v={fmtN(q.hurst, 2)} />
+        <KV k="EWMA Vol" v={fmtN(q.ewma_vol, 4)} />
+        <KV k="RR" v={q.rr ?? "—"} />
+        <KV k="Final Lot" v={q.final_lot != null ? Number(q.final_lot).toFixed(4) : "—"} />
+      </div>
+      {q.reason && (
+        <div className="mt-2 text-[10px] opacity-80 italic">
+          <b>REASON:</b> "{String(q.reason)}"
+        </div>
+      )}
+      {waitingTopDown && (
+        <div className="mt-2 border border-dashed border-black/70 px-2 py-1 text-[10px] uppercase tracking-widest text-center">
+          ⚠ QUANT PRO SIGNAL FOUND — WAITING TOP-DOWN CONFIRMATION
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+// ============ STRATEGY COUNT SUMMARY ============
+export function StrategyCountCard() {
+  const ds = useDashboardStatusPayload();
+  const liveBlocked =
+    ds.live_trading_blocked === true ||
+    String(ds.live_orders_detected ?? "").toLowerCase() === "false" ||
+    ds.allow_live_trading === false;
+  return (
+    <Panel title="STRATEGY ROSTER" right="READ-ONLY">
+      <div className="grid grid-cols-3 gap-2 text-[10px]">
+        <div className="border border-black p-1.5">
+          <div className="opacity-70 uppercase">Active Entry</div>
+          <div className="pixel text-[20px]">7</div>
+        </div>
+        <div className="border border-black p-1.5">
+          <div className="opacity-70 uppercase">Confirmation</div>
+          <div className="pixel text-[20px]">3</div>
+        </div>
+        <div className="border border-black p-1.5">
+          <div className="opacity-70 uppercase">Market Readers</div>
+          <div className="pixel text-[20px]">2</div>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1">
+        <Badge value={`LIVE: ${liveBlocked ? "BLOCKED" : "—"}`} tone={liveBlocked ? "red" : "gray"} />
+        <Badge value="DEMO ONLY: TRUE" tone="green" />
+        <Badge value="MAX LOT: 0.01" tone="yellow" />
+      </div>
+    </Panel>
+  );
+}
+
+
+
 type QuantFields = {
   enabled: any;
   strategy: any;
