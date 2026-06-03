@@ -291,9 +291,15 @@ function MetricsRow() {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const demoPnl = closedDemo
+  const closedDemoPnl = closedDemo
     .filter((t: any) => isToday(t.closed_at))
     .reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const floatingDemoPnl = openDemo.reduce((a: number, t: any) => {
+    const rp = (t.raw_payload ?? {}) as any;
+    const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
+    return a + Number(p ?? 0);
+  }, 0);
+  const totalDemoPnl = closedDemoPnl + floatingDemoPnl;
   const wins = closedDemo.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemo.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
@@ -301,19 +307,33 @@ function MetricsRow() {
   const tradesToday = isDemo ? openedTodayDemo : (s.trades_today ?? 0);
   const totalTrades = isDemo ? demoTrades.length : (s.total_trades ?? 0);
   const winRate = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
-  const dailyPnl = isDemo ? demoPnl : Number(s.daily_pnl ?? 0);
   const openPos = isDemo ? openDemo.length : (s.open_positions ?? 0);
 
-  const items = [
-    { k: "Trades Today", v: tradesToday },
-    { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
-    { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
-    { k: "Daily PnL", v: `${dailyPnl >= 0 ? "+" : ""}$${dailyPnl.toFixed(2)}`, a: (dailyPnl >= 0 ? "profit" : "loss") as "profit" | "loss" },
-    { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
-    { k: "Profit Factor", v: s.profit_factor ?? "—" },
-    { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" as const },
-    { k: "Open Pos", v: openPos },
-  ];
+  const pnlCell = isDemo
+    ? { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: (totalDemoPnl >= 0 ? "profit" : "loss") as "profit" | "loss" }
+    : { k: "Daily PnL", v: `${Number(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${Number(s.daily_pnl ?? 0).toFixed(2)}`, a: (Number(s.daily_pnl ?? 0) >= 0 ? "profit" : "loss") as "profit" | "loss" };
+
+  const items: Array<{ k: string; v: any; a?: "profit" | "loss" }> = isDemo
+    ? [
+        { k: "Trades Today", v: tradesToday },
+        { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
+        { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
+        { k: "Closed Demo PnL", v: `${closedDemoPnl >= 0 ? "+" : ""}$${closedDemoPnl.toFixed(2)}`, a: closedDemoPnl >= 0 ? "profit" : "loss" },
+        { k: "Floating Demo PnL", v: `${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`, a: floatingDemoPnl >= 0 ? "profit" : "loss" },
+        { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: totalDemoPnl >= 0 ? "profit" : "loss" },
+        { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
+        { k: "Open Pos", v: openPos },
+      ]
+    : [
+        { k: "Trades Today", v: tradesToday },
+        { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
+        { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
+        pnlCell,
+        { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
+        { k: "Profit Factor", v: s.profit_factor ?? "—" },
+        { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" },
+        { k: "Open Pos", v: openPos },
+      ];
   return (
     <div className="grid grid-cols-8 gap-0 border border-black -mt-px">
       {items.map((it, i) => (
