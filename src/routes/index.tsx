@@ -14,6 +14,7 @@ import {
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
+import { QuantStrategyPanel, ConfirmationRibbon, QuantChartLabel } from "@/components/dashboard/QuantStrategy";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useState } from "react";
 
