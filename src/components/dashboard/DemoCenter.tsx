@@ -550,6 +550,12 @@ export function TradeJournalTabs() {
                     <td className="pr-2">{rp.quant_score ?? "-"}</td>
                     <td className="pr-2">{rp.quant_r2 != null ? Number(rp.quant_r2).toFixed(2) : "-"}</td>
                     <td className="pr-2">{rp.quant_z_score != null ? Number(rp.quant_z_score).toFixed(2) : "-"}</td>
+                    <td className="pr-2">{rp.quant_pro_score ?? "-"}</td>
+                    <td className="pr-2">{rp.quant_pro_regime ?? "-"}</td>
+                    <td className="pr-2">{rp.quant_pro_ols_tstat != null ? Number(rp.quant_pro_ols_tstat).toFixed(2) : "-"}</td>
+                    <td className="pr-2">{rp.quant_pro_kalman_z != null ? Number(rp.quant_pro_kalman_z).toFixed(2) : "-"}</td>
+                    <td className="pr-2">{rp.quant_pro_hurst != null ? Number(rp.quant_pro_hurst).toFixed(2) : "-"}</td>
+
                     <td className="pr-2"><Badge value={String(gate)} tone={statusTone(String(gate))} /></td>
                     <td className="pr-2">{status}</td>
                     <td className="pr-2 italic opacity-80">{closeReason}</td>
