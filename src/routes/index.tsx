@@ -404,6 +404,132 @@ function Decision() {
   );
 }
 
+function TopDownReader() {
+  const { rows } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const ds = useDashboardStatusPayload();
+  const d = rows[0];
+  const rp = ((d?.raw_payload ?? {}) as any);
+  const inner = (rp?.raw_payload ?? {}) as any;
+  const latest = (rp?.latest_decision ?? ds?.latest_decision ?? {}) as any;
+  const m = { ...ds, ...rp, ...inner, ...latest };
+
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = m?.[k];
+      if (v !== undefined && v !== null && v !== "") return v;
+    }
+    return undefined;
+  };
+
+  const status = pick("top_down_status");
+  const decision = pick("top_down_decision");
+  const score = pick("entry_readiness_score", "readiness_score");
+  const narrative = pick("market_narrative", "narrative");
+  const missingRaw = pick("missing_confirmations");
+  const breakdown = (pick("score_breakdown") ?? {}) as Record<string, any>;
+
+  const hasAny =
+    status != null || decision != null || score != null || narrative != null ||
+    missingRaw != null || Object.keys(breakdown).length > 0;
+
+  const missing: string[] = Array.isArray(missingRaw)
+    ? missingRaw.map(String)
+    : typeof missingRaw === "string"
+      ? missingRaw.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
+      : [];
+
+  const statusToneVal = (() => {
+    const v = String(status ?? "").toUpperCase();
+    if (v === "PASS") return "green" as const;
+    if (v === "WAIT") return "orange" as const;
+    if (v === "FAIL") return "red" as const;
+    return "gray" as const;
+  })();
+  const decisionToneVal = (() => {
+    const v = String(decision ?? "").toUpperCase();
+    if (v === "ALLOW_DEMO") return "green" as const;
+    if (v === "WAIT_FOR_CONFIRMATION") return "orange" as const;
+    if (v === "AVOID") return "red" as const;
+    return "gray" as const;
+  })();
+
+  const breakdownRows: Array<{ k: string; label: string }> = [
+    { k: "htf_alignment", label: "HTF Alignment" },
+    { k: "price_location", label: "Price Location" },
+    { k: "liquidity_sweep", label: "Liquidity Sweep" },
+    { k: "bos_choch", label: "BOS / CHoCH" },
+    { k: "ob_fvg", label: "OB / FVG" },
+    { k: "m15", label: "M15" },
+    { k: "m5", label: "M5" },
+    { k: "m1", label: "M1" },
+    { k: "rr", label: "RR" },
+    { k: "spread", label: "Spread" },
+  ];
+
+  const fmtBreak = (key: string) => {
+    const v =
+      breakdown?.[key] ??
+      breakdown?.[key.toUpperCase()] ??
+      breakdown?.[key.replace(/_/g, " ")] ??
+      breakdown?.[key.replace(/_/g, "-")];
+    if (v === undefined || v === null || v === "") return "—";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  };
+
+  return (
+    <Panel title="TOP-DOWN MARKET READER" right="LATEST · READ-ONLY">
+      {!hasAny ? (
+        <div className="text-[11px] italic opacity-80 p-2">Waiting for top-down reader data</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="border border-black p-1.5">
+              <div className="text-[9px] uppercase opacity-70">Status</div>
+              <Badge value={String(status ?? "—").toUpperCase()} tone={statusToneVal} />
+            </div>
+            <div className="border border-black p-1.5">
+              <div className="text-[9px] uppercase opacity-70">Decision</div>
+              <Badge value={String(decision ?? "—").toUpperCase()} tone={decisionToneVal} />
+            </div>
+            <div className="border border-black p-1.5">
+              <div className="text-[9px] uppercase opacity-70">Readiness</div>
+              <div className="pixel text-[16px]">{score != null ? `${score}/100` : "—"}</div>
+            </div>
+          </div>
+
+          <div className="mt-2 border-t border-black pt-1.5">
+            <div className="text-[9px] uppercase opacity-70">Narrative</div>
+            <div className="text-[11px] mt-0.5">
+              {narrative ? String(narrative) : <span className="italic opacity-70">Waiting for top-down reader data</span>}
+            </div>
+          </div>
+
+          <div className="mt-2 border-t border-black pt-1.5">
+            <div className="text-[9px] uppercase opacity-70 mb-1">Missing Confirmations</div>
+            {missing.length === 0 ? (
+              <div className="text-[10px] opacity-70 italic">None</div>
+            ) : (
+              <ul className="text-[10px] list-disc pl-4 space-y-0.5">
+                {missing.map((it, i) => <li key={i}>{it}</li>)}
+              </ul>
+            )}
+          </div>
+
+          <div className="mt-2 border-t border-black pt-1.5">
+            <div className="text-[9px] uppercase opacity-70 mb-1">Score Breakdown</div>
+            <div className="grid grid-cols-2 gap-x-3">
+              {breakdownRows.map((r) => (
+                <KV key={r.k} k={r.label} v={fmtBreak(r.k)} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
 function Strategies() {
   const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 8 });
   // collapse to latest per strategy
@@ -892,6 +1018,15 @@ function Dashboard() {
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-7"><Decision /></div>
         <div className="col-span-5"><SafetyGuard /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-7"><Decision /></div>
+        <div className="col-span-5"><SafetyGuard /></div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><TopDownReader /></div>
       </div>
 
       <div className="grid grid-cols-12 gap-3 mt-3">
