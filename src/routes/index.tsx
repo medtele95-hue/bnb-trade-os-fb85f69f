@@ -1170,9 +1170,10 @@ function Dashboard() {
 
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-8"><SelfLearn /></div>
-        <div className="col-span-4 row-span-2"><Telegram /></div>
-        <div className="col-span-8"><VideoAgents /></div>
+        <div className="col-span-4"><VideoAgents /></div>
       </div>
+
+      <div className="mt-3"><HermesAuditPanel /></div>
 
       <div className="mt-3"><TradeJournalTabs /></div>
 
