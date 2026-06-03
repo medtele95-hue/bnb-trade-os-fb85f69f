@@ -213,8 +213,14 @@ export function DemoPilotStatus() {
   const lastGateReason = getField([decRP, dec[0]], "last_demo_gate_reason") ?? getField([decRP, dec[0]], "demo_gate_reason");
   const lastDemoTicket = getField([decRP, dec[0], bsRP, bs], "last_demo_ticket");
 
+  const pilotHoursConfigured = Number(
+    getField(sources, "demo_pilot_hours") ??
+      getField(sources, "pilot_hours_total") ??
+      getField(sources, "demo_pilot_hours_total") ??
+      DEMO_HOURS_DEFAULT,
+  );
   return (
-    <Panel title="DEMO PILOT STATUS" right="24H KELLY ROUTER">
+    <Panel title="DEMO PILOT STATUS" right={`${pilotHoursConfigured}H KELLY ROUTER`}>
       <div className="grid grid-cols-2 gap-x-3">
         <KV k="demo_pilot_enabled" v={String(u(demoPilotEnabled))} />
         <KV k="demo_trading" v={String(u(demoTrading))} />
@@ -225,7 +231,7 @@ export function DemoPilotStatus() {
         <KV k="mt5_connected" v={String(u(mt5))} />
         <KV k="pilot_started_at" v={pilotStartedAt ? new Date(pilotStartedAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
         <KV k="pilot_expires_at" v={pilotExpiresAt ? new Date(pilotExpiresAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
-        <KV k="pilot_hours_remaining" v={hoursRemaining != null ? `${hoursRemaining} / ${DEMO_HOURS}h` : UNK} />
+        <KV k="pilot_hours_remaining" v={hoursRemaining != null ? `${hoursRemaining} / ${pilotHoursConfigured}h` : UNK} />
         <KV k="last_demo_gate_decision" v={String(u(lastGateDec))} />
         <KV k="last_demo_ticket" v={String(u(lastDemoTicket))} />
       </div>
