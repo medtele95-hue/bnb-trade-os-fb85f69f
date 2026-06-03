@@ -19,6 +19,7 @@ import { WspChartWorkspace } from "@/components/dashboard/WspIntelligence";
 import { TimeframeHierarchyPanel } from "@/components/dashboard/TimeframeHierarchy";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
+import { LiveSyncDebugPanel } from "@/components/dashboard/LiveSyncDebugPanel";
 import { useEffect, useState } from "react";
 
 function HeartbeatIndicator() {
@@ -36,15 +37,20 @@ function HeartbeatIndicator() {
     ageSec == null ? "opacity-60" : ageSec > 60 ? "text-loss" : ageSec > 15 ? "text-orange-700" : "text-profit";
   const warn = ageSec == null ? null : ageSec > 60 ? "BACKEND STALE / CHECK RDP" : ageSec > 15 ? "DATA STALE" : null;
   const rtTone = rt === "CONNECTED" ? "text-profit" : rt === "RECONNECTING" ? "text-orange-700" : "text-loss";
-  const rtLabel = rt === "CONNECTED" ? "LIVE: CONNECTED" : rt === "RECONNECTING" ? "LIVE: RECONNECTING" : "LIVE: OFFLINE — FALLBACK POLLING";
+  const rtLabel =
+    rt === "CONNECTED"
+      ? "LIVE CONNECTED"
+      : rt === "RECONNECTING"
+        ? "LIVE RECONNECTING"
+        : "LIVE OFFLINE — FALLBACK POLLING";
   return (
     <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest flex-wrap">
       <span className={`${rtTone} font-bold`}>{rtLabel}</span>
+      <span className="opacity-50">·</span>
+      <span className={tone}>DATA AGE: {ageSec == null ? "—" : `${ageSec}s`}</span>
       <span className="opacity-50">|</span>
       <span className="opacity-70">HB:</span>
       <b>{hb ? String(hb).slice(11, 19) || String(hb) : "—"}</b>
-      <span className="opacity-50">|</span>
-      <span className={tone}>AGE: {ageSec == null ? "—" : `${ageSec}s`}</span>
       {warn && <span className={`px-1 border ${ageSec! > 60 ? "border-loss text-loss" : "border-orange-700 text-orange-700"} font-bold`}>{warn}</span>}
     </span>
   );
@@ -192,18 +198,23 @@ function Hero() {
   const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
   // Single source of truth for demo PnL = sum of closed demo trades closed TODAY
   // (this matches DemoReport's "PnL Today").
-  const demoPnlTodayCalc = closedDemoTrades
+  const closedDemoPnlToday = closedDemoTrades
     .filter((t: any) => isToday(t.closed_at))
     .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
+  // Floating PnL = sum of open demo trades' current pnl (from trades.pnl or raw_payload).
+  const floatingDemoPnl = openDemoTrades.reduce((acc: number, t: any) => {
+    const rp = (t.raw_payload ?? {}) as any;
+    const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
+    return acc + Number(p ?? 0);
+  }, 0);
+  const totalDemoPnl = closedDemoPnlToday + floatingDemoPnl;
   const wins = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
-  const totalPnlNum = isDemo
-    ? Number(demoPnlTodayCalc)
-    : Number(s.total_pnl ?? 0);
+  const totalPnlNum = isDemo ? Number(totalDemoPnl) : Number(s.total_pnl ?? 0);
   const totalPnlSource = isDemo
-    ? "Demo PnL Today — HERMES magic 909002"
+    ? "Total Demo PnL = Closed Today + Floating · magic 909002"
     : "Verified from MT5";
   const accountStatusLabel = isDemo
     ? "Account: DEMO VERIFIED"
@@ -219,18 +230,21 @@ function Hero() {
   const openPosDisplay = isDemo
     ? openDemoTrades.length
     : (s.open_positions ?? 0);
-  const dailyPnlDisplay = isDemo
-    ? Number(demoPnlTodayCalc)
-    : Number(s.daily_pnl ?? 0);
 
   return (
-    <Panel title={isDemo ? "TOTAL PNL — VERIFIED FROM HERMES DEMO" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
+    <Panel title={isDemo ? "TOTAL DEMO PNL — HERMES MAGIC 909002" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
       <div className="grid grid-cols-3 gap-3 items-center">
         <div className="col-span-2 px-2 py-3">
-          <div className="text-[10px] uppercase opacity-70 tracking-widest">Total PnL</div>
+          <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (Closed + Floating)" : "Total PnL"}</div>
           <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
             {totalPnlNum >= 0 ? "+" : ""}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
+          {isDemo && (
+            <div className="flex gap-3 mt-1 text-[10px] uppercase tracking-widest">
+              <span>Closed Demo PnL: <b className={closedDemoPnlToday >= 0 ? "text-profit" : "text-loss"}>{closedDemoPnlToday >= 0 ? "+" : ""}${closedDemoPnlToday.toFixed(2)}</b></span>
+              <span>Floating Demo PnL: <b className={floatingDemoPnl >= 0 ? "text-profit" : "text-loss"}>{floatingDemoPnl >= 0 ? "+" : ""}${floatingDemoPnl.toFixed(2)}</b></span>
+            </div>
+          )}
           <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
             <StatusDot label={totalPnlSource} />
             <StatusDot label={accountStatusLabel} />
@@ -243,7 +257,8 @@ function Hero() {
         </div>
         <div className="border-l border-black p-2 space-y-0.5">
           <KV k="Trades Today" v={isDemo ? `${tradesTodayDisplay} opened / ${closedToday} closed` : tradesTodayDisplay} />
-          <KV k="Daily PnL" v={`${dailyPnlDisplay >= 0 ? "+" : ""}$${dailyPnlDisplay.toFixed(2)}`} accent={dailyPnlDisplay >= 0 ? "profit" : "loss"} />
+          <KV k="Closed Demo PnL" v={`${closedDemoPnlToday >= 0 ? "+" : ""}$${closedDemoPnlToday.toFixed(2)}`} accent={closedDemoPnlToday >= 0 ? "profit" : "loss"} />
+          <KV k="Floating Demo PnL" v={`${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`} accent={floatingDemoPnl >= 0 ? "profit" : "loss"} />
           <KV k="Win Rate" v={winRateDisplay === "—" ? "—" : `${winRateDisplay}%`} />
           <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
           <KV k="Open Positions" v={openPosDisplay} />
@@ -277,9 +292,15 @@ function MetricsRow() {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const demoPnl = closedDemo
+  const closedDemoPnl = closedDemo
     .filter((t: any) => isToday(t.closed_at))
     .reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const floatingDemoPnl = openDemo.reduce((a: number, t: any) => {
+    const rp = (t.raw_payload ?? {}) as any;
+    const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
+    return a + Number(p ?? 0);
+  }, 0);
+  const totalDemoPnl = closedDemoPnl + floatingDemoPnl;
   const wins = closedDemo.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemo.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
@@ -287,19 +308,33 @@ function MetricsRow() {
   const tradesToday = isDemo ? openedTodayDemo : (s.trades_today ?? 0);
   const totalTrades = isDemo ? demoTrades.length : (s.total_trades ?? 0);
   const winRate = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
-  const dailyPnl = isDemo ? demoPnl : Number(s.daily_pnl ?? 0);
   const openPos = isDemo ? openDemo.length : (s.open_positions ?? 0);
 
-  const items = [
-    { k: "Trades Today", v: tradesToday },
-    { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
-    { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
-    { k: "Daily PnL", v: `${dailyPnl >= 0 ? "+" : ""}$${dailyPnl.toFixed(2)}`, a: (dailyPnl >= 0 ? "profit" : "loss") as "profit" | "loss" },
-    { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
-    { k: "Profit Factor", v: s.profit_factor ?? "—" },
-    { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" as const },
-    { k: "Open Pos", v: openPos },
-  ];
+  const pnlCell = isDemo
+    ? { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: (totalDemoPnl >= 0 ? "profit" : "loss") as "profit" | "loss" }
+    : { k: "Daily PnL", v: `${Number(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${Number(s.daily_pnl ?? 0).toFixed(2)}`, a: (Number(s.daily_pnl ?? 0) >= 0 ? "profit" : "loss") as "profit" | "loss" };
+
+  const items: Array<{ k: string; v: any; a?: "profit" | "loss" }> = isDemo
+    ? [
+        { k: "Trades Today", v: tradesToday },
+        { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
+        { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
+        { k: "Closed Demo PnL", v: `${closedDemoPnl >= 0 ? "+" : ""}$${closedDemoPnl.toFixed(2)}`, a: closedDemoPnl >= 0 ? "profit" : "loss" },
+        { k: "Floating Demo PnL", v: `${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`, a: floatingDemoPnl >= 0 ? "profit" : "loss" },
+        { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: totalDemoPnl >= 0 ? "profit" : "loss" },
+        { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
+        { k: "Open Pos", v: openPos },
+      ]
+    : [
+        { k: "Trades Today", v: tradesToday },
+        { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
+        { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
+        pnlCell,
+        { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
+        { k: "Profit Factor", v: s.profit_factor ?? "—" },
+        { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" },
+        { k: "Open Pos", v: openPos },
+      ];
   return (
     <div className="grid grid-cols-8 gap-0 border border-black -mt-px">
       {items.map((it, i) => (
@@ -1142,6 +1177,11 @@ function Dashboard() {
         <div className="col-span-7"><LogsTerminal /></div>
         <div className="col-span-5"><ControlPanel /></div>
       </div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-12"><LiveSyncDebugPanel /></div>
+      </div>
+
 
       <FooterRibbon />
     </div>

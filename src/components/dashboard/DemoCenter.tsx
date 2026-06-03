@@ -4,6 +4,7 @@ import { Waiting } from "./Waiting";
 import { Badge, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeSymbol } from "@/lib/symbol";
 
 const DEMO_SYMBOLS = ["GOLD#", "GOLD", "BTCUSD#", "BTCUSD", "EURUSD"];
 
@@ -20,7 +21,7 @@ function useDemoTrades(heartbeatKey?: string) {
   }, []);
   React.useEffect(() => {
     load();
-    const t = setInterval(load, 5000);
+    const t = setInterval(load, 30000);
     const ch = supabase
       .channel(`demo-trades:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, () => load())
@@ -507,7 +508,7 @@ export function TradeJournalTabs() {
   const emptyLabel = tab === "OPEN_DEMO" ? "No open HERMES demo trades" : `NO ${tab} TRADES`;
 
   return (
-    <Panel title="TRADE JOURNALS" right={`${sorted.length} ROWS · AUTO 5s`}>
+    <Panel title="TRADE JOURNALS" right={`${sorted.length} ROWS · REALTIME + 30s FALLBACK`}>
       <div className="flex border-b border-black mb-2 flex-wrap">
         {tabs.map((tb) => (
           <button
@@ -540,7 +541,9 @@ export function TradeJournalTabs() {
                 const gate = rp.gate_statuses?.safety_guard_status ?? rp.demo_gate_decision ?? rp.gate_status ?? t.reason ?? UNK;
                 const closed = isClosedTrade(t);
                 const status = closed ? "CLOSED" : (String(t.result ?? rp.status ?? "OPEN").toUpperCase());
-                const sym = rp.display_symbol ?? t.symbol;
+                const rawSym = rp.display_symbol ?? t.symbol;
+                const brokerSym = (t as any).broker_symbol ?? rp.broker_symbol ?? null;
+                const sym = normalizeSymbol(rawSym, brokerSym);
                 const rr = rp.rr ?? rp.reward_risk ?? "-";
                 const closeReason = status === "CLOSED" ? (t.reason ?? rp.close_reason ?? "-") : "-";
                 return (
