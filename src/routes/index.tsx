@@ -190,35 +190,37 @@ function Hero() {
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedToday = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
-  const demoHistTotal = closedDemoTrades.reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
+  // Single source of truth for demo PnL = sum of closed demo trades closed TODAY
+  // (this matches DemoReport's "PnL Today").
+  const demoPnlTodayCalc = closedDemoTrades
+    .filter((t: any) => isToday(t.closed_at))
+    .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
   const wins = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
   const losses = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
-  const demoPnlToday =
-    ds.demo_pnl_today ?? ds.pnl_today ?? ds.demo_report_pnl_today ?? null;
   const totalPnlNum = isDemo
-    ? Number(demoPnlToday ?? demoHistTotal ?? 0)
+    ? Number(demoPnlTodayCalc)
     : Number(s.total_pnl ?? 0);
   const totalPnlSource = isDemo
-    ? "Verified from HERMES demo history / MT5 sync"
+    ? "Demo PnL Today — HERMES magic 909002"
     : "Verified from MT5";
   const accountStatusLabel = isDemo
     ? "Account: DEMO VERIFIED"
     : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
 
   const winRateDisplay = isDemo
-    ? (ds.demo_win_rate ?? demoWinRate ?? ds.win_rate_today ?? s.win_rate ?? "—")
+    ? (demoWinRate ?? "—")
     : (s.win_rate ?? 0);
   const tradesTodayDisplay = isDemo
-    ? (ds.opened_today ?? ds.demo_opened_today ?? openedToday ?? s.trades_today ?? "—")
+    ? openedToday
     : (s.trades_today ?? "—");
   // Open positions MUST match Open Demo table source of truth.
   const openPosDisplay = isDemo
     ? openDemoTrades.length
     : (s.open_positions ?? 0);
   const dailyPnlDisplay = isDemo
-    ? Number(demoPnlToday ?? demoHistTotal ?? 0)
+    ? Number(demoPnlTodayCalc)
     : Number(s.daily_pnl ?? 0);
 
   return (
