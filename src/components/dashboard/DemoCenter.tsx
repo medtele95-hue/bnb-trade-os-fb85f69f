@@ -21,7 +21,7 @@ function useDemoTrades(heartbeatKey?: string) {
   }, []);
   React.useEffect(() => {
     load();
-    const t = setInterval(load, 5000);
+    const t = setInterval(load, 30000);
     const ch = supabase
       .channel(`demo-trades:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, () => load())
