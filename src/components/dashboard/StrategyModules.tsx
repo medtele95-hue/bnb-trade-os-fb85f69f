@@ -134,10 +134,32 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
   );
 }
 
+function QuantExtras() {
+  const q = useQuantData();
+  if (!q.has_any) {
+    return (
+      <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] italic opacity-70">
+        Waiting for Quant data
+      </div>
+    );
+  }
+  return (
+    <div className="mt-1 border-t border-dashed border-black/40 pt-1 text-[10px] space-y-0.5">
+      <div className="flex flex-wrap gap-1">
+        <Badge value={`SIG: ${String(q.signal ?? "—").toUpperCase()}`} tone={quantSignalTone(q.signal)} />
+      </div>
+      <KV k="Score" v={q.score != null ? `${q.score}/100` : "—"} />
+      <KV k="R²" v={q.r2 != null ? Number(q.r2).toFixed(2) : "—"} />
+      <KV k="Z-Score" v={q.z != null ? Number(q.z).toFixed(2) : "—"} />
+      <KV k="Slope" v={q.slope != null ? Number(q.slope).toFixed(4) : "—"} />
+      {q.reason && <div className="italic opacity-80">"{String(q.reason)}"</div>}
+    </div>
+  );
+}
+
 export function StrategyModules() {
   const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 100 });
   const latest = pickLatest(rows);
-  const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 100 });
   const latest = pickLatest(rows);
 
   return (
