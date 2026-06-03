@@ -73,8 +73,8 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
-  const role = ROLES[name] ?? "LEGACY_OBSERVER";
   const entryAllowed = role === "ENTRY_STRATEGY" && kind === "ACTIVE";
+
 
   return (
     <div className={`border ${kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
