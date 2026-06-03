@@ -547,6 +547,9 @@ export function TradeJournalTabs() {
                     <td className="pr-2">{rr}</td>
                     <td className="pr-2">{ks != null ? Number(ks).toFixed(4) : "-"}</td>
                     <td className={`pr-2 ${overCap ? "text-loss font-bold" : ""}`}>{fc != null ? Number(fc).toFixed(4) : "-"}</td>
+                    <td className="pr-2">{rp.quant_score ?? "-"}</td>
+                    <td className="pr-2">{rp.quant_r2 != null ? Number(rp.quant_r2).toFixed(2) : "-"}</td>
+                    <td className="pr-2">{rp.quant_z_score != null ? Number(rp.quant_z_score).toFixed(2) : "-"}</td>
                     <td className="pr-2"><Badge value={String(gate)} tone={statusTone(String(gate))} /></td>
                     <td className="pr-2">{status}</td>
                     <td className="pr-2 italic opacity-80">{closeReason}</td>
