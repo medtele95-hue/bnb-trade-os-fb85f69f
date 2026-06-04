@@ -1025,6 +1025,64 @@ function ChartLiveTag() {
   return <span className={`${tone} font-bold`}>{label}</span>;
 }
 
+function useActiveSymbols(chartSymbol: string) {
+  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 100 });
+  const decisionSymbol = dec[0]?.symbol ?? null;
+  const openTrade = trades.find(
+    (t: any) => Number(t.magic_number ?? t.magic) === 909002 &&
+      String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null,
+  );
+  const openSymbol = openTrade?.broker_symbol ?? openTrade?.symbol ?? null;
+  const decMatches = !decisionSymbol || isSameSymbol(decisionSymbol, chartSymbol);
+  const tradeMatches = !openSymbol || isSameSymbol(openSymbol, chartSymbol);
+  const aligned = decMatches && tradeMatches;
+  return { chartSymbol, decisionSymbol, openSymbol, aligned, decMatches, tradeMatches };
+}
+
+function ChartSymbolBanner({ chartSymbol }: { chartSymbol: string }) {
+  const s = useActiveSymbols(chartSymbol);
+  if (s.aligned) {
+    return (
+      <div className="border border-black bg-secondary px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
+        <span>CHART: <b>{normalizeSymbol(chartSymbol)}</b></span>
+        <span>DECISION: <b>{s.decisionSymbol ? normalizeSymbol(s.decisionSymbol) : "—"}</b></span>
+        <span>OPEN TRADE: <b>{s.openSymbol ? normalizeSymbol(s.openSymbol) : "—"}</b></span>
+        <span className="text-profit font-bold ml-auto">SYMBOLS ALIGNED</span>
+      </div>
+    );
+  }
+  return (
+    <div className="border-2 border-orange-500 bg-orange-50 px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
+      <span>CHART: <b>{normalizeSymbol(chartSymbol)}</b></span>
+      <span>DECISION: <b className={s.decMatches ? "" : "text-orange-700"}>{s.decisionSymbol ? normalizeSymbol(s.decisionSymbol) : "—"}</b></span>
+      <span>OPEN TRADE: <b className={s.tradeMatches ? "" : "text-orange-700"}>{s.openSymbol ? normalizeSymbol(s.openSymbol) : "—"}</b></span>
+      <span className="text-orange-700 font-bold ml-auto">⚠ SYMBOL MISMATCH — ENTRY/SL/TP OVERLAYS HIDDEN</span>
+    </div>
+  );
+}
+
+function SafetyStrip() {
+  const ds = useDashboardStatusPayload();
+  const liveBlocked =
+    ds.live_trading_blocked === true ||
+    String(ds.live_trading_blocked).toUpperCase() === "TRUE" ||
+    ds.allow_live_trading === false;
+  const acct = String(ds.account_type ?? "").toUpperCase() || "UNKNOWN";
+  const demoOnly = ds.demo_only === true || String(ds.demo_only).toUpperCase() === "TRUE";
+  return (
+    <div className="border border-black bg-foreground text-background px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
+      <span className="font-bold">SAFETY:</span>
+      <span>LIVE TRADING <b className={liveBlocked ? "text-profit" : "text-loss"}>{liveBlocked ? "BLOCKED" : "NOT BLOCKED"}</b></span>
+      <span>DEMO ONLY <b className={demoOnly ? "text-profit" : "text-loss"}>{demoOnly ? "TRUE" : "FALSE"}</b></span>
+      <span>ACCT <b className={acct === "DEMO" ? "text-profit" : "text-loss"}>{acct}</b></span>
+      <span>MAX LOT <b>0.01</b></span>
+      <span>MAGIC <b>909002</b></span>
+      <span className="ml-auto opacity-70">READ-ONLY DASHBOARD</span>
+    </div>
+  );
+}
+
 function Dashboard() {
   return (
     <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
