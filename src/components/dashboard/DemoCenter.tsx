@@ -216,9 +216,19 @@ export function DemoPilotStatus() {
   }
   const accountType = getField(sources, "account_type");
   const mt5 = getField(sources, "mt5_connected");
-  const lastGateDec = getField([decRP, dec[0]], "last_demo_gate_decision") ?? getField([decRP, dec[0]], "demo_gate_decision");
-  const lastGateReason = getField([decRP, dec[0]], "last_demo_gate_reason") ?? getField([decRP, dec[0]], "demo_gate_reason");
+  const lastGateDec =
+    getField([ds, bsRP, bs, decRP, dec[0]], "latest_demo_gate_decision") ??
+    getField([ds, bsRP, bs, decRP, dec[0]], "last_demo_gate_decision") ??
+    getField([decRP, dec[0]], "demo_gate_decision");
+  const lastGateReason =
+    getField([ds, bsRP, bs, decRP, dec[0]], "latest_demo_gate_reason") ??
+    getField([decRP, dec[0]], "last_demo_gate_reason") ??
+    getField([decRP, dec[0]], "demo_gate_reason");
+  const latestStrategyGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_reason");
+  const latestSymbolGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_symbol_gate_reason");
   const lastDemoTicket = getField([decRP, dec[0], bsRP, bs], "last_demo_ticket");
+  const gateMissing = lastGateDec == null || lastGateDec === "";
+  const gateDecDisplay = gateMissing ? "UNKNOWN — backend did not emit latest gate field" : String(lastGateDec);
 
   const pilotHoursConfigured = Number(
     getField(sources, "demo_pilot_hours") ??
@@ -239,10 +249,17 @@ export function DemoPilotStatus() {
         <KV k="pilot_started_at" v={pilotStartedAt ? new Date(pilotStartedAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
         <KV k="pilot_expires_at" v={pilotExpiresAt ? new Date(pilotExpiresAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
         <KV k="pilot_hours_remaining" v={hoursRemaining != null ? `${hoursRemaining} / ${pilotHoursConfigured}h` : UNK} />
-        <KV k="last_demo_gate_decision" v={String(u(lastGateDec))} />
+        <KV k="latest_demo_gate_decision" v={gateDecDisplay} accent={gateMissing ? "loss" : undefined} />
         <KV k="last_demo_ticket" v={String(u(lastDemoTicket))} />
       </div>
-      <div className="mt-1 text-[10px] opacity-80"><b>LAST GATE REASON:</b> {String(u(lastGateReason))}</div>
+      <div className="mt-1 text-[10px] opacity-80"><b>LATEST DEMO GATE REASON:</b> {String(u(lastGateReason))}</div>
+      <div className="text-[10px] opacity-80"><b>LATEST STRATEGY GATE:</b> {String(u(latestStrategyGateReason))}</div>
+      <div className="text-[10px] opacity-80"><b>LATEST SYMBOL GATE:</b> {String(u(latestSymbolGateReason))}</div>
+      {gateMissing && (
+        <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
+          ⚠ Do not infer PASS from Safety Guard alone — backend gate field is missing.
+        </div>
+      )}
     </Panel>
   );
 }
@@ -589,6 +606,9 @@ export function TradeJournalTabs() {
 export function DemoReport() {
   const { rows: trades } = useLiveTable<any>("trades", { limit: 200 });
   const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 50 });
+  const ds = useDashboardStatusPayload();
+  const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
+  const s = snaps[0] ?? {};
 
   const demo = trades.filter((t) => {
     const rp = getRP(t);
@@ -602,7 +622,13 @@ export function DemoReport() {
   const openedToday = demo.filter(t => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = demo.filter(t => isToday(t.closed_at)).length;
   const openNow = demo.filter(isOpenDemo).length;
-  const pnlToday = demo.filter(t => isToday(t.closed_at)).reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+  const pnlTodayTrades = demo.filter(t => isToday(t.closed_at)).reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+  const mt5TodayRaw =
+    (ds as any).mt5_today_pnl ?? (ds as any).mt5_daily_pnl ?? (ds as any).today_pnl ?? s.daily_pnl ?? null;
+  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
+  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
+  const pnlToday = usingMt5Truth ? (mt5TodayPnl as number) : pnlTodayTrades;
+  const pnlSource = usingMt5Truth ? "MT5_HISTORY_DEALS" : "TRADES_TABLE";
   const wins = demo.filter(t => Number(t.pnl ?? 0) > 0).length;
   const losses = demo.filter(t => Number(t.pnl ?? 0) < 0).length;
   const winRate = wins + losses > 0 ? ((wins / (wins + losses)) * 100).toFixed(1) : UNK;
@@ -636,17 +662,25 @@ export function DemoReport() {
   });
 
   return (
-    <Panel title="DEMO REPORT" right="MAGIC 909002">
+    <Panel title="DEMO REPORT" right={`MAGIC 909002 · PNL ${pnlSource}`}>
       <div className="grid grid-cols-4 gap-2 text-center">
         <div><div className="text-[9px] uppercase opacity-70">Opened Today</div><div className="pixel text-[18px]">{openedToday}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Closed Today</div><div className="pixel text-[18px]">{closedToday}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Open Now</div><div className="pixel text-[18px]">{openNow}</div></div>
-        <div><div className="text-[9px] uppercase opacity-70">PnL Today</div><div className={`pixel text-[18px] ${pnlToday >= 0 ? "text-profit" : "text-loss"}`}>{pnlToday >= 0 ? "+" : ""}{pnlToday.toFixed(2)}</div></div>
+        <div>
+          <div className="text-[9px] uppercase opacity-70">PnL Today ({usingMt5Truth ? "MT5" : "TRADES"})</div>
+          <div className={`pixel text-[18px] ${pnlToday >= 0 ? "text-profit" : "text-loss"}`}>{pnlToday >= 0 ? "+" : ""}{pnlToday.toFixed(2)}</div>
+        </div>
         <div><div className="text-[9px] uppercase opacity-70">Win Rate</div><div className="pixel text-[18px]">{winRate}{winRate !== UNK && "%"}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Consec. Losses</div><div className={`pixel text-[18px] ${consec >= 3 ? "text-loss" : ""}`}>{consec}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Best Strategy</div><div className="text-[11px] font-bold">{bestStrat}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Worst Strategy</div><div className="text-[11px] font-bold">{worstStrat}</div></div>
       </div>
+      {usingMt5Truth && (
+        <div className="mt-1 text-[10px] uppercase tracking-widest opacity-70">
+          Trades-table PnL Today (secondary): <b>{pnlTodayTrades >= 0 ? "+" : ""}${pnlTodayTrades.toFixed(2)}</b>
+        </div>
+      )}
       <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
         <div>
           <div className="font-bold uppercase opacity-70">Skipped Count by Reason</div>

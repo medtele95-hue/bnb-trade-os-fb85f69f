@@ -3,6 +3,22 @@ import { Waiting } from "./Waiting";
 import { Badge, gradeTone, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useQuantData, useQuantProData, signalTone as quantSignalTone } from "./QuantStrategy";
+import { isSameSymbol, normalizeSymbol } from "@/lib/symbol";
+
+// Generic strategies are DISABLED FOR GOLD — only GOLD_LIQUIDITY_HUNTER_PRO handles GOLD.
+const GOLD_DISABLED_GENERICS = new Set([
+  "TREND_CONTINUATION_BREAKDOWN",
+  "QUANT_PRO_REGIME_SWITCHING",
+  "QUANT_STATISTICAL_PULLBACK",
+  "BREAKOUT_RETEST",
+  "FIB_OTE_RETEST",
+  "AMD_FVG_IFVG_REVERSAL",
+  "CRT_TBS_REVERSAL",
+]);
+
+// BTC math audit override
+const BTC_MATH_AUDIT_DISABLED = new Set(["QUANT_STATISTICAL_PULLBACK"]);
+
 
 const ACTIVE = [
   "TREND_CONTINUATION_BREAKDOWN",
@@ -50,18 +66,27 @@ function unknownIf(v: any) {
   return v == null || v === "" ? "UNKNOWN" : v;
 }
 
-function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined; kind: "ACTIVE" | "CONFIRMATION" | "LEGACY" }) {
+function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: any | undefined; kind: "ACTIVE" | "CONFIRMATION" | "LEGACY"; activeSymbol?: string | null }) {
   const rp = sig?.raw_payload ?? {};
   const role = ROLES[name] ?? "OBSERVER_ONLY";
+  const isGold = activeSymbol ? isSameSymbol(activeSymbol, "GOLD") : false;
+  const goldDisabled = isGold && GOLD_DISABLED_GENERICS.has(name);
+  const btcMathAudit = !isGold && BTC_MATH_AUDIT_DISABLED.has(name);
+
   const defaultStatus =
     kind === "LEGACY" ? "OBSERVER_ONLY" :
     kind === "CONFIRMATION" ? role :
     "ACTIVE";
-  const statusTxt = kind !== "ACTIVE"
-    ? defaultStatus
-    : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
-  const tone = kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
-
+  const statusTxt = goldDisabled
+    ? "DISABLED FOR GOLD"
+    : btcMathAudit
+      ? "DISABLED / MATH AUDIT"
+      : kind !== "ACTIVE"
+        ? defaultStatus
+        : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
+  const tone = goldDisabled || btcMathAudit
+    ? "red"
+    : kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
 
   const signal = unknownIf(sig?.signal);
   const conf = sig?.confidence ?? rp.confidence;
@@ -73,15 +98,24 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
-  const entryAllowed = role === "ENTRY_STRATEGY" && kind === "ACTIVE";
-
+  const entryAllowed = !goldDisabled && !btcMathAudit && role === "ENTRY_STRATEGY" && kind === "ACTIVE";
 
   return (
-    <div className={`border ${kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
+    <div className={`border ${goldDisabled || btcMathAudit ? "border-loss" : kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
       <div className="flex items-center justify-between">
         <div className="font-bold text-[11px]">{name}</div>
         <Badge value={String(statusTxt)} tone={tone as any} />
       </div>
+      {goldDisabled && (
+        <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
+          ⚠ {normalizeSymbol(activeSymbol)} — GOLD_GENERIC_STRATEGY_DISABLED
+        </div>
+      )}
+      {btcMathAudit && (
+        <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
+          ⚠ BTC {name} — DISABLED / MATH AUDIT REQUIRED
+        </div>
+      )}
       <div className="mt-1 flex flex-wrap gap-1">
         <Badge value={`ROLE: ${role}`} tone={roleTone(role) as any} />
         <Badge value={`ENTRY: ${entryAllowed ? "ALLOWED" : "BLOCKED"}`} tone={entryAllowed ? "green" : "red"} />
@@ -219,30 +253,37 @@ function QuantProExtras() {
 
 export function StrategyModules() {
   const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 100 });
+  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const activeSymbol = dec[0]?.symbol ?? null;
   const latest = pickLatest(rows);
 
   return (
-    <Panel title="STRATEGY MODULES" right="7 ENTRY · 3 CONFIRMATION · 2 OBSERVER">
+    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 7 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
       {empty ? (
         <Waiting />
       ) : (
         <>
+          {activeSymbol && isSameSymbol(activeSymbol, "GOLD") && (
+            <div className="mb-2 border border-loss px-2 py-1 text-[10px] uppercase tracking-widest text-loss">
+              ⚠ ACTIVE SYMBOL = GOLD — GENERIC ENTRY STRATEGIES DISABLED · ONLY GOLD_LIQUIDITY_HUNTER_PRO HANDLES GOLD ENTRIES
+            </div>
+          )}
           <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (7)</div>
           <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {ACTIVE.map((name) => (
-              <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" />
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" activeSymbol={activeSymbol} />
             ))}
           </div>
           <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Confirmation / Market Readers (3)</div>
           <div className="grid grid-cols-3 gap-2">
             {CONFIRMATION.map((name) => (
-              <StrategyCard key={name} name={name} sig={latest[name]} kind="CONFIRMATION" />
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="CONFIRMATION" activeSymbol={activeSymbol} />
             ))}
           </div>
           <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Observer Only (Disabled for Paper Entry)</div>
           <div className="grid grid-cols-2 gap-2">
             {LEGACY.map((name) => (
-              <StrategyCard key={name} name={name} sig={latest[name]} kind="LEGACY" />
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="LEGACY" activeSymbol={activeSymbol} />
             ))}
           </div>
         </>

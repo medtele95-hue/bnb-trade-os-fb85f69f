@@ -22,6 +22,7 @@ import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import { LiveSyncDebugPanel } from "@/components/dashboard/LiveSyncDebugPanel";
 import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
 import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
+import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
 import { useEffect, useState } from "react";
 
 function HeartbeatIndicator() {
@@ -45,11 +46,16 @@ function HeartbeatIndicator() {
         : ageSec > 15
           ? "DATA STALE"
           : "BACKEND LIVE";
-  // Supabase channel status — only reflects channel, NOT data freshness
-  const rtTone = rt === "CONNECTED" ? "text-profit" : rt === "RECONNECTING" ? "text-orange-700" : "text-loss";
+  // Supabase channel status — channel only. When backend data is stale,
+  // do NOT show LIVE CONNECTED as fully healthy.
+  const dataStale = ageSec != null && ageSec > 15;
+  const dataOffline = ageSec != null && ageSec > 60;
+  const rtTone = rt !== "CONNECTED"
+    ? "text-loss"
+    : dataOffline ? "text-loss" : dataStale ? "text-orange-700" : "text-profit";
   const rtLabel =
     rt === "CONNECTED"
-      ? "LIVE CONNECTED"
+      ? (dataOffline ? "LIVE CHANNEL · BACKEND OFFLINE" : dataStale ? "LIVE CHANNEL · DATA STALE" : "LIVE CONNECTED")
       : rt === "RECONNECTING"
         ? "LIVE RECONNECTING"
         : "LIVE OFFLINE — FALLBACK POLLING";
@@ -195,7 +201,6 @@ function Hero() {
     acctType === "LIVE" ? "ACCT: LIVE" :
     "ACCT: UNKNOWN";
 
-  // Demo-only datasets (single source of truth = trades table, magic 909002)
   const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
   const openDemoTrades = demoTrades.filter((t: any) =>
     String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
@@ -207,12 +212,20 @@ function Hero() {
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedToday = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
-  // Single source of truth for demo PnL = sum of closed demo trades closed TODAY
-  // (this matches DemoReport's "PnL Today").
-  const closedDemoPnlToday = closedDemoTrades
+
+  // Trades-table closed PnL — SECONDARY reconciliation only
+  const closedDemoPnlTrades = closedDemoTrades
     .filter((t: any) => isToday(t.closed_at))
     .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
-  // Floating PnL = sum of open demo trades' current pnl (from trades.pnl or raw_payload).
+
+  // PRIMARY closed PnL = MT5 history deals (dashboard_status / account_snapshots)
+  const mt5TodayRaw =
+    ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
+  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
+  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
+  const closedDemoPnlToday = usingMt5Truth ? (mt5TodayPnl as number) : closedDemoPnlTrades;
+  const pnlSource = usingMt5Truth ? "MT5_HISTORY_DEALS" : "TRADES_TABLE (fallback)";
+
   const floatingDemoPnl = openDemoTrades.reduce((acc: number, t: any) => {
     const rp = (t.raw_payload ?? {}) as any;
     const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
@@ -224,40 +237,32 @@ function Hero() {
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
   const totalPnlNum = isDemo ? Number(totalDemoPnl) : Number(s.total_pnl ?? 0);
-  const totalPnlSource = isDemo
-    ? "Total Demo PnL = Closed Today + Floating · magic 909002"
-    : "Verified from MT5";
   const accountStatusLabel = isDemo
     ? "Account: DEMO VERIFIED"
     : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
-
-  const winRateDisplay = isDemo
-    ? (demoWinRate ?? "—")
-    : (s.win_rate ?? 0);
-  const tradesTodayDisplay = isDemo
-    ? openedToday
-    : (s.trades_today ?? "—");
-  // Open positions MUST match Open Demo table source of truth.
-  const openPosDisplay = isDemo
-    ? openDemoTrades.length
-    : (s.open_positions ?? 0);
+  const winRateDisplay = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
+  const tradesTodayDisplay = isDemo ? openedToday : (s.trades_today ?? "—");
+  const openPosDisplay = isDemo ? openDemoTrades.length : (s.open_positions ?? 0);
+  const reconcileDiff = usingMt5Truth ? (mt5TodayPnl as number) - closedDemoPnlTrades : null;
 
   return (
     <Panel title={isDemo ? "TOTAL DEMO PNL — HERMES MAGIC 909002" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
       <div className="grid grid-cols-3 gap-3 items-center">
         <div className="col-span-2 px-2 py-3">
-          <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (Closed + Floating)" : "Total PnL"}</div>
+          <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (MT5 Closed + Floating)" : "Total PnL"}</div>
           <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
             {totalPnlNum >= 0 ? "+" : "-"}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           {isDemo && (
-            <div className="flex gap-3 mt-1 text-[10px] uppercase tracking-widest">
+            <div className="flex flex-wrap gap-3 mt-1 text-[10px] uppercase tracking-widest">
               <span>Closed Demo PnL: <b className={closedDemoPnlToday >= 0 ? "text-profit" : "text-loss"}>{closedDemoPnlToday >= 0 ? "+" : ""}${closedDemoPnlToday.toFixed(2)}</b></span>
               <span>Floating Demo PnL: <b className={floatingDemoPnl >= 0 ? "text-profit" : "text-loss"}>{floatingDemoPnl >= 0 ? "+" : ""}${floatingDemoPnl.toFixed(2)}</b></span>
+              <span className="opacity-70">PnL Source: <b>{pnlSource}</b></span>
+              <span className="opacity-70">Trades Table (secondary): <b>{closedDemoPnlTrades >= 0 ? "+" : ""}${closedDemoPnlTrades.toFixed(2)}</b></span>
             </div>
           )}
           <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
-            <StatusDot label={totalPnlSource} />
+            <StatusDot label={`SOURCE: ${pnlSource}`} />
             <StatusDot label={accountStatusLabel} />
             <StatusDot label="Broker Connected" />
             <Badge
@@ -268,8 +273,11 @@ function Hero() {
         </div>
         <div className="border-l border-black p-2 space-y-0.5">
           <KV k="Trades Today" v={isDemo ? `${tradesTodayDisplay} opened / ${closedToday} closed` : tradesTodayDisplay} />
-          <KV k="Closed Demo PnL" v={`${closedDemoPnlToday >= 0 ? "+" : ""}$${closedDemoPnlToday.toFixed(2)}`} accent={closedDemoPnlToday >= 0 ? "profit" : "loss"} />
+          <KV k="Closed Demo PnL (MT5)" v={`${closedDemoPnlToday >= 0 ? "+" : ""}$${closedDemoPnlToday.toFixed(2)}`} accent={closedDemoPnlToday >= 0 ? "profit" : "loss"} />
           <KV k="Floating Demo PnL" v={`${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`} accent={floatingDemoPnl >= 0 ? "profit" : "loss"} />
+          {reconcileDiff != null && (
+            <KV k="Recon Δ (MT5−Trades)" v={`${reconcileDiff >= 0 ? "+" : ""}$${reconcileDiff.toFixed(2)}`} />
+          )}
           <KV k="Win Rate" v={winRateDisplay === "—" ? "—" : `${winRateDisplay}%`} />
           <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
           <KV k="Open Positions" v={openPosDisplay} />
@@ -303,9 +311,14 @@ function MetricsRow() {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const closedDemoPnl = closedDemo
+  const closedDemoPnlTrades = closedDemo
     .filter((t: any) => isToday(t.closed_at))
     .reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const mt5TodayRaw =
+    ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
+  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
+  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
+  const closedDemoPnl = usingMt5Truth ? (mt5TodayPnl as number) : closedDemoPnlTrades;
   const floatingDemoPnl = openDemo.reduce((a: number, t: any) => {
     const rp = (t.raw_payload ?? {}) as any;
     const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
@@ -330,7 +343,7 @@ function MetricsRow() {
         { k: "Trades Today", v: tradesToday },
         { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
         { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
-        { k: "Closed Demo PnL", v: `${closedDemoPnl >= 0 ? "+" : ""}$${closedDemoPnl.toFixed(2)}`, a: closedDemoPnl >= 0 ? "profit" : "loss" },
+        { k: usingMt5Truth ? "Closed Demo PnL (MT5)" : "Closed Demo PnL", v: `${closedDemoPnl >= 0 ? "+" : ""}$${closedDemoPnl.toFixed(2)}`, a: closedDemoPnl >= 0 ? "profit" : "loss" },
         { k: "Floating Demo PnL", v: `${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`, a: floatingDemoPnl >= 0 ? "profit" : "loss" },
         { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: totalDemoPnl >= 0 ? "profit" : "loss" },
         { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
@@ -1012,12 +1025,79 @@ function ChartLiveTag() {
   return <span className={`${tone} font-bold`}>{label}</span>;
 }
 
+function useActiveSymbols(chartSymbol: string) {
+  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const { rows: trades } = useLiveTable<any>("trades", { limit: 100 });
+  const decisionSymbol = dec[0]?.symbol ?? null;
+  const openTrade = trades.find(
+    (t: any) => Number(t.magic_number ?? t.magic) === 909002 &&
+      String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null,
+  );
+  const openSymbol = openTrade?.broker_symbol ?? openTrade?.symbol ?? null;
+  const decMatches = !decisionSymbol || isSameSymbol(decisionSymbol, chartSymbol);
+  const tradeMatches = !openSymbol || isSameSymbol(openSymbol, chartSymbol);
+  const aligned = decMatches && tradeMatches;
+  return { chartSymbol, decisionSymbol, openSymbol, aligned, decMatches, tradeMatches };
+}
+
+function ChartSymbolBanner({ chartSymbol }: { chartSymbol: string }) {
+  const s = useActiveSymbols(chartSymbol);
+  if (s.aligned) {
+    return (
+      <div className="border border-black bg-secondary px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
+        <span>CHART: <b>{normalizeSymbol(chartSymbol)}</b></span>
+        <span>DECISION: <b>{s.decisionSymbol ? normalizeSymbol(s.decisionSymbol) : "—"}</b></span>
+        <span>OPEN TRADE: <b>{s.openSymbol ? normalizeSymbol(s.openSymbol) : "—"}</b></span>
+        <span className="text-profit font-bold ml-auto">SYMBOLS ALIGNED</span>
+      </div>
+    );
+  }
+  return (
+    <div className="border-2 border-orange-500 bg-orange-50 px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
+      <span>CHART: <b>{normalizeSymbol(chartSymbol)}</b></span>
+      <span>DECISION: <b className={s.decMatches ? "" : "text-orange-700"}>{s.decisionSymbol ? normalizeSymbol(s.decisionSymbol) : "—"}</b></span>
+      <span>OPEN TRADE: <b className={s.tradeMatches ? "" : "text-orange-700"}>{s.openSymbol ? normalizeSymbol(s.openSymbol) : "—"}</b></span>
+      <span className="text-orange-700 font-bold ml-auto">⚠ SYMBOL MISMATCH — ENTRY/SL/TP OVERLAYS HIDDEN</span>
+    </div>
+  );
+}
+
+function SafetyStrip() {
+  const ds = useDashboardStatusPayload();
+  const liveBlocked =
+    ds.live_trading_blocked === true ||
+    String(ds.live_trading_blocked).toUpperCase() === "TRUE" ||
+    ds.allow_live_trading === false;
+  const acct = String(ds.account_type ?? "").toUpperCase() || "UNKNOWN";
+  const demoOnly = ds.demo_only === true || String(ds.demo_only).toUpperCase() === "TRUE";
+  return (
+    <div className="border border-black bg-foreground text-background px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
+      <span className="font-bold">SAFETY:</span>
+      <span>LIVE TRADING <b className={liveBlocked ? "text-profit" : "text-loss"}>{liveBlocked ? "BLOCKED" : "NOT BLOCKED"}</b></span>
+      <span>DEMO ONLY <b className={demoOnly ? "text-profit" : "text-loss"}>{demoOnly ? "TRUE" : "FALSE"}</b></span>
+      <span>ACCT <b className={acct === "DEMO" ? "text-profit" : "text-loss"}>{acct}</b></span>
+      <span>MAX LOT <b>0.01</b></span>
+      <span>MAGIC <b>909002</b></span>
+      <span className="ml-auto opacity-70">READ-ONLY DASHBOARD</span>
+    </div>
+  );
+}
+
+function MainChartOverlay() {
+  const s = useActiveSymbols("BTCUSD");
+  if (!s.aligned) return null;
+  return <QuantChartLabel />;
+}
+
 function Dashboard() {
   return (
     <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
       <Header />
 
       <DemoModeBanner />
+
+      <div className="mt-3"><SafetyStrip /></div>
+
 
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-6"><DemoPilotStatus /></div>
@@ -1042,6 +1122,8 @@ function Dashboard() {
         <div className="col-span-6"><KellyDemoPanel /></div>
       </div>
 
+      <div className="mt-3"><ChartSymbolBanner chartSymbol="BTCUSD" /></div>
+
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-3"><Markov /></div>
         <div className="col-span-3"><Kelly /></div>
@@ -1050,12 +1132,13 @@ function Dashboard() {
             <ChartPrice />
             <div className="mt-1"><ConfirmationRibbon /></div>
             <div className="relative mt-1">
-              <QuantChartLabel />
+              <MainChartOverlay />
               <CandleChart variant="main" />
             </div>
           </Panel>
         </div>
       </div>
+
 
       <div className="mt-3">
         <WspChartWorkspace />
