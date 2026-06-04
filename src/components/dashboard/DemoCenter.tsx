@@ -645,17 +645,25 @@ export function DemoReport() {
   });
 
   return (
-    <Panel title="DEMO REPORT" right="MAGIC 909002">
+    <Panel title="DEMO REPORT" right={`MAGIC 909002 · PNL ${pnlSource}`}>
       <div className="grid grid-cols-4 gap-2 text-center">
         <div><div className="text-[9px] uppercase opacity-70">Opened Today</div><div className="pixel text-[18px]">{openedToday}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Closed Today</div><div className="pixel text-[18px]">{closedToday}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Open Now</div><div className="pixel text-[18px]">{openNow}</div></div>
-        <div><div className="text-[9px] uppercase opacity-70">PnL Today</div><div className={`pixel text-[18px] ${pnlToday >= 0 ? "text-profit" : "text-loss"}`}>{pnlToday >= 0 ? "+" : ""}{pnlToday.toFixed(2)}</div></div>
+        <div>
+          <div className="text-[9px] uppercase opacity-70">PnL Today ({usingMt5Truth ? "MT5" : "TRADES"})</div>
+          <div className={`pixel text-[18px] ${pnlToday >= 0 ? "text-profit" : "text-loss"}`}>{pnlToday >= 0 ? "+" : ""}{pnlToday.toFixed(2)}</div>
+        </div>
         <div><div className="text-[9px] uppercase opacity-70">Win Rate</div><div className="pixel text-[18px]">{winRate}{winRate !== UNK && "%"}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Consec. Losses</div><div className={`pixel text-[18px] ${consec >= 3 ? "text-loss" : ""}`}>{consec}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Best Strategy</div><div className="text-[11px] font-bold">{bestStrat}</div></div>
         <div><div className="text-[9px] uppercase opacity-70">Worst Strategy</div><div className="text-[11px] font-bold">{worstStrat}</div></div>
       </div>
+      {usingMt5Truth && (
+        <div className="mt-1 text-[10px] uppercase tracking-widest opacity-70">
+          Trades-table PnL Today (secondary): <b>{pnlTodayTrades >= 0 ? "+" : ""}${pnlTodayTrades.toFixed(2)}</b>
+        </div>
+      )}
       <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
         <div>
           <div className="font-bold uppercase opacity-70">Skipped Count by Reason</div>
