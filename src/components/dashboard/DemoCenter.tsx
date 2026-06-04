@@ -216,9 +216,19 @@ export function DemoPilotStatus() {
   }
   const accountType = getField(sources, "account_type");
   const mt5 = getField(sources, "mt5_connected");
-  const lastGateDec = getField([decRP, dec[0]], "last_demo_gate_decision") ?? getField([decRP, dec[0]], "demo_gate_decision");
-  const lastGateReason = getField([decRP, dec[0]], "last_demo_gate_reason") ?? getField([decRP, dec[0]], "demo_gate_reason");
+  const lastGateDec =
+    getField([ds, bsRP, bs, decRP, dec[0]], "latest_demo_gate_decision") ??
+    getField([ds, bsRP, bs, decRP, dec[0]], "last_demo_gate_decision") ??
+    getField([decRP, dec[0]], "demo_gate_decision");
+  const lastGateReason =
+    getField([ds, bsRP, bs, decRP, dec[0]], "latest_demo_gate_reason") ??
+    getField([decRP, dec[0]], "last_demo_gate_reason") ??
+    getField([decRP, dec[0]], "demo_gate_reason");
+  const latestStrategyGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_reason");
+  const latestSymbolGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_symbol_gate_reason");
   const lastDemoTicket = getField([decRP, dec[0], bsRP, bs], "last_demo_ticket");
+  const gateMissing = lastGateDec == null || lastGateDec === "";
+  const gateDecDisplay = gateMissing ? "UNKNOWN — backend did not emit latest gate field" : String(lastGateDec);
 
   const pilotHoursConfigured = Number(
     getField(sources, "demo_pilot_hours") ??
