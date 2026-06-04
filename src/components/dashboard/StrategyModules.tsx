@@ -66,18 +66,27 @@ function unknownIf(v: any) {
   return v == null || v === "" ? "UNKNOWN" : v;
 }
 
-function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined; kind: "ACTIVE" | "CONFIRMATION" | "LEGACY" }) {
+function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: any | undefined; kind: "ACTIVE" | "CONFIRMATION" | "LEGACY"; activeSymbol?: string | null }) {
   const rp = sig?.raw_payload ?? {};
   const role = ROLES[name] ?? "OBSERVER_ONLY";
+  const isGold = activeSymbol ? isSameSymbol(activeSymbol, "GOLD") : false;
+  const goldDisabled = isGold && GOLD_DISABLED_GENERICS.has(name);
+  const btcMathAudit = !isGold && BTC_MATH_AUDIT_DISABLED.has(name);
+
   const defaultStatus =
     kind === "LEGACY" ? "OBSERVER_ONLY" :
     kind === "CONFIRMATION" ? role :
     "ACTIVE";
-  const statusTxt = kind !== "ACTIVE"
-    ? defaultStatus
-    : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
-  const tone = kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
-
+  const statusTxt = goldDisabled
+    ? "DISABLED FOR GOLD"
+    : btcMathAudit
+      ? "DISABLED / MATH AUDIT"
+      : kind !== "ACTIVE"
+        ? defaultStatus
+        : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
+  const tone = goldDisabled || btcMathAudit
+    ? "red"
+    : kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
 
   const signal = unknownIf(sig?.signal);
   const conf = sig?.confidence ?? rp.confidence;
@@ -89,15 +98,24 @@ function StrategyCard({ name, sig, kind }: { name: string; sig: any | undefined;
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
-  const entryAllowed = role === "ENTRY_STRATEGY" && kind === "ACTIVE";
-
+  const entryAllowed = !goldDisabled && !btcMathAudit && role === "ENTRY_STRATEGY" && kind === "ACTIVE";
 
   return (
-    <div className={`border ${kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
+    <div className={`border ${goldDisabled || btcMathAudit ? "border-loss" : kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
       <div className="flex items-center justify-between">
         <div className="font-bold text-[11px]">{name}</div>
         <Badge value={String(statusTxt)} tone={tone as any} />
       </div>
+      {goldDisabled && (
+        <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
+          ⚠ {normalizeSymbol(activeSymbol)} — GOLD_GENERIC_STRATEGY_DISABLED
+        </div>
+      )}
+      {btcMathAudit && (
+        <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
+          ⚠ BTC {name} — DISABLED / MATH AUDIT REQUIRED
+        </div>
+      )}
       <div className="mt-1 flex flex-wrap gap-1">
         <Badge value={`ROLE: ${role}`} tone={roleTone(role) as any} />
         <Badge value={`ENTRY: ${entryAllowed ? "ALLOWED" : "BLOCKED"}`} tone={entryAllowed ? "green" : "red"} />
