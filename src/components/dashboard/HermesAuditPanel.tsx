@@ -131,7 +131,7 @@ export function HermesAuditPanel() {
   const mt5Today = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
   const pnlDiff = mt5Today != null ? mt5Today - totalDemoPnl : null;
   const pnlMismatch = pnlDiff != null && Math.abs(pnlDiff) > 0.01;
-  const pnlSource = "trades (magic 909002) · MT5 today from account_snapshots/dashboard_status";
+  const pnlSource = mt5Today != null ? "MT5_HISTORY_DEALS (primary)" : "TRADES_TABLE (fallback)";
 
   // ─── Trade Sync ────────────────────────────────────
   const dsOpenCount = Number(
