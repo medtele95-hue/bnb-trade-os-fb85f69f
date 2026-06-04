@@ -283,7 +283,7 @@ export function StrategyModules() {
           <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Observer Only (Disabled for Paper Entry)</div>
           <div className="grid grid-cols-2 gap-2">
             {LEGACY.map((name) => (
-              <StrategyCard key={name} name={name} sig={latest[name]} kind="LEGACY" />
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="LEGACY" activeSymbol={activeSymbol} />
             ))}
           </div>
         </>
