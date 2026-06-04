@@ -249,10 +249,17 @@ export function DemoPilotStatus() {
         <KV k="pilot_started_at" v={pilotStartedAt ? new Date(pilotStartedAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
         <KV k="pilot_expires_at" v={pilotExpiresAt ? new Date(pilotExpiresAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
         <KV k="pilot_hours_remaining" v={hoursRemaining != null ? `${hoursRemaining} / ${pilotHoursConfigured}h` : UNK} />
-        <KV k="last_demo_gate_decision" v={String(u(lastGateDec))} />
+        <KV k="latest_demo_gate_decision" v={gateDecDisplay} accent={gateMissing ? "loss" : undefined} />
         <KV k="last_demo_ticket" v={String(u(lastDemoTicket))} />
       </div>
-      <div className="mt-1 text-[10px] opacity-80"><b>LAST GATE REASON:</b> {String(u(lastGateReason))}</div>
+      <div className="mt-1 text-[10px] opacity-80"><b>LATEST DEMO GATE REASON:</b> {String(u(lastGateReason))}</div>
+      <div className="text-[10px] opacity-80"><b>LATEST STRATEGY GATE:</b> {String(u(latestStrategyGateReason))}</div>
+      <div className="text-[10px] opacity-80"><b>LATEST SYMBOL GATE:</b> {String(u(latestSymbolGateReason))}</div>
+      {gateMissing && (
+        <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
+          ⚠ Do not infer PASS from Safety Guard alone — backend gate field is missing.
+        </div>
+      )}
     </Panel>
   );
 }
