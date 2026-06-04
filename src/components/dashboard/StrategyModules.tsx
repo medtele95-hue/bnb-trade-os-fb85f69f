@@ -3,6 +3,22 @@ import { Waiting } from "./Waiting";
 import { Badge, gradeTone, statusTone } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useQuantData, useQuantProData, signalTone as quantSignalTone } from "./QuantStrategy";
+import { isSameSymbol, normalizeSymbol } from "@/lib/symbol";
+
+// Generic strategies are DISABLED FOR GOLD — only GOLD_LIQUIDITY_HUNTER_PRO handles GOLD.
+const GOLD_DISABLED_GENERICS = new Set([
+  "TREND_CONTINUATION_BREAKDOWN",
+  "QUANT_PRO_REGIME_SWITCHING",
+  "QUANT_STATISTICAL_PULLBACK",
+  "BREAKOUT_RETEST",
+  "FIB_OTE_RETEST",
+  "AMD_FVG_IFVG_REVERSAL",
+  "CRT_TBS_REVERSAL",
+]);
+
+// BTC math audit override
+const BTC_MATH_AUDIT_DISABLED = new Set(["QUANT_STATISTICAL_PULLBACK"]);
+
 
 const ACTIVE = [
   "TREND_CONTINUATION_BREAKDOWN",
