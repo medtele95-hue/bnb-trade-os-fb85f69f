@@ -2,6 +2,12 @@ import { Panel, KV } from "./Panel";
 import { Badge } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useDashboardStatusPayload } from "./DemoCenter";
+import { isSameSymbol } from "@/lib/symbol";
+
+function useActiveSymbol(): string | null {
+  const { rows } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  return rows[0]?.symbol ?? null;
+}
 
 // ============ QUANT PRO REGIME SWITCHING ============
 type QuantProFields = {
