@@ -1113,6 +1113,8 @@ function Dashboard() {
         <div className="col-span-6"><KellyDemoPanel /></div>
       </div>
 
+      <div className="mt-3"><ChartSymbolBanner chartSymbol="BTCUSD" /></div>
+
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-3"><Markov /></div>
         <div className="col-span-3"><Kelly /></div>
@@ -1121,12 +1123,13 @@ function Dashboard() {
             <ChartPrice />
             <div className="mt-1"><ConfirmationRibbon /></div>
             <div className="relative mt-1">
-              <QuantChartLabel />
+              <MainChartOverlay />
               <CandleChart variant="main" />
             </div>
           </Panel>
         </div>
       </div>
+
 
       <div className="mt-3">
         <WspChartWorkspace />
