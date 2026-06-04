@@ -1109,6 +1109,8 @@ function Dashboard() {
         <div className="col-span-4"><VideoAgents /></div>
       </div>
 
+      <div className="mt-3"><GoldLiquidityHunter /></div>
+
       <div className="mt-3"><HermesAuditPanel /></div>
 
       <div className="mt-3"><TradeJournalTabs /></div>
