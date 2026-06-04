@@ -335,11 +335,22 @@ function num(v: any, digits = 2): string {
 
 export function QuantStrategyPanel() {
   const q = useQuantData();
+  const activeSymbol = useActiveSymbol();
+  const isGold = activeSymbol ? isSameSymbol(activeSymbol, "GOLD") : false;
   if (!q.has_any) {
     return (
-      <Panel title="QUANT STATISTICAL PULLBACK" right="ENTRY_STRATEGY">
+      <Panel title="QUANT STATISTICAL PULLBACK" right={isGold ? "DISABLED FOR GOLD" : "ENTRY_STRATEGY"}>
+        {isGold ? (
+          <div className="border border-loss px-2 py-1 text-[10px] text-loss uppercase tracking-widest">
+            ⚠ GOLD_GENERIC_STRATEGY_DISABLED
+          </div>
+        ) : (
+          <div className="border border-loss px-2 py-1 text-[10px] text-loss uppercase tracking-widest">
+            ⚠ BTC QUANT_STATISTICAL_PULLBACK — DISABLED / MATH AUDIT REQUIRED
+          </div>
+        )}
         <div className="border border-dashed border-black/40 p-3 text-[11px] italic opacity-70 text-center">
-          Waiting for Quant data
+          {isGold ? "Disabled for GOLD context" : "Disabled pending math audit"}
         </div>
       </Panel>
     );
@@ -357,7 +368,16 @@ export function QuantStrategyPanel() {
     backendDec !== "ALLOW_DEMO";
 
   return (
-    <Panel title="QUANT STATISTICAL PULLBACK" right="ENTRY_STRATEGY">
+    <Panel title="QUANT STATISTICAL PULLBACK" right={isGold ? "DISABLED FOR GOLD" : "ENTRY_STRATEGY · BTC MATH AUDIT REQUIRED"}>
+      {isGold ? (
+        <div className="border border-loss px-2 py-1 text-[10px] text-loss uppercase tracking-widest mb-2">
+          ⚠ GOLD_GENERIC_STRATEGY_DISABLED — GOLD entries handled by GOLD_LIQUIDITY_HUNTER_PRO
+        </div>
+      ) : (
+        <div className="border border-loss px-2 py-1 text-[10px] text-loss uppercase tracking-widest mb-2">
+          ⚠ BTC QUANT_STATISTICAL_PULLBACK — DISABLED / MATH AUDIT REQUIRED (signals shown for observation only)
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-2">
         <div className="border border-black p-1.5">
           <div className="text-[9px] uppercase opacity-70">Status</div>
