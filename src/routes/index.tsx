@@ -1096,6 +1096,9 @@ function Dashboard() {
 
       <DemoModeBanner />
 
+      <div className="mt-3"><SafetyStrip /></div>
+
+
       <div className="grid grid-cols-12 gap-3 mt-3">
         <div className="col-span-6"><DemoPilotStatus /></div>
         <div className="col-span-6"><DemoAlerts /></div>
