@@ -125,11 +125,18 @@ function fmtN(v: any, digits = 2): string {
 
 export function QuantProStrategyPanel() {
   const q = useQuantProData();
+  const activeSymbol = useActiveSymbol();
+  const isGold = activeSymbol ? isSameSymbol(activeSymbol, "GOLD") : false;
   if (!q.has_any) {
     return (
-      <Panel title="QUANT_PRO_REGIME_SWITCHING" right="ENTRY_STRATEGY">
+      <Panel title="QUANT_PRO_REGIME_SWITCHING" right={isGold ? "DISABLED FOR GOLD" : "ENTRY_STRATEGY"}>
+        {isGold && (
+          <div className="border border-loss px-2 py-1 text-[10px] text-loss uppercase tracking-widest mb-1">
+            ⚠ GOLD_GENERIC_STRATEGY_DISABLED — GOLD entries handled by GOLD_LIQUIDITY_HUNTER_PRO
+          </div>
+        )}
         <div className="border border-dashed border-black/40 p-3 text-[11px] italic opacity-70 text-center">
-          Waiting for Quant PRO data
+          {isGold ? "Disabled for GOLD context" : "Waiting for Quant PRO data"}
         </div>
       </Panel>
     );
@@ -144,7 +151,12 @@ export function QuantProStrategyPanel() {
     (topDown === "WAIT_FOR_CONFIRMATION" || topDown === "AVOID") &&
     backendDec !== "ALLOW_DEMO";
   return (
-    <Panel title="QUANT_PRO_REGIME_SWITCHING" right="ENTRY_STRATEGY · ENTRY: ALLOWED">
+    <Panel title="QUANT_PRO_REGIME_SWITCHING" right={isGold ? "DISABLED FOR GOLD" : "ENTRY_STRATEGY · ENTRY: ALLOWED"}>
+      {isGold && (
+        <div className="border border-loss px-2 py-1 text-[10px] text-loss uppercase tracking-widest mb-2">
+          ⚠ GOLD_GENERIC_STRATEGY_DISABLED — GOLD entries handled by GOLD_LIQUIDITY_HUNTER_PRO
+        </div>
+      )}
       <div className="grid grid-cols-4 gap-2">
         <div className="border border-black p-1.5">
           <div className="text-[9px] uppercase opacity-70">Regime</div>
