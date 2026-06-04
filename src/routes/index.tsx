@@ -1083,6 +1083,12 @@ function SafetyStrip() {
   );
 }
 
+function MainChartOverlay() {
+  const s = useActiveSymbols("BTCUSD");
+  if (!s.aligned) return null;
+  return <QuantChartLabel />;
+}
+
 function Dashboard() {
   return (
     <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
