@@ -45,11 +45,16 @@ function HeartbeatIndicator() {
         : ageSec > 15
           ? "DATA STALE"
           : "BACKEND LIVE";
-  // Supabase channel status — only reflects channel, NOT data freshness
-  const rtTone = rt === "CONNECTED" ? "text-profit" : rt === "RECONNECTING" ? "text-orange-700" : "text-loss";
+  // Supabase channel status — channel only. When backend data is stale,
+  // do NOT show LIVE CONNECTED as fully healthy.
+  const dataStale = ageSec != null && ageSec > 15;
+  const dataOffline = ageSec != null && ageSec > 60;
+  const rtTone = rt !== "CONNECTED"
+    ? "text-loss"
+    : dataOffline ? "text-loss" : dataStale ? "text-orange-700" : "text-profit";
   const rtLabel =
     rt === "CONNECTED"
-      ? "LIVE CONNECTED"
+      ? (dataOffline ? "LIVE CHANNEL · BACKEND OFFLINE" : dataStale ? "LIVE CHANNEL · DATA STALE" : "LIVE CONNECTED")
       : rt === "RECONNECTING"
         ? "LIVE RECONNECTING"
         : "LIVE OFFLINE — FALLBACK POLLING";
