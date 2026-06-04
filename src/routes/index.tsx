@@ -195,7 +195,6 @@ function Hero() {
     acctType === "LIVE" ? "ACCT: LIVE" :
     "ACCT: UNKNOWN";
 
-  // Demo-only datasets (single source of truth = trades table, magic 909002)
   const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
   const openDemoTrades = demoTrades.filter((t: any) =>
     String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
@@ -207,12 +206,20 @@ function Hero() {
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedToday = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
-  // Single source of truth for demo PnL = sum of closed demo trades closed TODAY
-  // (this matches DemoReport's "PnL Today").
-  const closedDemoPnlToday = closedDemoTrades
+
+  // Trades-table closed PnL — SECONDARY reconciliation only
+  const closedDemoPnlTrades = closedDemoTrades
     .filter((t: any) => isToday(t.closed_at))
     .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
-  // Floating PnL = sum of open demo trades' current pnl (from trades.pnl or raw_payload).
+
+  // PRIMARY closed PnL = MT5 history deals (dashboard_status / account_snapshots)
+  const mt5TodayRaw =
+    ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
+  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
+  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
+  const closedDemoPnlToday = usingMt5Truth ? (mt5TodayPnl as number) : closedDemoPnlTrades;
+  const pnlSource = usingMt5Truth ? "MT5_HISTORY_DEALS" : "TRADES_TABLE (fallback)";
+
   const floatingDemoPnl = openDemoTrades.reduce((acc: number, t: any) => {
     const rp = (t.raw_payload ?? {}) as any;
     const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
@@ -224,40 +231,32 @@ function Hero() {
   const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
   const totalPnlNum = isDemo ? Number(totalDemoPnl) : Number(s.total_pnl ?? 0);
-  const totalPnlSource = isDemo
-    ? "Total Demo PnL = Closed Today + Floating · magic 909002"
-    : "Verified from MT5";
   const accountStatusLabel = isDemo
     ? "Account: DEMO VERIFIED"
     : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
-
-  const winRateDisplay = isDemo
-    ? (demoWinRate ?? "—")
-    : (s.win_rate ?? 0);
-  const tradesTodayDisplay = isDemo
-    ? openedToday
-    : (s.trades_today ?? "—");
-  // Open positions MUST match Open Demo table source of truth.
-  const openPosDisplay = isDemo
-    ? openDemoTrades.length
-    : (s.open_positions ?? 0);
+  const winRateDisplay = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
+  const tradesTodayDisplay = isDemo ? openedToday : (s.trades_today ?? "—");
+  const openPosDisplay = isDemo ? openDemoTrades.length : (s.open_positions ?? 0);
+  const reconcileDiff = usingMt5Truth ? (mt5TodayPnl as number) - closedDemoPnlTrades : null;
 
   return (
     <Panel title={isDemo ? "TOTAL DEMO PNL — HERMES MAGIC 909002" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
       <div className="grid grid-cols-3 gap-3 items-center">
         <div className="col-span-2 px-2 py-3">
-          <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (Closed + Floating)" : "Total PnL"}</div>
+          <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (MT5 Closed + Floating)" : "Total PnL"}</div>
           <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
             {totalPnlNum >= 0 ? "+" : "-"}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           {isDemo && (
-            <div className="flex gap-3 mt-1 text-[10px] uppercase tracking-widest">
+            <div className="flex flex-wrap gap-3 mt-1 text-[10px] uppercase tracking-widest">
               <span>Closed Demo PnL: <b className={closedDemoPnlToday >= 0 ? "text-profit" : "text-loss"}>{closedDemoPnlToday >= 0 ? "+" : ""}${closedDemoPnlToday.toFixed(2)}</b></span>
               <span>Floating Demo PnL: <b className={floatingDemoPnl >= 0 ? "text-profit" : "text-loss"}>{floatingDemoPnl >= 0 ? "+" : ""}${floatingDemoPnl.toFixed(2)}</b></span>
+              <span className="opacity-70">PnL Source: <b>{pnlSource}</b></span>
+              <span className="opacity-70">Trades Table (secondary): <b>{closedDemoPnlTrades >= 0 ? "+" : ""}${closedDemoPnlTrades.toFixed(2)}</b></span>
             </div>
           )}
           <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
-            <StatusDot label={totalPnlSource} />
+            <StatusDot label={`SOURCE: ${pnlSource}`} />
             <StatusDot label={accountStatusLabel} />
             <StatusDot label="Broker Connected" />
             <Badge
@@ -268,8 +267,11 @@ function Hero() {
         </div>
         <div className="border-l border-black p-2 space-y-0.5">
           <KV k="Trades Today" v={isDemo ? `${tradesTodayDisplay} opened / ${closedToday} closed` : tradesTodayDisplay} />
-          <KV k="Closed Demo PnL" v={`${closedDemoPnlToday >= 0 ? "+" : ""}$${closedDemoPnlToday.toFixed(2)}`} accent={closedDemoPnlToday >= 0 ? "profit" : "loss"} />
+          <KV k="Closed Demo PnL (MT5)" v={`${closedDemoPnlToday >= 0 ? "+" : ""}$${closedDemoPnlToday.toFixed(2)}`} accent={closedDemoPnlToday >= 0 ? "profit" : "loss"} />
           <KV k="Floating Demo PnL" v={`${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`} accent={floatingDemoPnl >= 0 ? "profit" : "loss"} />
+          {reconcileDiff != null && (
+            <KV k="Recon Δ (MT5−Trades)" v={`${reconcileDiff >= 0 ? "+" : ""}$${reconcileDiff.toFixed(2)}`} />
+          )}
           <KV k="Win Rate" v={winRateDisplay === "—" ? "—" : `${winRateDisplay}%`} />
           <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
           <KV k="Open Positions" v={openPosDisplay} />
