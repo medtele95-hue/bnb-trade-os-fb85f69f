@@ -589,6 +589,9 @@ export function TradeJournalTabs() {
 export function DemoReport() {
   const { rows: trades } = useLiveTable<any>("trades", { limit: 200 });
   const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 50 });
+  const ds = useDashboardStatusPayload();
+  const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
+  const s = snaps[0] ?? {};
 
   const demo = trades.filter((t) => {
     const rp = getRP(t);
@@ -602,7 +605,13 @@ export function DemoReport() {
   const openedToday = demo.filter(t => isToday(t.opened_at ?? t.created_at)).length;
   const closedToday = demo.filter(t => isToday(t.closed_at)).length;
   const openNow = demo.filter(isOpenDemo).length;
-  const pnlToday = demo.filter(t => isToday(t.closed_at)).reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+  const pnlTodayTrades = demo.filter(t => isToday(t.closed_at)).reduce((s, t) => s + Number(t.pnl ?? 0), 0);
+  const mt5TodayRaw =
+    (ds as any).mt5_today_pnl ?? (ds as any).mt5_daily_pnl ?? (ds as any).today_pnl ?? s.daily_pnl ?? null;
+  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
+  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
+  const pnlToday = usingMt5Truth ? (mt5TodayPnl as number) : pnlTodayTrades;
+  const pnlSource = usingMt5Truth ? "MT5_HISTORY_DEALS" : "TRADES_TABLE";
   const wins = demo.filter(t => Number(t.pnl ?? 0) > 0).length;
   const losses = demo.filter(t => Number(t.pnl ?? 0) < 0).length;
   const winRate = wins + losses > 0 ? ((wins / (wins + losses)) * 100).toFixed(1) : UNK;
