@@ -21,6 +21,7 @@ import { useLiveTable } from "@/hooks/useLiveTable";
 import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import { LiveSyncDebugPanel } from "@/components/dashboard/LiveSyncDebugPanel";
 import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
+import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
 import { useEffect, useState } from "react";
 
 function HeartbeatIndicator() {
@@ -1107,6 +1108,8 @@ function Dashboard() {
         <div className="col-span-8"><SelfLearn /></div>
         <div className="col-span-4"><VideoAgents /></div>
       </div>
+
+      <div className="mt-3"><GoldLiquidityHunter /></div>
 
       <div className="mt-3"><HermesAuditPanel /></div>
 
