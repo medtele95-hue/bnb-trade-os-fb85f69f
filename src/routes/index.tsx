@@ -305,9 +305,14 @@ function MetricsRow() {
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
   const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const closedDemoPnl = closedDemo
+  const closedDemoPnlTrades = closedDemo
     .filter((t: any) => isToday(t.closed_at))
     .reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const mt5TodayRaw =
+    ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
+  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
+  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
+  const closedDemoPnl = usingMt5Truth ? (mt5TodayPnl as number) : closedDemoPnlTrades;
   const floatingDemoPnl = openDemo.reduce((a: number, t: any) => {
     const rp = (t.raw_payload ?? {}) as any;
     const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
@@ -332,7 +337,7 @@ function MetricsRow() {
         { k: "Trades Today", v: tradesToday },
         { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
         { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
-        { k: "Closed Demo PnL", v: `${closedDemoPnl >= 0 ? "+" : ""}$${closedDemoPnl.toFixed(2)}`, a: closedDemoPnl >= 0 ? "profit" : "loss" },
+        { k: usingMt5Truth ? "Closed Demo PnL (MT5)" : "Closed Demo PnL", v: `${closedDemoPnl >= 0 ? "+" : ""}$${closedDemoPnl.toFixed(2)}`, a: closedDemoPnl >= 0 ? "profit" : "loss" },
         { k: "Floating Demo PnL", v: `${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`, a: floatingDemoPnl >= 0 ? "profit" : "loss" },
         { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: totalDemoPnl >= 0 ? "profit" : "loss" },
         { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
