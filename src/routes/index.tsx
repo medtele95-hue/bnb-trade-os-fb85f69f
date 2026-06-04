@@ -22,6 +22,7 @@ import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import { LiveSyncDebugPanel } from "@/components/dashboard/LiveSyncDebugPanel";
 import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
 import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
+import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
 import { useEffect, useState } from "react";
 
 function HeartbeatIndicator() {
