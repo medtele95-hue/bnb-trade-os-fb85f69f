@@ -253,24 +253,31 @@ function QuantProExtras() {
 
 export function StrategyModules() {
   const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 100 });
+  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const activeSymbol = dec[0]?.symbol ?? null;
   const latest = pickLatest(rows);
 
   return (
-    <Panel title="STRATEGY MODULES" right="7 ENTRY · 3 CONFIRMATION · 2 OBSERVER">
+    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 7 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
       {empty ? (
         <Waiting />
       ) : (
         <>
+          {activeSymbol && isSameSymbol(activeSymbol, "GOLD") && (
+            <div className="mb-2 border border-loss px-2 py-1 text-[10px] uppercase tracking-widest text-loss">
+              ⚠ ACTIVE SYMBOL = GOLD — GENERIC ENTRY STRATEGIES DISABLED · ONLY GOLD_LIQUIDITY_HUNTER_PRO HANDLES GOLD ENTRIES
+            </div>
+          )}
           <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (7)</div>
           <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {ACTIVE.map((name) => (
-              <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" />
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" activeSymbol={activeSymbol} />
             ))}
           </div>
           <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Confirmation / Market Readers (3)</div>
           <div className="grid grid-cols-3 gap-2">
             {CONFIRMATION.map((name) => (
-              <StrategyCard key={name} name={name} sig={latest[name]} kind="CONFIRMATION" />
+              <StrategyCard key={name} name={name} sig={latest[name]} kind="CONFIRMATION" activeSymbol={activeSymbol} />
             ))}
           </div>
           <div className="text-[10px] uppercase tracking-widest opacity-70 mt-3 mb-1">Observer Only (Disabled for Paper Entry)</div>
