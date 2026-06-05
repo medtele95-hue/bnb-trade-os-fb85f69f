@@ -225,6 +225,9 @@ export function DemoPilotStatus() {
     getField([decRP, dec[0]], "last_demo_gate_reason") ??
     getField([decRP, dec[0]], "demo_gate_reason");
   const latestStrategyGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_reason");
+  const latestStrategyGateSymbol = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_symbol");
+  const latestStrategyGateStrategy = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_strategy");
+  const latestStrategyGateDecision = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_decision");
   const latestSymbolGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_symbol_gate_reason");
   const lastDemoTicket = getField([decRP, dec[0], bsRP, bs], "last_demo_ticket");
   const gateMissing = lastGateDec == null || lastGateDec === "";
@@ -253,7 +256,11 @@ export function DemoPilotStatus() {
         <KV k="last_demo_ticket" v={String(u(lastDemoTicket))} />
       </div>
       <div className="mt-1 text-[10px] opacity-80"><b>LATEST DEMO GATE REASON:</b> {String(u(lastGateReason))}</div>
-      <div className="text-[10px] opacity-80"><b>LATEST STRATEGY GATE:</b> {String(u(latestStrategyGateReason))}</div>
+      <div className="text-[10px] opacity-80">
+        <b>LATEST STRATEGY GATE:</b>{" "}
+        {String(u(latestStrategyGateSymbol))} / {String(u(latestStrategyGateStrategy))} —{" "}
+        {String(u(latestStrategyGateDecision))} — {String(u(latestStrategyGateReason))}
+      </div>
       <div className="text-[10px] opacity-80"><b>LATEST SYMBOL GATE:</b> {String(u(latestSymbolGateReason))}</div>
       {gateMissing && (
         <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
