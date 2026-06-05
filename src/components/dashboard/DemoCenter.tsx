@@ -256,7 +256,11 @@ export function DemoPilotStatus() {
         <KV k="last_demo_ticket" v={String(u(lastDemoTicket))} />
       </div>
       <div className="mt-1 text-[10px] opacity-80"><b>LATEST DEMO GATE REASON:</b> {String(u(lastGateReason))}</div>
-      <div className="text-[10px] opacity-80"><b>LATEST STRATEGY GATE:</b> {String(u(latestStrategyGateReason))}</div>
+      <div className="text-[10px] opacity-80">
+        <b>LATEST STRATEGY GATE:</b>{" "}
+        {String(u(latestStrategyGateSymbol))} / {String(u(latestStrategyGateStrategy))} —{" "}
+        {String(u(latestStrategyGateDecision))} — {String(u(latestStrategyGateReason))}
+      </div>
       <div className="text-[10px] opacity-80"><b>LATEST SYMBOL GATE:</b> {String(u(latestSymbolGateReason))}</div>
       {gateMissing && (
         <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
