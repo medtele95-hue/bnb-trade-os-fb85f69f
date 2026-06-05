@@ -86,8 +86,11 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
   const rp = sig?.raw_payload ?? {};
   const role = ROLES[name] ?? "OBSERVER_ONLY";
   const isGold = activeSymbol ? isSameSymbol(activeSymbol, "GOLD") : false;
+  const isEur = activeSymbol ? isSameSymbol(activeSymbol, "EURUSD") : false;
   const goldDisabled = isGold && GOLD_DISABLED_GENERICS.has(name);
-  const btcMathAudit = !isGold && BTC_MATH_AUDIT_DISABLED.has(name);
+  const eurDisabled = isEur && EUR_DISABLED_GENERICS.has(name);
+  const eurOnlyBlocked = !isEur && EUR_ONLY_STRATEGIES.has(name);
+  const btcMathAudit = !isGold && !isEur && BTC_MATH_AUDIT_DISABLED.has(name);
 
   const defaultStatus =
     kind === "LEGACY" ? "OBSERVER_ONLY" :
@@ -95,14 +98,21 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
     "ACTIVE";
   const statusTxt = goldDisabled
     ? "DISABLED FOR GOLD"
-    : btcMathAudit
-      ? "DISABLED / MATH AUDIT"
-      : kind !== "ACTIVE"
-        ? defaultStatus
-        : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
-  const tone = goldDisabled || btcMathAudit
+    : eurDisabled
+      ? "DISABLED FOR EUR"
+      : eurOnlyBlocked
+        ? "EUR-ONLY — INACTIVE"
+        : btcMathAudit
+          ? "DISABLED / MATH AUDIT"
+          : kind !== "ACTIVE"
+            ? defaultStatus
+            : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
+  const disabledHard = goldDisabled || eurDisabled || btcMathAudit;
+  const tone = disabledHard
     ? "red"
-    : kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
+    : eurOnlyBlocked
+      ? "gray"
+      : kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
 
   const signal = unknownIf(sig?.signal);
   const conf = sig?.confidence ?? rp.confidence;
@@ -114,10 +124,10 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
-  const entryAllowed = !goldDisabled && !btcMathAudit && role === "ENTRY_STRATEGY" && kind === "ACTIVE";
+  const entryAllowed = !disabledHard && !eurOnlyBlocked && role === "ENTRY_STRATEGY" && kind === "ACTIVE";
 
   return (
-    <div className={`border ${goldDisabled || btcMathAudit ? "border-loss" : kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
+    <div className={`border ${disabledHard ? "border-loss" : eurOnlyBlocked ? "border-dashed border-black/60 opacity-80" : kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
       <div className="flex items-center justify-between">
         <div className="font-bold text-[11px]">{name}</div>
         <Badge value={String(statusTxt)} tone={tone as any} />
@@ -125,6 +135,16 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
       {goldDisabled && (
         <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
           ⚠ {normalizeSymbol(activeSymbol)} — GOLD_GENERIC_STRATEGY_DISABLED
+        </div>
+      )}
+      {eurDisabled && (
+        <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
+          ⚠ {normalizeSymbol(activeSymbol)} — EUR_GENERIC_STRATEGY_DISABLED
+        </div>
+      )}
+      {eurOnlyBlocked && (
+        <div className="mt-1 text-[10px] opacity-80 uppercase tracking-widest">
+          EURUSD-ONLY — ACTIVE SYMBOL = {normalizeSymbol(activeSymbol) || "—"}
         </div>
       )}
       {btcMathAudit && (
