@@ -225,6 +225,9 @@ export function DemoPilotStatus() {
     getField([decRP, dec[0]], "last_demo_gate_reason") ??
     getField([decRP, dec[0]], "demo_gate_reason");
   const latestStrategyGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_reason");
+  const latestStrategyGateSymbol = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_symbol");
+  const latestStrategyGateStrategy = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_strategy");
+  const latestStrategyGateDecision = getField([ds, bsRP, bs, decRP, dec[0]], "latest_strategy_gate_decision");
   const latestSymbolGateReason = getField([ds, bsRP, bs, decRP, dec[0]], "latest_symbol_gate_reason");
   const lastDemoTicket = getField([decRP, dec[0], bsRP, bs], "last_demo_ticket");
   const gateMissing = lastGateDec == null || lastGateDec === "";
