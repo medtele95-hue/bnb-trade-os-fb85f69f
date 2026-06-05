@@ -294,7 +294,7 @@ export function StrategyModules() {
   const latest = pickLatest(rows);
 
   return (
-    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 7 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
+    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 8 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
       {empty ? (
         <Waiting />
       ) : (
@@ -304,7 +304,12 @@ export function StrategyModules() {
               ⚠ ACTIVE SYMBOL = GOLD — GENERIC ENTRY STRATEGIES DISABLED · ONLY GOLD_LIQUIDITY_HUNTER_PRO HANDLES GOLD ENTRIES
             </div>
           )}
-          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (7)</div>
+          {activeSymbol && isSameSymbol(activeSymbol, "EURUSD") && (
+            <div className="mb-2 border border-loss px-2 py-1 text-[10px] uppercase tracking-widest text-loss">
+              ⚠ ACTIVE SYMBOL = EURUSD — GENERIC ENTRY STRATEGIES DISABLED · ONLY EUR_EMA_RSI_ATR_CROSSOVER HANDLES EUR ENTRIES
+            </div>
+          )}
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (8)</div>
           <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {ACTIVE.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" activeSymbol={activeSymbol} />
