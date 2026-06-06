@@ -549,7 +549,7 @@ export function TradeJournalTabs() {
           <table className="w-full text-[10px]">
             <thead>
               <tr className="border-b border-black text-left uppercase tracking-wider">
-                {["Time","Ticket","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Strategy","RR","Kelly Sug.","Final Cap","Quant Score","R²","Z","QPro Score","Regime","OLS t","KZ","Hurst","Gate","Status","Close Reason"].map(h => (
+                {["Time","Ticket","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Strategy","RR","Kelly Sug.","Final Cap","Quant Score","R²","Z","QPro Score","Regime","OLS t","KZ","Hurst","Gate","Status","Close Reason","QX Status","Profit USD","Peak USD","BE Done","Trail Active","Last QX Action"].map(h => (
                   <th key={h} className="py-1 pr-2">{h}</th>
                 ))}
               </tr>
