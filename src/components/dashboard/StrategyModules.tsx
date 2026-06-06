@@ -14,6 +14,7 @@ const GOLD_DISABLED_GENERICS = new Set([
   "FIB_OTE_RETEST",
   "AMD_FVG_IFVG_REVERSAL",
   "CRT_TBS_REVERSAL",
+  "BTC_SCALPING_AGENT",
 ]);
 
 // Generic strategies are DISABLED FOR EUR — only EUR_EMA_RSI_ATR_CROSSOVER handles EURUSD.
@@ -25,10 +26,14 @@ const EUR_DISABLED_GENERICS = new Set([
   "FIB_OTE_RETEST",
   "AMD_FVG_IFVG_REVERSAL",
   "CRT_TBS_REVERSAL",
+  "BTC_SCALPING_AGENT",
 ]);
 
 // EUR-only strategy — disabled when active symbol is not EURUSD.
 const EUR_ONLY_STRATEGIES = new Set(["EUR_EMA_RSI_ATR_CROSSOVER"]);
+
+// BTC-only executable strategy — disabled when active symbol is not BTCUSD.
+const BTC_ONLY_STRATEGIES = new Set(["BTC_SCALPING_AGENT"]);
 
 // BTC math audit override
 const BTC_MATH_AUDIT_DISABLED = new Set(["QUANT_STATISTICAL_PULLBACK"]);
@@ -43,6 +48,7 @@ const ACTIVE = [
   "QUANT_STATISTICAL_PULLBACK",
   "QUANT_PRO_REGIME_SWITCHING",
   "EUR_EMA_RSI_ATR_CROSSOVER",
+  "BTC_SCALPING_AGENT",
 ] as const;
 const CONFIRMATION = ["EMA_PULLBACK", "ACCELERATION_BANDS_HTF", "TOP_DOWN_MARKET_READER"] as const;
 const LEGACY = ["SECOND_ENTRY", "SCALPING_AGENT"] as const;
@@ -56,6 +62,7 @@ const ROLES: Record<string, "ENTRY_STRATEGY" | "CONFIRMATION_ONLY" | "OBSERVER_O
   AMD_FVG_IFVG_REVERSAL: "ENTRY_STRATEGY",
   FIB_OTE_RETEST: "ENTRY_STRATEGY",
   EUR_EMA_RSI_ATR_CROSSOVER: "ENTRY_STRATEGY",
+  BTC_SCALPING_AGENT: "ENTRY_STRATEGY",
   EMA_PULLBACK: "CONFIRMATION_ONLY",
   ACCELERATION_BANDS_HTF: "HTF_CONFIRMATION",
   TOP_DOWN_MARKET_READER: "MARKET_READER",
@@ -87,9 +94,11 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
   const role = ROLES[name] ?? "OBSERVER_ONLY";
   const isGold = activeSymbol ? isSameSymbol(activeSymbol, "GOLD") : false;
   const isEur = activeSymbol ? isSameSymbol(activeSymbol, "EURUSD") : false;
+  const isBtc = activeSymbol ? isSameSymbol(activeSymbol, "BTCUSD") : false;
   const goldDisabled = isGold && GOLD_DISABLED_GENERICS.has(name);
   const eurDisabled = isEur && EUR_DISABLED_GENERICS.has(name);
   const eurOnlyBlocked = !isEur && EUR_ONLY_STRATEGIES.has(name);
+  const btcOnlyBlocked = !isBtc && BTC_ONLY_STRATEGIES.has(name);
   const btcMathAudit = !isGold && !isEur && BTC_MATH_AUDIT_DISABLED.has(name);
 
   const defaultStatus =
@@ -102,15 +111,18 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
       ? "DISABLED FOR EUR"
       : eurOnlyBlocked
         ? "EUR-ONLY — INACTIVE"
-        : btcMathAudit
-          ? "DISABLED / MATH AUDIT"
-          : kind !== "ACTIVE"
-            ? defaultStatus
-            : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
+        : btcOnlyBlocked
+          ? "BTC-ONLY — INACTIVE"
+          : btcMathAudit
+            ? "DISABLED / MATH AUDIT"
+            : kind !== "ACTIVE"
+              ? defaultStatus
+              : unknownIf(rp.strategy_status ?? sig?.status ?? "ACTIVE");
   const disabledHard = goldDisabled || eurDisabled || btcMathAudit;
+  const softInactive = eurOnlyBlocked || btcOnlyBlocked;
   const tone = disabledHard
     ? "red"
-    : eurOnlyBlocked
+    : softInactive
       ? "gray"
       : kind === "LEGACY" ? "gray" : kind === "CONFIRMATION" ? "yellow" : statusTone(String(statusTxt));
 
@@ -124,10 +136,14 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
     ? unknownIf(sig?.blocked_reason ?? rp.skip_reason ?? sig?.reason)
     : null;
 
-  const entryAllowed = !disabledHard && !eurOnlyBlocked && role === "ENTRY_STRATEGY" && kind === "ACTIVE";
+  const entryAllowed = !disabledHard && !softInactive && role === "ENTRY_STRATEGY" && kind === "ACTIVE";
+  const isBtcScalper = name === "BTC_SCALPING_AGENT";
+  const entryLabel = isBtcScalper
+    ? (entryAllowed ? "ENTRY: ALLOWED FOR BTCUSD / BTCUSD# ONLY" : "ENTRY: BLOCKED")
+    : `ENTRY: ${entryAllowed ? "ALLOWED" : "BLOCKED"}`;
 
   return (
-    <div className={`border ${disabledHard ? "border-loss" : eurOnlyBlocked ? "border-dashed border-black/60 opacity-80" : kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
+    <div className={`border ${disabledHard ? "border-loss" : softInactive ? "border-dashed border-black/60 opacity-80" : kind === "LEGACY" ? "border-dashed border-black/60 opacity-80" : "border-black"} p-2`}>
       <div className="flex items-center justify-between">
         <div className="font-bold text-[11px]">{name}</div>
         <Badge value={String(statusTxt)} tone={tone as any} />
@@ -147,6 +163,11 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
           EURUSD-ONLY — ACTIVE SYMBOL = {normalizeSymbol(activeSymbol) || "—"}
         </div>
       )}
+      {btcOnlyBlocked && (
+        <div className="mt-1 text-[10px] opacity-80 uppercase tracking-widest">
+          BTCUSD-ONLY — ACTIVE SYMBOL = {normalizeSymbol(activeSymbol) || "—"}
+        </div>
+      )}
       {btcMathAudit && (
         <div className="mt-1 text-[10px] text-loss uppercase tracking-widest">
           ⚠ BTC {name} — DISABLED / MATH AUDIT REQUIRED
@@ -154,11 +175,12 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
       )}
       <div className="mt-1 flex flex-wrap gap-1">
         <Badge value={`ROLE: ${role}`} tone={roleTone(role) as any} />
-        <Badge value={`ENTRY: ${entryAllowed ? "ALLOWED" : "BLOCKED"}`} tone={entryAllowed ? "green" : "red"} />
+        <Badge value={entryLabel} tone={entryAllowed ? "green" : "red"} />
         <Badge value={`SETUP: ${setupGrade}`} tone={gradeTone(setupGrade)} />
         <Badge value={`SAFETY: ${safety}`} tone={statusTone(safety)} />
         <Badge value={`RISK: ${riskDiag}`} tone={statusTone(riskDiag)} />
       </div>
+
       <div className="mt-1.5 space-y-0.5">
         <KV k="Signal" v={String(signal)} />
         <KV k="Confidence" v={conf != null ? `${conf}%` : "UNKNOWN"} />
@@ -222,7 +244,7 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
         <div className="mt-1 text-[10px] opacity-80 italic line-clamp-2">"{sig.reason}"</div>
       )}
       {kind === "LEGACY" && (
-        <div className="mt-1 text-[10px] uppercase opacity-80">LEGACY OBSERVER — NO PAPER ENTRIES</div>
+        <div className="mt-1 text-[10px] uppercase opacity-80">LEGACY OBSERVER — NO DEMO ENTRIES</div>
       )}
     </div>
   );
@@ -294,7 +316,7 @@ export function StrategyModules() {
   const latest = pickLatest(rows);
 
   return (
-    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 8 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
+    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 9 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
       {empty ? (
         <Waiting />
       ) : (
@@ -309,7 +331,7 @@ export function StrategyModules() {
               ⚠ ACTIVE SYMBOL = EURUSD — GENERIC ENTRY STRATEGIES DISABLED · ONLY EUR_EMA_RSI_ATR_CROSSOVER HANDLES EUR ENTRIES
             </div>
           )}
-          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (8)</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (9)</div>
           <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {ACTIVE.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" activeSymbol={activeSymbol} />
