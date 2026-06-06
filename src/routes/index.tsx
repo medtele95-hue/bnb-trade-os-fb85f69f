@@ -24,6 +24,7 @@ import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
 import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
 import { EurEmaRsiAtrPanel } from "@/components/dashboard/EurEmaRsiAtrPanel";
 import { BtcScalpingPanel } from "@/components/dashboard/BtcScalpingPanel";
+import { QuickExitManager } from "@/components/dashboard/QuickExitManager";
 import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
 import { useEffect, useState } from "react";
 
@@ -1199,6 +1200,8 @@ function Dashboard() {
       <div className="mt-3"><EurEmaRsiAtrPanel /></div>
 
       <div className="mt-3"><BtcScalpingPanel /></div>
+
+      <div className="mt-3"><QuickExitManager /></div>
 
       <div className="mt-3"><HermesAuditPanel /></div>
 
