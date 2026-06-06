@@ -768,6 +768,33 @@ export function DemoAlerts() {
   if (decRP.m1_confirmation === false) alerts.push("Missing M1 confirmation");
   if (decRP.order_send_attempted_outside_demo_router) alerts.push("order_send attempted outside demo router");
 
+  // QUICK EXIT alerts — surface most recent QX action across trades + status
+  const qxSources: any[] = [];
+  const dsQx = (ds as any).quick_exit ?? (ds as any).quick_exit_manager;
+  if (dsQx) qxSources.push(dsQx);
+  const qxStatusRow = status.find((r: any) => String(r.component ?? "").toUpperCase().includes("QUICK_EXIT"));
+  if (qxStatusRow) qxSources.push(getRP(qxStatusRow), qxStatusRow);
+  for (const t of trades) {
+    const rp = getRP(t);
+    if (rp.quick_exit) qxSources.push(rp.quick_exit);
+    if (rp.last_quick_exit_action) qxSources.push({ last_action: rp.last_quick_exit_action, ticket: t.ticket, magic: t.magic_number ?? t.magic });
+  }
+  const seen = new Set<string>();
+  for (const q of qxSources) {
+    const action = String(q?.last_action ?? q?.action ?? "").toUpperCase();
+    if (!action || action === "HOLD" || action === "—") continue;
+    const magic = Number(q?.magic ?? q?.magic_number ?? DEMO_MAGIC);
+    const ticket = q?.ticket ?? q?.last_ticket ?? "?";
+    let msg = "";
+    if (action === "MOVE_BREAKEVEN" || action === "BREAKEVEN") msg = `QUICK EXIT MOVED TO BREAKEVEN · ticket ${ticket}`;
+    else if (action === "TRAIL_SL" || action === "TRAIL") msg = `QUICK EXIT TRAILED SL · ticket ${ticket}`;
+    else if (action === "CLOSE_TP") msg = `QUICK EXIT CLOSED AT SMALL TP · ticket ${ticket}`;
+    else if (action === "SKIP" || action === "SKIPPED") {
+      if (magic && magic !== DEMO_MAGIC) msg = `QUICK EXIT SKIPPED NON-HERMES MAGIC ${magic} · ticket ${ticket}`;
+    }
+    if (msg && !seen.has(msg)) { seen.add(msg); alerts.push(msg); }
+  }
+
   return (
     <Panel title="ALERTS" right={`${alerts.length}`}>
       {alerts.length === 0 ? (
