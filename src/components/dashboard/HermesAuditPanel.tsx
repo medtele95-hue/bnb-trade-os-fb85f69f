@@ -212,8 +212,8 @@ export function HermesAuditPanel() {
       <div className="grid grid-cols-2 gap-2">
         {/* PnL Truth */}
         <Section title="PNL TRUTH" tone={pnlMismatch ? "red" : "green"}>
-          <Row k="MT5 Today PnL" v={mt5Today == null ? "—" : `$${mt5Today.toFixed(2)}`} />
-          <Row k="Dashboard Closed Demo PnL" v={`$${closedDemoPnl.toFixed(2)}`} />
+          <Row k="MT5 Today PnL (primary)" v={mt5Today == null ? "—" : `$${mt5Today.toFixed(2)}`} tone={mt5Today == null ? "gray" : "green"} />
+          <Row k="Trades Table PnL (secondary)" v={`$${closedDemoPnl.toFixed(2)}`} />
           <Row k="Floating Demo PnL" v={`$${floatingDemoPnl.toFixed(2)}`} />
           <Row k="Total Demo PnL" v={`$${totalDemoPnl.toFixed(2)}`} />
           <Row
