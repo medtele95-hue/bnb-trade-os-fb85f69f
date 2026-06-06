@@ -244,7 +244,7 @@ function StrategyCard({ name, sig, kind, activeSymbol }: { name: string; sig: an
         <div className="mt-1 text-[10px] opacity-80 italic line-clamp-2">"{sig.reason}"</div>
       )}
       {kind === "LEGACY" && (
-        <div className="mt-1 text-[10px] uppercase opacity-80">LEGACY OBSERVER — NO PAPER ENTRIES</div>
+        <div className="mt-1 text-[10px] uppercase opacity-80">LEGACY OBSERVER — NO DEMO ENTRIES</div>
       )}
     </div>
   );
