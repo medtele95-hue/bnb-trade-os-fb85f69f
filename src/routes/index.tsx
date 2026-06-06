@@ -1197,6 +1197,8 @@ function Dashboard() {
 
       <div className="mt-3"><EurEmaRsiAtrPanel /></div>
 
+      <div className="mt-3"><BtcScalpingPanel /></div>
+
       <div className="mt-3"><HermesAuditPanel /></div>
 
       <div className="mt-3"><TradeJournalTabs /></div>
