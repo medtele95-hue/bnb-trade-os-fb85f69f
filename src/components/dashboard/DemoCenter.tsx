@@ -598,6 +598,27 @@ export function TradeJournalTabs() {
                     <td className="pr-2"><Badge value={String(gate)} tone={statusTone(String(gate))} /></td>
                     <td className="pr-2">{status}</td>
                     <td className="pr-2 italic opacity-80">{closeReason}</td>
+                    {(() => {
+                      const qx = (rp.quick_exit ?? rp.quick_exit_state ?? {}) as any;
+                      const qxStatus = qx.status ?? rp.quick_exit_status ?? (closed ? "—" : "MONITORED");
+                      const profitUsd = qx.profit_usd ?? rp.profit_usd ?? rp.current_profit ?? t.pnl;
+                      const peakUsd = qx.peak_usd ?? rp.peak_usd ?? rp.peak_profit;
+                      const beDone = qx.be_done ?? rp.be_done ?? rp.breakeven_done;
+                      const trailActive = qx.trail_active ?? rp.trail_active ?? rp.trailing_active;
+                      const lastQx = qx.last_action ?? rp.last_quick_exit_action ?? "—";
+                      const fmt = (v: any) => v == null || v === "" ? "—" : (Number.isFinite(Number(v)) ? `${Number(v) >= 0 ? "+" : ""}$${Number(v).toFixed(2)}` : String(v));
+                      const boolLabel = (v: any) => v === true || String(v).toUpperCase() === "TRUE" ? "✓" : v === false || String(v).toUpperCase() === "FALSE" ? "·" : "—";
+                      return (
+                        <>
+                          <td className="pr-2">{String(qxStatus)}</td>
+                          <td className={`pr-2 pixel ${Number(profitUsd ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{fmt(profitUsd)}</td>
+                          <td className="pr-2 pixel">{fmt(peakUsd)}</td>
+                          <td className="pr-2 text-center">{boolLabel(beDone)}</td>
+                          <td className="pr-2 text-center">{boolLabel(trailActive)}</td>
+                          <td className="pr-2">{String(lastQx)}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 );
               })}
