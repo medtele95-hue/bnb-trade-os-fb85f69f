@@ -331,7 +331,7 @@ export function StrategyModules() {
               ⚠ ACTIVE SYMBOL = EURUSD — GENERIC ENTRY STRATEGIES DISABLED · ONLY EUR_EMA_RSI_ATR_CROSSOVER HANDLES EUR ENTRIES
             </div>
           )}
-          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (8)</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Active Entry Strategies (9)</div>
           <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {ACTIVE.map((name) => (
               <StrategyCard key={name} name={name} sig={latest[name]} kind="ACTIVE" activeSymbol={activeSymbol} />
