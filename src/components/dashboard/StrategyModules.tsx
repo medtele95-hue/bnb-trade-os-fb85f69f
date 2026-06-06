@@ -316,7 +316,7 @@ export function StrategyModules() {
   const latest = pickLatest(rows);
 
   return (
-    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 8 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
+    <Panel title="STRATEGY MODULES" right={`ACTIVE SYM: ${activeSymbol ? normalizeSymbol(activeSymbol) : "—"} · 9 ENTRY · 3 CONFIRMATION · 2 OBSERVER`}>
       {empty ? (
         <Waiting />
       ) : (
