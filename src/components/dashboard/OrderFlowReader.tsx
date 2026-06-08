@@ -306,7 +306,7 @@ export function OrderFlowReaderPanel() {
 
   // Tabs: defaults first (in fixed order), then any extra detected symbols.
   const tabs = React.useMemo(() => {
-    const defaults = DEFAULT_SYMBOLS.map(normalizeSymbol);
+    const defaults = DEFAULT_SYMBOLS.map((s) => normalizeSymbol(s));
     const extras = Object.keys(snaps).filter(
       (s) => !defaults.some((d) => isSameSymbol(d, s)),
     );
