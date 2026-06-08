@@ -22,6 +22,7 @@ import { useRealtimeStatus } from "@/hooks/useRealtimeStatus";
 import { LiveSyncDebugPanel } from "@/components/dashboard/LiveSyncDebugPanel";
 import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
 import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
+import { GoldOrderFlowCvdVwapPanel } from "@/components/dashboard/GoldOrderFlowCvdVwap";
 import { EurEmaRsiAtrPanel } from "@/components/dashboard/EurEmaRsiAtrPanel";
 import { BtcScalpingPanel } from "@/components/dashboard/BtcScalpingPanel";
 import { QuickExitManager } from "@/components/dashboard/QuickExitManager";
@@ -1196,6 +1197,8 @@ function Dashboard() {
       </div>
 
       <div className="mt-3"><GoldLiquidityHunter /></div>
+
+      <div className="mt-3"><GoldOrderFlowCvdVwapPanel /></div>
 
       <div className="mt-3"><EurEmaRsiAtrPanel /></div>
 
