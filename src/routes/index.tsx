@@ -1198,7 +1198,9 @@ function Dashboard() {
 
       <div className="mt-3"><GoldLiquidityHunter /></div>
 
-      <div className="mt-3"><GoldOrderFlowCvdVwapPanel /></div>
+      <div className="mt-3"><OrderFlowReaderPanel /></div>
+
+      <div className="mt-3"><GoldOrderFlowCvdVwapGated /></div>
 
       <div className="mt-3"><EurEmaRsiAtrPanel /></div>
 
