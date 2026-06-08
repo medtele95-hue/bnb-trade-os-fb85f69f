@@ -23,6 +23,26 @@ import { LiveSyncDebugPanel } from "@/components/dashboard/LiveSyncDebugPanel";
 import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
 import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
 import { GoldOrderFlowCvdVwapPanel } from "@/components/dashboard/GoldOrderFlowCvdVwap";
+import { OrderFlowReaderPanel } from "@/components/dashboard/OrderFlowReader";
+import { useDashboardStatusPayload as _useDsForGate } from "@/components/dashboard/DemoCenter";
+import { Badge as _GateBadge } from "@/components/dashboard/Badges";
+
+function GoldOrderFlowCvdVwapGated() {
+  const ds = _useDsForGate() as any;
+  const raw = ds?.gold_order_flow_cvd_vwap ?? ds?.GOLD_ORDER_FLOW_CVD_VWAP ?? ds?.raw_payload?.gold_order_flow_cvd_vwap ?? {};
+  const executionEnabled = raw.execution_enabled === true || ds?.gold_order_flow_execution_enabled === true;
+  return (
+    <div>
+      <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider">
+        <_GateBadge value={executionEnabled ? "EXECUTION ENABLED (BACKEND)" : "DISABLED · OBSERVE-ONLY"} tone={executionEnabled ? "green" : "gray"} />
+        <span className="opacity-70">GOLD only · BTCUSD & EURUSD will not display this card</span>
+      </div>
+      <div className={executionEnabled ? "" : "opacity-80 pointer-events-none"}>
+        <GoldOrderFlowCvdVwapPanel />
+      </div>
+    </div>
+  );
+}
 import { EurEmaRsiAtrPanel } from "@/components/dashboard/EurEmaRsiAtrPanel";
 import { BtcScalpingPanel } from "@/components/dashboard/BtcScalpingPanel";
 import { QuickExitManager } from "@/components/dashboard/QuickExitManager";
