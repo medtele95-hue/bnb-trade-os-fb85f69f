@@ -215,6 +215,7 @@ export function DemoPilotStatus() {
     if (!isNaN(ms)) hoursRemaining = Math.max(0, ms / 3600000).toFixed(2);
   }
   const accountType = getField(sources, "account_type");
+  const comment = getField(sources, "demo_comment");
   const mt5 = getField(sources, "mt5_connected");
   const lastGateDec =
     getField([ds, bsRP, bs, decRP, dec[0]], "latest_demo_gate_decision") ??
