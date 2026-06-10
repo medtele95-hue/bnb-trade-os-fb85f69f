@@ -292,8 +292,12 @@ function SafetyStrip() {
 
 function BackendHealthBar() {
   const h = useBackendHealth();
-  const ageColor = h.offline ? "var(--hx-sell)" : h.stale ? "var(--hx-sell)" : h.degraded ? "var(--hx-warn)" : "var(--hx-buy)";
-  const status = h.offline ? "OFFLINE" : h.stale ? "STALE" : h.degraded ? "DEGRADED" : "FRESH";
+  const ageColor =
+    h.verdict === "OFFLINE" ? "var(--hx-sell)" :
+    h.verdict === "STALE_DEGRADED" ? "var(--hx-warn)" : "var(--hx-buy)";
+  const status =
+    h.verdict === "OFFLINE" ? "OFFLINE" :
+    h.verdict === "STALE_DEGRADED" ? "STALE · DEGRADED" : "ONLINE";
   return (
     <div
       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-[10px] uppercase tracking-widest border-b"
@@ -306,18 +310,19 @@ function BackendHealthBar() {
       </span>
       <span>HB AGE: <b className="pixel">{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
       <span>CHANNEL: <b style={{ color: h.rt === "CONNECTED" ? "var(--hx-buy)" : h.rt === "RECONNECTING" ? "var(--hx-warn)" : "var(--hx-sell)" }}>{h.rt}</b></span>
-      <span>INGEST: <b>{h.tradeReady ? "OK" : h.offline ? "DOWN" : "DEGRADED"}</b></span>
+      <span>INGEST: <b>{h.verdict === "ONLINE" ? "OK" : h.verdict === "OFFLINE" ? "DOWN" : "DEGRADED"}</b></span>
       {!h.tradeReady && (
         <span
           className="ml-auto px-2 py-0.5 border"
           style={{ borderColor: "var(--hx-warn)", color: "var(--hx-warn)", background: "rgba(240,180,41,0.10)" }}
         >
-          ⚠ {h.offline ? "BACKEND OFFLINE — TRADE-READY SUPPRESSED" : h.stale ? "BACKEND STALE — TRADE-READY SUPPRESSED" : "BACKEND DEGRADED — TRADE-READY SUPPRESSED"}
+          ⚠ {h.verdict === "OFFLINE" ? "BACKEND OFFLINE — TRADE-READY SUPPRESSED" : "BACKEND STALE · DEGRADED — TRADE-READY SUPPRESSED"}
         </span>
       )}
     </div>
   );
 }
+
 
 /* ============================================================================
  * TABS NAV
