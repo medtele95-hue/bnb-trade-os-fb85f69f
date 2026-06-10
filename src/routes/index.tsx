@@ -1001,16 +1001,10 @@ function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
       <div className="col-span-2"><TradeTape /></div>
       <div className="col-span-2"><LatestAiDecisionCard /></div>
       <div className="col-span-12"><OrderFlowReaderPanel /></div>
-      <div className="col-span-12">
-        <Panel title="OBSERVE-ONLY NOTICE">
-          <div className="text-[11px]" style={{ color: "var(--hx-dim)" }}>
-            Order Flow Reader is observe-only. It does not execute trades and does not block other strategies.
-          </div>
-        </Panel>
-      </div>
     </div>
   );
 }
+
 
 
 
