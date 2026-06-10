@@ -69,7 +69,7 @@ function useBackendHealth() {
   const rt = useRealtimeStatus();
   const stale = ageSec != null && ageSec > 60;
   const degraded = (ageSec != null && ageSec > 15) || rt === "RECONNECTING";
-  const offline = rt === "DISCONNECTED" || rt === "OFFLINE" || (ageSec != null && ageSec > 120);
+  const offline = rt === "OFFLINE" || (ageSec != null && ageSec > 120);
   const tradeReady = !stale && !degraded && !offline;
   return { ageSec, hb, rt, stale, degraded, offline, tradeReady };
 }
@@ -468,7 +468,7 @@ function MetricsRowDemo() {
     { k: "Trades Today", v: demo.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length },
     { k: "Total Trades", v: demo.length },
     { k: "Win Rate", v: wr == null ? "—" : `${wr}%` },
-    { k: "Closed (MT5)", v: mt5 != null ? `${Number(mt5) >= 0 ? "+" : ""}$${Number(mt5).toFixed(2)}` : `${closedToday >= 0 ? "+" : ""}$${closedToday.toFixed(2)}`, tone: (Number(mt5 ?? closedToday) >= 0 ? "profit" : "loss") as const },
+    { k: "Closed (MT5)", v: mt5 != null ? `${Number(mt5) >= 0 ? "+" : ""}$${Number(mt5).toFixed(2)}` : `${closedToday >= 0 ? "+" : ""}$${closedToday.toFixed(2)}`, tone: (Number(mt5 ?? closedToday) >= 0 ? "profit" : "loss") as "profit" | "loss" },
     { k: "Equity", v: `$${Number(s.equity ?? 0).toLocaleString("en-US")}` },
     { k: "Profit Factor", v: s.profit_factor ?? "—" },
     { k: "Open Pos", v: open.length },
