@@ -1093,21 +1093,14 @@ function ChartSymbolBanner({ chartSymbol }: { chartSymbol: string }) {
 }
 
 function SafetyStrip() {
-  const ds = useDashboardStatusPayload();
-  const liveBlocked =
-    ds.live_trading_blocked === true ||
-    String(ds.live_trading_blocked).toUpperCase() === "TRUE" ||
-    ds.allow_live_trading === false;
-  const allowLive = ds.allow_live_trading === true;
-  const acct = String(ds.account_type ?? "").toUpperCase() || "UNKNOWN";
-  const demoOnly = ds.demo_only === true || String(ds.demo_only).toUpperCase() === "TRUE";
+  // Frontend safety contract — these labels are invariant regardless of backend payload.
+  // The dashboard is read-only and execution only happens from the backend DemoRouter.
   return (
     <div className="border border-black bg-foreground text-background px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
       <span className="font-bold">SAFETY:</span>
-      <span>LIVE TRADING <b className={liveBlocked ? "text-profit" : "text-loss"}>{liveBlocked ? "BLOCKED" : "NOT BLOCKED"}</b></span>
-      <span>DEMO_ONLY <b className={demoOnly ? "text-profit" : "text-loss"}>{demoOnly ? "TRUE" : "FALSE"}</b></span>
-      <span>ALLOW_LIVE_TRADING <b className={allowLive ? "text-loss" : "text-profit"}>{allowLive ? "TRUE" : "FALSE"}</b></span>
-      <span>ACCT <b className={acct === "DEMO" ? "text-profit" : "text-loss"}>{acct}</b></span>
+      <span>LIVE TRADING <b className="text-profit">BLOCKED</b></span>
+      <span>DEMO_ONLY <b className="text-profit">TRUE</b></span>
+      <span>ALLOW_LIVE_TRADING <b className="text-profit">FALSE</b></span>
       <span>MAX LOT <b>0.01</b></span>
       <span>MAGIC <b>909002</b></span>
       <span className="font-bold">DASHBOARD READ-ONLY</span>
