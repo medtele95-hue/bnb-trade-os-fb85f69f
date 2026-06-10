@@ -1141,6 +1141,9 @@ function SelfLearn() {
 function TabAudit({ symbol }: { symbol: SymbolKey }) {
   return (
     <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><BackendHealthPanel /></div>
+      <div className="col-span-6"><DemoPilotStatus /></div>
+      <div className="col-span-6"><TimeEnginePanel /></div>
       <div className="col-span-12"><PnLTruth /></div>
       <div className="col-span-6"><DataFreshnessPanel /></div>
       <div className="col-span-6"><ChartSymbolTruth chartSymbol={SYMBOL_MAP[symbol]} /></div>
@@ -1151,6 +1154,7 @@ function TabAudit({ symbol }: { symbol: SymbolKey }) {
     </div>
   );
 }
+
 
 function TabLogs() {
   return (
