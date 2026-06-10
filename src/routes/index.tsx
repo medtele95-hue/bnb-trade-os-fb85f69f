@@ -901,19 +901,42 @@ function ChartSymbolTruth({ chartSymbol }: { chartSymbol: string }) {
  * Tabs content
  * ========================================================================== */
 
-function TabOverview({ symbol }: { symbol: SymbolKey }) {
+function HealthVerdictPanel() {
+  const h = useBackendHealth();
+  const label = h.verdict === "ONLINE" ? "ONLINE" : h.verdict === "OFFLINE" ? "OFFLINE" : "STALE · DEGRADED";
+  const tone = h.verdict === "ONLINE" ? "var(--hx-buy)" : h.verdict === "OFFLINE" ? "var(--hx-sell)" : "var(--hx-warn)";
+  return (
+    <Panel title="BACKEND HEALTH · VERDICT" right={<Badge value={label} tone={h.verdict === "ONLINE" ? "green" : h.verdict === "OFFLINE" ? "red" : "orange"} />}>
+      <div className="grid grid-cols-3 gap-2 text-[11px]">
+        <div>
+          <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>STATUS</div>
+          <div className="pixel text-[20px]" style={{ color: tone }}>{label}</div>
+        </div>
+        <div>
+          <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>HB AGE</div>
+          <div className="pixel text-[20px]">{h.ageSec == null ? "—" : `${h.ageSec}s`}</div>
+        </div>
+        <div>
+          <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>CHANNEL</div>
+          <div className="pixel text-[20px]" style={{ color: h.rt === "CONNECTED" ? "var(--hx-buy)" : "var(--hx-warn)" }}>{h.rt}</div>
+        </div>
+      </div>
+      <div className="mt-2 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+        Trade-ready: <b style={{ color: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}>{h.tradeReady ? "ELIGIBLE" : "SUPPRESSED"}</b>
+        {" · "}Full breakdown in <b>AUDIT</b> tab.
+      </div>
+    </Panel>
+  );
+}
+
+function TabOverview({ symbol: _symbol }: { symbol: SymbolKey }) {
   return (
     <div className="grid grid-cols-12 gap-3">
-      <div className="col-span-12"><DemoModeBanner /></div>
-      <div className="col-span-8"><PnLTruth /></div>
-      <div className="col-span-4"><BackendHealthPanel /></div>
-      <div className="col-span-12"><MetricsRowDemo /></div>
-      <div className="col-span-12"><StrategyManagerPanel /></div>
-      <div className="col-span-7"><LatestAiDecisionCard /></div>
-      <div className="col-span-5"><DemoAlerts /></div>
-      <div className="col-span-6"><DemoPilotStatus /></div>
-      <div className="col-span-6"><TimeEnginePanel /></div>
-      <div className="col-span-12"><ChartSymbolTruth chartSymbol={SYMBOL_MAP[symbol]} /></div>
+      <div className="col-span-4"><HealthVerdictPanel /></div>
+      <div className="col-span-4"><StrategyCountCard /></div>
+      <div className="col-span-4"><DemoAlerts /></div>
+      <div className="col-span-7"><PnLTruth /></div>
+      <div className="col-span-5"><LatestAiDecisionCard /></div>
     </div>
   );
 }
@@ -921,6 +944,7 @@ function TabOverview({ symbol }: { symbol: SymbolKey }) {
 function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
   return (
     <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><SymbolWorkspace symbol={symbol} /></div>
       <div className="col-span-12"><OrderFlowHeader symbolKey={symbol} /></div>
       <div className="col-span-5"><HeatmapCanvas symbolKey={symbol} /></div>
       <div className="col-span-3"><DomLadder symbolKey={symbol} /></div>
@@ -937,6 +961,8 @@ function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
     </div>
   );
 }
+
+
 
 function TabStrategies({ symbol }: { symbol: SymbolKey }) {
   return (
