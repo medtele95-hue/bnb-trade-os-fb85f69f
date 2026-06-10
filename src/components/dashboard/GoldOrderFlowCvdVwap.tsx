@@ -1,4 +1,3 @@
-import * as React from "react";
 import { Panel, KV } from "./Panel";
 import { Badge } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
