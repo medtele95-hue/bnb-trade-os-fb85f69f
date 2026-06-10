@@ -46,8 +46,14 @@ function GoldOrderFlowCvdVwapGated() {
 import { EurEmaRsiAtrPanel } from "@/components/dashboard/EurEmaRsiAtrPanel";
 import { BtcScalpingPanel } from "@/components/dashboard/BtcScalpingPanel";
 import { QuickExitManager } from "@/components/dashboard/QuickExitManager";
+import { StrategyManagerPanel } from "@/components/dashboard/StrategyManagerPanel";
+import { SimoAtmBreakoutPanel } from "@/components/dashboard/SimoAtmBreakoutPanel";
+import { ConfluenceEnginePanel } from "@/components/dashboard/ConfluenceEnginePanel";
+import { GeometryEnginePanel } from "@/components/dashboard/GeometryEnginePanel";
+import { BackendHealthPanel } from "@/components/dashboard/BackendHealthPanel";
 import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
 import { useEffect, useState } from "react";
+
 
 function HeartbeatIndicator() {
   const ds = useDashboardStatusPayload();
@@ -1092,20 +1098,24 @@ function SafetyStrip() {
     ds.live_trading_blocked === true ||
     String(ds.live_trading_blocked).toUpperCase() === "TRUE" ||
     ds.allow_live_trading === false;
+  const allowLive = ds.allow_live_trading === true;
   const acct = String(ds.account_type ?? "").toUpperCase() || "UNKNOWN";
   const demoOnly = ds.demo_only === true || String(ds.demo_only).toUpperCase() === "TRUE";
   return (
     <div className="border border-black bg-foreground text-background px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
       <span className="font-bold">SAFETY:</span>
       <span>LIVE TRADING <b className={liveBlocked ? "text-profit" : "text-loss"}>{liveBlocked ? "BLOCKED" : "NOT BLOCKED"}</b></span>
-      <span>DEMO ONLY <b className={demoOnly ? "text-profit" : "text-loss"}>{demoOnly ? "TRUE" : "FALSE"}</b></span>
+      <span>DEMO_ONLY <b className={demoOnly ? "text-profit" : "text-loss"}>{demoOnly ? "TRUE" : "FALSE"}</b></span>
+      <span>ALLOW_LIVE_TRADING <b className={allowLive ? "text-loss" : "text-profit"}>{allowLive ? "TRUE" : "FALSE"}</b></span>
       <span>ACCT <b className={acct === "DEMO" ? "text-profit" : "text-loss"}>{acct}</b></span>
       <span>MAX LOT <b>0.01</b></span>
       <span>MAGIC <b>909002</b></span>
-      <span className="ml-auto opacity-70">READ-ONLY DASHBOARD</span>
+      <span className="font-bold">DASHBOARD READ-ONLY</span>
+      <span className="ml-auto opacity-80">EXECUTION ONLY FROM BACKEND DEMO ROUTER</span>
     </div>
   );
 }
+
 
 function MainChartOverlay() {
   const s = useActiveSymbols("BTCUSD");
@@ -1121,6 +1131,19 @@ function Dashboard() {
       <DemoModeBanner />
 
       <div className="mt-3"><SafetyStrip /></div>
+
+      <div className="mt-3"><BackendHealthPanel /></div>
+
+      <div className="mt-3"><StrategyManagerPanel /></div>
+
+      <div className="grid grid-cols-12 gap-3 mt-3">
+        <div className="col-span-6"><ConfluenceEnginePanel /></div>
+        <div className="col-span-6"><GeometryEnginePanel /></div>
+      </div>
+
+      <div className="mt-3"><SimoAtmBreakoutPanel /></div>
+
+
 
 
       <div className="grid grid-cols-12 gap-3 mt-3">
