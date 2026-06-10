@@ -11,7 +11,7 @@ import { StrategyModules } from "@/components/dashboard/StrategyModules";
 import { PaperReport } from "@/components/dashboard/PaperReport";
 import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
 import {
-  DemoModeBanner, DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
+  DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
