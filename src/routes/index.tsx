@@ -92,13 +92,24 @@ function useMarketAge(sym: string) {
   return { m, ageSec, stale: ageSec != null && ageSec > 60 };
 }
 
+function StaleTag() {
+  return (
+    <span
+      className="ml-1 px-1 text-[8px] uppercase tracking-widest border"
+      style={{ borderColor: "var(--hx-warn)", color: "var(--hx-warn)" }}
+    >
+      STALE
+    </span>
+  );
+}
+
 function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolKey) => void }) {
   const ds: any = useDashboardStatusPayload();
   const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
   const s = snaps[0] ?? {};
   const { m, stale: mStale } = useMarketAge(SYMBOL_MAP[symbol]);
   const h = useBackendHealth();
-  const stale = mStale || h.verdict !== "ONLINE";
+  const channelStale = mStale || h.verdict !== "ONLINE";
   const price = m.price != null ? Number(m.price) : null;
   const change = m.change_pct ?? m.change ?? null;
   const spread = m.spread ?? ds.spread ?? null;
@@ -108,10 +119,9 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
   const equity = s.equity != null ? Number(s.equity) : null;
   const pnl = s.daily_pnl != null ? Number(s.daily_pnl) : null;
 
-  const dimStyle = stale ? { opacity: 0.55 } : undefined;
-  const staleTag = stale ? (
-    <span className="ml-1 px-1 text-[8px] uppercase tracking-widest border" style={{ borderColor: "var(--hx-warn)", color: "var(--hx-warn)" }}>STALE</span>
-  ) : null;
+  // A cell is stale if the bound channel is stale OR the underlying value is empty.
+  const cellStale = (val: any) => channelStale || val == null;
+  const dim = (val: any) => (cellStale(val) ? { opacity: 0.55 } : undefined);
 
   return (
     <header
@@ -163,14 +173,14 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
         {/* Price + change */}
         <div className="px-4 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)", minWidth: 200 }}>
           <div className="text-[9px] uppercase tracking-widest flex items-center" style={{ color: "var(--hx-dim)" }}>
-            {SYMBOL_MAP[symbol]}{staleTag}
+            {SYMBOL_MAP[symbol]}{cellStale(price) && <StaleTag />}
           </div>
-          <div className="pixel text-[22px] leading-none" style={{ color: "var(--hx-txt)", ...dimStyle }}>
+          <div className="pixel text-[22px] leading-none" style={{ color: "var(--hx-txt)", ...dim(price) }}>
             {price != null ? price.toLocaleString("en-US", { maximumFractionDigits: 5 }) : "—"}
           </div>
           <div
             className="pixel text-[11px]"
-            style={{ color: change == null ? "var(--hx-dim)" : Number(change) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)", ...dimStyle }}
+            style={{ color: change == null ? "var(--hx-dim)" : Number(change) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)", ...dim(change) }}
           >
             {change == null ? "—" : `${Number(change) >= 0 ? "+" : ""}${Number(change).toFixed(2)}%`}
           </div>
@@ -179,20 +189,22 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
         {/* Inline stats */}
         <div className="flex-1 grid grid-cols-5 text-[10px] uppercase tracking-wider">
           {[
-            { k: "SPREAD", v: spread != null ? Number(spread).toFixed(2) : "—" },
-            { k: "VWAP", v: vwap != null ? Number(vwap).toFixed(2) : "—" },
-            { k: "HI / LO", v: hi != null && lo != null ? `${Number(hi).toFixed(2)} / ${Number(lo).toFixed(2)}` : "—" },
-            { k: "EQUITY", v: equity != null ? `$${equity.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : "—" },
-            { k: "PNL", v: pnl != null ? `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}` : "—", tone: pnl == null ? undefined : pnl >= 0 ? "buy" : "sell" },
+            { k: "SPREAD", raw: spread, v: spread != null ? Number(spread).toFixed(2) : "—" },
+            { k: "VWAP", raw: vwap, v: vwap != null ? Number(vwap).toFixed(2) : "—" },
+            { k: "HI / LO", raw: hi != null && lo != null ? 1 : null, v: hi != null && lo != null ? `${Number(hi).toFixed(2)} / ${Number(lo).toFixed(2)}` : "—" },
+            { k: "EQUITY", raw: equity, v: equity != null ? `$${equity.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : "—" },
+            { k: "PNL", raw: pnl, v: pnl != null ? `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}` : "—", tone: pnl == null ? undefined : pnl >= 0 ? "buy" : "sell" },
           ].map((c, i) => (
             <div key={i} className="px-3 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)" }}>
-              <div style={{ color: "var(--hx-dim)" }} className="flex items-center">{c.k}{stale && staleTag}</div>
-              <div className="pixel text-[13px]" style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)", ...dimStyle }}>
+              <div style={{ color: "var(--hx-dim)" }} className="flex items-center">{c.k}{cellStale(c.raw) && <StaleTag />}</div>
+              <div className="pixel text-[13px]" style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)", ...dim(c.raw) }}>
                 {c.v}
               </div>
             </div>
           ))}
         </div>
+
+
 
 
         {/* Source chips + LOCKED LIVE switch */}
@@ -609,8 +621,22 @@ function useOrderFlowFor(symbolKey: SymbolKey) {
   return candidate ?? null;
 }
 
+/* Shared observe/data-state badge row. Role and data-state are ALWAYS two separate badges. */
+function ObserveStateBadges({ hasData, dataLabel }: { hasData: boolean; dataLabel?: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <Badge value="OBSERVE ONLY" tone="green" />
+      <Badge
+        value={hasData ? "LIVE" : (dataLabel ?? "WAITING DATA")}
+        tone={hasData ? "green" : "gray"}
+      />
+    </span>
+  );
+}
+
 function OrderFlowHeader({ symbolKey }: { symbolKey: SymbolKey }) {
   const snap: any = useOrderFlowFor(symbolKey) ?? {};
+  const hasData = Object.values(snap).some((v) => v != null && v !== "");
   const cell = (k: string, v: any) => (
     <div className="px-3 py-1.5 border-r" style={{ borderColor: "var(--hx-border)" }}>
       <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>{k}</div>
@@ -618,14 +644,22 @@ function OrderFlowHeader({ symbolKey }: { symbolKey: SymbolKey }) {
     </div>
   );
   return (
-    <div className="grid grid-cols-7 border" style={{ borderColor: "var(--hx-border)", background: "var(--hx-panel)" }}>
-      {cell("VWAP", snap.vwap)}
-      {cell("POC", snap.poc)}
-      {cell("VAH", snap.vah)}
-      {cell("VAL", snap.val)}
-      {cell("CVD slope", snap.cvd_slope)}
-      {cell("Δ proxy", snap.delta_proxy)}
-      {cell("Divergence", snap.divergence)}
+    <div>
+      <div className="flex items-center justify-between px-1 pb-1">
+        <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+          ORDER FLOW HEADER · {SYMBOL_MAP[symbolKey]}
+        </div>
+        <ObserveStateBadges hasData={hasData} dataLabel="NO DATA" />
+      </div>
+      <div className="grid grid-cols-7 border" style={{ borderColor: "var(--hx-border)", background: "var(--hx-panel)" }}>
+        {cell("VWAP", snap.vwap)}
+        {cell("POC", snap.poc)}
+        {cell("VAH", snap.vah)}
+        {cell("VAL", snap.val)}
+        {cell("CVD slope", snap.cvd_slope)}
+        {cell("Δ proxy", snap.delta_proxy)}
+        {cell("Divergence", snap.divergence)}
+      </div>
     </div>
   );
 }
@@ -640,10 +674,10 @@ function HeatmapCanvas({ symbolKey }: { symbolKey: SymbolKey }) {
   const candles = [...rows].reverse();
   const hasData = candles.length > 4;
   return (
-    <Panel title="LIQUIDITY HEATMAP" right={<Badge value="OBSERVE ONLY" tone="green" />}>
+    <Panel title="LIQUIDITY HEATMAP" right={<ObserveStateBadges hasData={hasData} />}>
       <div className="hx-canvas relative" style={{ height: 280 }}>
         {!hasData ? (
-          <div className="absolute inset-0 grid place-items-center"><Fallback tone="wait" block /></div>
+          <div className="absolute inset-0 grid place-items-center"><Fallback tone="wait" block label="WAITING DATA" /></div>
         ) : (
           <svg width="100%" height="100%" viewBox="0 0 800 280" preserveAspectRatio="none">
             {/* heatmap bands (decorative; bid/ask) */}
@@ -701,9 +735,10 @@ function DomLadder({ symbolKey }: { symbolKey: SymbolKey }) {
   const levels = price > 0
     ? Array.from({ length: 21 }).map((_, i) => price + (10 - i) * tickSize)
     : [];
+  const hasData = levels.length > 0;
   return (
-    <Panel title="DOM LADDER" right={<Badge value="OBSERVE ONLY" tone="green" />}>
-      {levels.length === 0 ? <Fallback tone="wait" block /> : (
+    <Panel title="DOM LADDER" right={<ObserveStateBadges hasData={hasData} />}>
+      {!hasData ? <Fallback tone="wait" block label="WAITING DATA" /> : (
         <div className="hx-canvas text-[10px]" style={{ maxHeight: 280, overflow: "auto" }}>
           {levels.map((p, i) => {
             const isCenter = i === 10;
@@ -736,17 +771,30 @@ function DomLadder({ symbolKey }: { symbolKey: SymbolKey }) {
 }
 
 function TradeTape() {
+  // Backend does not emit a live tick / aggressor tape; we surface RECENT FILLS instead,
+  // sorted newest-first. Full fill history lives in the Journal tab.
   const { rows } = useLiveTable<any>("trades", { limit: 14 });
+  const getTs = (t: any) => {
+    const v = t.closed_at ?? t.opened_at ?? t.created_at;
+    const n = v ? Date.parse(String(v).replace(" ", "T")) : NaN;
+    return isNaN(n) ? 0 : n;
+  };
+  const sorted = [...rows].sort((a, b) => getTs(b) - getTs(a));
+  const hasData = sorted.length > 0;
   return (
-    <Panel title="TRADE TAPE · LIQUIDITY EVENTS">
-      {rows.length === 0 ? <Fallback tone="wait" block /> : (
+    <Panel title="RECENT FILLS" right={<ObserveStateBadges hasData={hasData} />}>
+      {!hasData ? <Fallback tone="wait" block label="WAITING DATA" /> : (
         <div className="hx-canvas text-[10px] p-1" style={{ maxHeight: 280, overflow: "auto" }}>
-          {rows.map((t: any) => {
+          <div className="grid grid-cols-5 gap-1 px-1 py-0.5 border-b uppercase tracking-widest" style={{ borderColor: "var(--hx-border)", color: "var(--hx-dim)" }}>
+            <span>TIME</span><span>DIR</span><span>SYMBOL</span><span>ENTRY</span><span className="text-right">PNL</span>
+          </div>
+          {sorted.map((t: any) => {
             const buy = String(t.dir ?? "").toUpperCase().startsWith("B");
+            const ts = t.closed_at ?? t.opened_at ?? t.created_at;
             return (
               <div key={t.id} className="grid grid-cols-5 gap-1 px-1 py-0.5 border-b" style={{ borderColor: "rgba(25,34,49,0.6)" }}>
                 <span className="pixel" style={{ color: "var(--hx-dim)" }}>
-                  {new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}
+                  {ts ? new Date(ts).toISOString().slice(11, 19) : "—"}
                 </span>
                 <span style={{ color: buy ? "var(--hx-buy)" : "var(--hx-sell)" }}>{t.dir ?? "—"}</span>
                 <span>{t.symbol}</span>
@@ -762,6 +810,8 @@ function TradeTape() {
     </Panel>
   );
 }
+
+
 
 /* ============================================================================
  * BOTTOM STRIP (CVD + monitor)
@@ -951,16 +1001,10 @@ function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
       <div className="col-span-2"><TradeTape /></div>
       <div className="col-span-2"><LatestAiDecisionCard /></div>
       <div className="col-span-12"><OrderFlowReaderPanel /></div>
-      <div className="col-span-12">
-        <Panel title="OBSERVE-ONLY NOTICE">
-          <div className="text-[11px]" style={{ color: "var(--hx-dim)" }}>
-            Order Flow Reader is observe-only. It does not execute trades and does not block other strategies.
-          </div>
-        </Panel>
-      </div>
     </div>
   );
 }
+
 
 
 
