@@ -621,8 +621,22 @@ function useOrderFlowFor(symbolKey: SymbolKey) {
   return candidate ?? null;
 }
 
+/* Shared observe/data-state badge row. Role and data-state are ALWAYS two separate badges. */
+function ObserveStateBadges({ hasData, dataLabel }: { hasData: boolean; dataLabel?: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <Badge value="OBSERVE ONLY" tone="green" />
+      <Badge
+        value={hasData ? "LIVE" : (dataLabel ?? "WAITING DATA")}
+        tone={hasData ? "green" : "gray"}
+      />
+    </span>
+  );
+}
+
 function OrderFlowHeader({ symbolKey }: { symbolKey: SymbolKey }) {
   const snap: any = useOrderFlowFor(symbolKey) ?? {};
+  const hasData = Object.values(snap).some((v) => v != null && v !== "");
   const cell = (k: string, v: any) => (
     <div className="px-3 py-1.5 border-r" style={{ borderColor: "var(--hx-border)" }}>
       <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>{k}</div>
@@ -630,14 +644,22 @@ function OrderFlowHeader({ symbolKey }: { symbolKey: SymbolKey }) {
     </div>
   );
   return (
-    <div className="grid grid-cols-7 border" style={{ borderColor: "var(--hx-border)", background: "var(--hx-panel)" }}>
-      {cell("VWAP", snap.vwap)}
-      {cell("POC", snap.poc)}
-      {cell("VAH", snap.vah)}
-      {cell("VAL", snap.val)}
-      {cell("CVD slope", snap.cvd_slope)}
-      {cell("Δ proxy", snap.delta_proxy)}
-      {cell("Divergence", snap.divergence)}
+    <div>
+      <div className="flex items-center justify-between px-1 pb-1">
+        <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+          ORDER FLOW HEADER · {SYMBOL_MAP[symbolKey]}
+        </div>
+        <ObserveStateBadges hasData={hasData} dataLabel="NO DATA" />
+      </div>
+      <div className="grid grid-cols-7 border" style={{ borderColor: "var(--hx-border)", background: "var(--hx-panel)" }}>
+        {cell("VWAP", snap.vwap)}
+        {cell("POC", snap.poc)}
+        {cell("VAH", snap.vah)}
+        {cell("VAL", snap.val)}
+        {cell("CVD slope", snap.cvd_slope)}
+        {cell("Δ proxy", snap.delta_proxy)}
+        {cell("Divergence", snap.divergence)}
+      </div>
     </div>
   );
 }
@@ -652,10 +674,10 @@ function HeatmapCanvas({ symbolKey }: { symbolKey: SymbolKey }) {
   const candles = [...rows].reverse();
   const hasData = candles.length > 4;
   return (
-    <Panel title="LIQUIDITY HEATMAP" right={<Badge value="OBSERVE ONLY" tone="green" />}>
+    <Panel title="LIQUIDITY HEATMAP" right={<ObserveStateBadges hasData={hasData} />}>
       <div className="hx-canvas relative" style={{ height: 280 }}>
         {!hasData ? (
-          <div className="absolute inset-0 grid place-items-center"><Fallback tone="wait" block /></div>
+          <div className="absolute inset-0 grid place-items-center"><Fallback tone="wait" block label="WAITING DATA" /></div>
         ) : (
           <svg width="100%" height="100%" viewBox="0 0 800 280" preserveAspectRatio="none">
             {/* heatmap bands (decorative; bid/ask) */}
@@ -713,9 +735,10 @@ function DomLadder({ symbolKey }: { symbolKey: SymbolKey }) {
   const levels = price > 0
     ? Array.from({ length: 21 }).map((_, i) => price + (10 - i) * tickSize)
     : [];
+  const hasData = levels.length > 0;
   return (
-    <Panel title="DOM LADDER" right={<Badge value="OBSERVE ONLY" tone="green" />}>
-      {levels.length === 0 ? <Fallback tone="wait" block /> : (
+    <Panel title="DOM LADDER" right={<ObserveStateBadges hasData={hasData} />}>
+      {!hasData ? <Fallback tone="wait" block label="WAITING DATA" /> : (
         <div className="hx-canvas text-[10px]" style={{ maxHeight: 280, overflow: "auto" }}>
           {levels.map((p, i) => {
             const isCenter = i === 10;
@@ -748,17 +771,30 @@ function DomLadder({ symbolKey }: { symbolKey: SymbolKey }) {
 }
 
 function TradeTape() {
+  // Backend does not emit a live tick / aggressor tape; we surface RECENT FILLS instead,
+  // sorted newest-first. Full fill history lives in the Journal tab.
   const { rows } = useLiveTable<any>("trades", { limit: 14 });
+  const getTs = (t: any) => {
+    const v = t.closed_at ?? t.opened_at ?? t.created_at;
+    const n = v ? Date.parse(String(v).replace(" ", "T")) : NaN;
+    return isNaN(n) ? 0 : n;
+  };
+  const sorted = [...rows].sort((a, b) => getTs(b) - getTs(a));
+  const hasData = sorted.length > 0;
   return (
-    <Panel title="TRADE TAPE · LIQUIDITY EVENTS">
-      {rows.length === 0 ? <Fallback tone="wait" block /> : (
+    <Panel title="RECENT FILLS" right={<ObserveStateBadges hasData={hasData} />}>
+      {!hasData ? <Fallback tone="wait" block label="WAITING DATA" /> : (
         <div className="hx-canvas text-[10px] p-1" style={{ maxHeight: 280, overflow: "auto" }}>
-          {rows.map((t: any) => {
+          <div className="grid grid-cols-5 gap-1 px-1 py-0.5 border-b uppercase tracking-widest" style={{ borderColor: "var(--hx-border)", color: "var(--hx-dim)" }}>
+            <span>TIME</span><span>DIR</span><span>SYMBOL</span><span>ENTRY</span><span className="text-right">PNL</span>
+          </div>
+          {sorted.map((t: any) => {
             const buy = String(t.dir ?? "").toUpperCase().startsWith("B");
+            const ts = t.closed_at ?? t.opened_at ?? t.created_at;
             return (
               <div key={t.id} className="grid grid-cols-5 gap-1 px-1 py-0.5 border-b" style={{ borderColor: "rgba(25,34,49,0.6)" }}>
                 <span className="pixel" style={{ color: "var(--hx-dim)" }}>
-                  {new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}
+                  {ts ? new Date(ts).toISOString().slice(11, 19) : "—"}
                 </span>
                 <span style={{ color: buy ? "var(--hx-buy)" : "var(--hx-sell)" }}>{t.dir ?? "—"}</span>
                 <span>{t.symbol}</span>
@@ -774,6 +810,8 @@ function TradeTape() {
     </Panel>
   );
 }
+
+
 
 /* ============================================================================
  * BOTTOM STRIP (CVD + monitor)
