@@ -5,13 +5,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-3xl: 0px;
-  --radius-4xl: 0px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+  --radius-4xl: 2px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -34,86 +34,188 @@
   --color-profit: var(--profit);
   --color-loss: var(--loss);
   --font-mono: "JetBrains Mono", "IBM Plex Mono", "Courier New", monospace;
-  --font-sans: "JetBrains Mono", "IBM Plex Mono", "Courier New", monospace;
+  --font-sans: "Archivo", "Inter", system-ui, sans-serif;
 }
 
+/* HERMES Dark Terminal tokens — Bookmap-style */
 :root {
-  --radius: 0px;
-  --background: oklch(0.97 0.012 90);
-  --foreground: oklch(0.15 0 0);
-  --card: oklch(0.965 0.012 90);
-  --card-foreground: oklch(0.15 0 0);
-  --popover: oklch(0.97 0.012 90);
-  --popover-foreground: oklch(0.15 0 0);
-  --primary: oklch(0.15 0 0);
-  --primary-foreground: oklch(0.97 0.012 90);
-  --secondary: oklch(0.93 0.012 90);
-  --secondary-foreground: oklch(0.15 0 0);
-  --muted: oklch(0.93 0.012 90);
-  --muted-foreground: oklch(0.4 0 0);
-  --accent: oklch(0.92 0.012 90);
-  --accent-foreground: oklch(0.15 0 0);
-  --destructive: oklch(0.5 0.22 25);
-  --destructive-foreground: oklch(0.97 0.012 90);
-  --border: oklch(0.15 0 0);
-  --input: oklch(0.15 0 0);
-  --ring: oklch(0.15 0 0);
-  --profit: oklch(0.5 0.18 145);
-  --loss: oklch(0.5 0.22 25);
+  --radius: 2px;
+  --hx-bg: #04060c;
+  --hx-panel: #0a0e16;
+  --hx-panel2: #0c1119;
+  --hx-head: #0e131d;
+  --hx-border: #192231;
+  --hx-txt: #c8d2e0;
+  --hx-dim: #73829c;
+  --hx-dim2: #6a7688;
+  --hx-faint: #3d4759;
+  --hx-acc: #2dd4bf;
+  --hx-buy: #16c784;
+  --hx-sell: #ea3943;
+  --hx-warn: #f0b429;
+  --hx-bid: #2f81f7;
+  --hx-ask: #ea3943;
+
+  --background: var(--hx-bg);
+  --foreground: var(--hx-txt);
+  --card: var(--hx-panel);
+  --card-foreground: var(--hx-txt);
+  --popover: var(--hx-panel);
+  --popover-foreground: var(--hx-txt);
+  --primary: var(--hx-acc);
+  --primary-foreground: #04060c;
+  --secondary: var(--hx-panel2);
+  --secondary-foreground: var(--hx-txt);
+  --muted: var(--hx-panel2);
+  --muted-foreground: var(--hx-dim);
+  --accent: var(--hx-head);
+  --accent-foreground: var(--hx-txt);
+  --destructive: var(--hx-sell);
+  --destructive-foreground: #ffffff;
+  --border: var(--hx-border);
+  --input: var(--hx-border);
+  --ring: var(--hx-acc);
+  --profit: var(--hx-buy);
+  --loss: var(--hx-sell);
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
+  * { border-color: var(--color-border); }
   html, body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-mono);
+    background-color: var(--hx-bg);
+    color: var(--hx-txt);
+    font-family: var(--font-sans);
     font-feature-settings: "ss01", "tnum";
   }
   body {
     background-image:
-      repeating-linear-gradient(0deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 4px);
+      radial-gradient(900px 600px at 92% -10%, rgba(45,212,191,0.10), transparent 60%),
+      radial-gradient(700px 500px at -10% 110%, rgba(47,129,247,0.06), transparent 60%);
+    background-attachment: fixed;
+  }
+  .pixel, code, pre, .font-mono, table, input, textarea {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 }
 
+/* Aggressive remap of legacy black-on-white utility classes to the
+   dark terminal palette so existing panels inherit the new skin
+   without per-file rewrites. Frontend only — no logic changes. */
 @layer utilities {
   .panel {
-    border: 1px solid var(--color-border);
-    background: var(--color-background);
+    border: 1px solid var(--hx-border);
+    background: var(--hx-panel);
+    color: var(--hx-txt);
   }
   .panel-title {
-    border-bottom: 1px solid var(--color-border);
-    padding: 4px 8px;
+    border-bottom: 1px solid var(--hx-border);
+    padding: 5px 9px;
     font-size: 10px;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     font-weight: 700;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--color-foreground);
-    color: var(--color-background);
+    background: var(--hx-head);
+    color: var(--hx-txt);
+    position: relative;
   }
-  .text-profit { color: var(--color-profit); }
-  .text-loss { color: var(--color-loss); }
+  .panel-title::before {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 6px;
+    margin-right: 8px;
+    background: var(--hx-acc);
+    box-shadow: 0 0 8px var(--hx-acc);
+    vertical-align: middle;
+  }
+  .text-profit { color: var(--hx-buy) !important; }
+  .text-loss { color: var(--hx-sell) !important; }
+  .text-orange-700 { color: var(--hx-warn) !important; }
+  .text-orange-500 { color: var(--hx-warn) !important; }
+
   .pixel {
     font-family: var(--font-mono);
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     font-variant-numeric: tabular-nums;
   }
   .tick {
     background-image:
-      linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
+      linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
     background-size: 20px 20px;
   }
-  .blink {
-    animation: blink 1.2s steps(2, start) infinite;
+  .blink { animation: blink 1.2s steps(2, start) infinite; }
+  @keyframes blink { to { visibility: hidden; } }
+  @keyframes hxpulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
   }
-  @keyframes blink {
-    to { visibility: hidden; }
+  .hx-pulse { animation: hxpulse 1.4s ease-in-out infinite; }
+
+  /* Remap hard-coded "black" borders/backgrounds used across legacy panels */
+  .border-black,
+  .border-black\/40,
+  .border-black\/50,
+  .border-black\/60,
+  .border-black\/30 { border-color: var(--hx-border) !important; }
+
+  .bg-background { background-color: var(--hx-panel) !important; }
+  .bg-foreground { background-color: var(--hx-head) !important; color: var(--hx-txt) !important; }
+  .text-background { color: var(--hx-txt) !important; }
+  .text-foreground { color: var(--hx-txt) !important; }
+  .bg-secondary { background-color: var(--hx-panel2) !important; }
+  .bg-accent { background-color: var(--hx-head) !important; }
+
+  /* Warning ribbons (used for symbol mismatch etc) */
+  .bg-orange-50 { background-color: rgba(240,180,41,0.10) !important; }
+  .border-orange-500 { border-color: var(--hx-warn) !important; }
+
+  /* Hazard-stripe ribbon for the persistent SAFETY strip */
+  .hx-hazard {
+    background:
+      repeating-linear-gradient(
+        45deg,
+        rgba(240,180,41,0.18) 0 10px,
+        rgba(240,180,41,0.06) 10px 20px
+      ),
+      var(--hx-panel);
+    border: 1px solid var(--hx-warn);
+    color: var(--hx-warn);
   }
+
+  /* Tab styles */
+  .hx-tab {
+    padding: 8px 14px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--hx-dim);
+    border-right: 1px solid var(--hx-border);
+    background: var(--hx-panel);
+    cursor: pointer;
+  }
+  .hx-tab:hover { color: var(--hx-txt); background: var(--hx-panel2); }
+  .hx-tab[data-active="true"] {
+    color: var(--hx-acc);
+    background: var(--hx-head);
+    box-shadow: inset 0 -2px 0 var(--hx-acc);
+  }
+
+  .hx-canvas {
+    background: #04060c;
+    border: 1px solid var(--hx-border);
+  }
+
+  /* Suppress duplicate-probe nodes site-wide */
+  [data-lovable-duplicate-probe],
+  .lovable_duplicate_probe { display: none !important; }
+
+  /* Scrollbars in terminal style */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--hx-border); }
+  ::-webkit-scrollbar-track { background: var(--hx-bg); }
 }
