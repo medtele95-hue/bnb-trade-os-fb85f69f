@@ -351,7 +351,7 @@ function TabsNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
           />
           <b style={{ color: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}>CONNECTED · DEMO</b>
         </span>
-        <span>LATENCY <b className="pixel" style={{ color: "var(--hx-txt)" }}>{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
+        <span>HB AGE <b className="pixel" style={{ color: "var(--hx-txt)" }}>{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
         <span style={{ color: "var(--hx-acc)" }}>READ-ONLY</span>
       </div>
     </div>
