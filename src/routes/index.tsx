@@ -36,6 +36,7 @@ import { SimoAtmBreakoutPanel } from "@/components/dashboard/SimoAtmBreakoutPane
 import { ConfluenceEnginePanel } from "@/components/dashboard/ConfluenceEnginePanel";
 import { GeometryEnginePanel } from "@/components/dashboard/GeometryEnginePanel";
 import { BackendHealthPanel } from "@/components/dashboard/BackendHealthPanel";
+import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
