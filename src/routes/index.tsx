@@ -65,15 +65,6 @@ function useHeartbeatAge() {
   return { ageSec, hb, ds };
 }
 
-function useBackendHealth() {
-  const { ageSec, hb } = useHeartbeatAge();
-  const rt = useRealtimeStatus();
-  const stale = ageSec != null && ageSec > 60;
-  const degraded = (ageSec != null && ageSec > 15) || rt === "RECONNECTING";
-  const offline = rt === "OFFLINE" || (ageSec != null && ageSec > 120);
-  const tradeReady = !stale && !degraded && !offline;
-  return { ageSec, hb, rt, stale, degraded, offline, tradeReady };
-}
 
 /* ============================================================================
  * TOP BAR
