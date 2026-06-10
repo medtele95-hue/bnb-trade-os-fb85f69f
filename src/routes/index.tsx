@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import { Panel, KV } from "@/components/dashboard/Panel";
 import { CandleChart } from "@/components/dashboard/CandleChart";
-
 import { Waiting } from "@/components/dashboard/Waiting";
+import { Fallback } from "@/components/dashboard/Fallback";
 import { SmcMap } from "@/components/dashboard/SmcMap";
 import { SafetyGuard } from "@/components/dashboard/SafetyGuard";
 import { BigSetupDetector } from "@/components/dashboard/BigSetupDetector";
@@ -14,7 +15,10 @@ import {
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
-import { QuantStrategyPanel, QuantProStrategyPanel, ConfirmationRibbon, QuantChartLabel, StrategyCountCard } from "@/components/dashboard/QuantStrategy";
+import {
+  QuantStrategyPanel, QuantProStrategyPanel, ConfirmationRibbon,
+  QuantChartLabel, StrategyCountCard,
+} from "@/components/dashboard/QuantStrategy";
 import { WspChartWorkspace } from "@/components/dashboard/WspIntelligence";
 import { TimeframeHierarchyPanel } from "@/components/dashboard/TimeframeHierarchy";
 import { useLiveTable } from "@/hooks/useLiveTable";
@@ -24,25 +28,6 @@ import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
 import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
 import { GoldOrderFlowCvdVwapPanel } from "@/components/dashboard/GoldOrderFlowCvdVwap";
 import { OrderFlowReaderPanel } from "@/components/dashboard/OrderFlowReader";
-import { useDashboardStatusPayload as _useDsForGate } from "@/components/dashboard/DemoCenter";
-import { Badge as _GateBadge } from "@/components/dashboard/Badges";
-
-function GoldOrderFlowCvdVwapGated() {
-  const ds = _useDsForGate() as any;
-  const raw = ds?.gold_order_flow_cvd_vwap ?? ds?.GOLD_ORDER_FLOW_CVD_VWAP ?? ds?.raw_payload?.gold_order_flow_cvd_vwap ?? {};
-  const executionEnabled = raw.execution_enabled === true || ds?.gold_order_flow_execution_enabled === true;
-  return (
-    <div>
-      <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider">
-        <_GateBadge value={executionEnabled ? "EXECUTION ENABLED (BACKEND)" : "DISABLED · OBSERVE-ONLY"} tone={executionEnabled ? "green" : "gray"} />
-        <span className="opacity-70">GOLD only · BTCUSD & EURUSD will not display this card</span>
-      </div>
-      <div className={executionEnabled ? "" : "opacity-80 pointer-events-none"}>
-        <GoldOrderFlowCvdVwapPanel />
-      </div>
-    </div>
-  );
-}
 import { EurEmaRsiAtrPanel } from "@/components/dashboard/EurEmaRsiAtrPanel";
 import { BtcScalpingPanel } from "@/components/dashboard/BtcScalpingPanel";
 import { QuickExitManager } from "@/components/dashboard/QuickExitManager";
@@ -52,349 +37,452 @@ import { ConfluenceEnginePanel } from "@/components/dashboard/ConfluenceEnginePa
 import { GeometryEnginePanel } from "@/components/dashboard/GeometryEnginePanel";
 import { BackendHealthPanel } from "@/components/dashboard/BackendHealthPanel";
 import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
-import { useEffect, useState } from "react";
 
+export const Route = createFileRoute("/")({ component: Dashboard });
 
-function HeartbeatIndicator() {
-  const ds = useDashboardStatusPayload();
-  const rt = useRealtimeStatus();
-  const hb = ds.utc_time ?? ds.updated_at ?? ds.last_heartbeat ?? null;
-  const hbDate = hb ? new Date(String(hb).replace(" ", "T")) : null;
+/* ============================================================================
+ * Shared hooks
+ * ========================================================================== */
+
+function useTickingNow() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const i = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(i);
   }, []);
-  const ageSec = hbDate && !isNaN(hbDate.getTime()) ? Math.max(0, Math.floor((now - hbDate.getTime()) / 1000)) : null;
-  const ageTone =
-    ageSec == null ? "opacity-60" : ageSec > 60 ? "text-loss" : ageSec > 15 ? "text-orange-700" : "text-profit";
-  const backendLabel =
-    ageSec == null
-      ? "BACKEND: WAITING"
-      : ageSec > 60
-        ? "BACKEND STALE / CHECK RDP"
-        : ageSec > 15
-          ? "DATA STALE"
-          : "BACKEND LIVE";
-  // Supabase channel status — channel only. When backend data is stale,
-  // do NOT show LIVE CONNECTED as fully healthy.
-  const dataStale = ageSec != null && ageSec > 15;
-  const dataOffline = ageSec != null && ageSec > 60;
-  const rtTone = rt !== "CONNECTED"
-    ? "text-loss"
-    : dataOffline ? "text-loss" : dataStale ? "text-orange-700" : "text-profit";
-  const rtLabel =
-    rt === "CONNECTED"
-      ? (dataOffline ? "LIVE CHANNEL · BACKEND OFFLINE" : dataStale ? "LIVE CHANNEL · DATA STALE" : "LIVE CONNECTED")
-      : rt === "RECONNECTING"
-        ? "LIVE RECONNECTING"
-        : "LIVE OFFLINE — FALLBACK POLLING";
-  return (
-    <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest flex-wrap">
-      <span className={`${rtTone} font-bold`}>{rtLabel}</span>
-      <span className="opacity-50">·</span>
-      <span className={`${ageTone} font-bold`}>{backendLabel}</span>
-      <span className="opacity-50">·</span>
-      <span className={ageTone}>DATA AGE: {ageSec == null ? "—" : `${ageSec}s`}</span>
-      <span className="opacity-50">|</span>
-      <span className="opacity-70">HB:</span>
-      <b>{hb ? String(hb).slice(11, 19) || String(hb) : "—"}</b>
-    </span>
-  );
+  return now;
 }
 
-export const Route = createFileRoute("/")({
-  component: Dashboard,
-});
-
-function StatusDot({ ok = true, label }: { ok?: boolean; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className="inline-block w-2 h-2 border border-black"
-        style={{ background: ok ? "black" : "transparent" }}
-      />
-      {label}
-    </span>
-  );
-}
-
-function HeaderBackendTime() {
-  const t = useBackendTime();
-  const cell = (label: string, v: string | null) => (
-    <div className="flex items-center justify-between gap-2">
-      <span className="opacity-70">{label}</span>
-      <b className={v ? "" : "opacity-60"}>{v ?? "UNKNOWN"}</b>
-    </div>
-  );
-  const gateTone = t.gate_status?.toUpperCase() === "PASS" || t.gate_status?.toUpperCase() === "OPEN"
-    ? "text-profit"
-    : t.gate_status?.toUpperCase() === "BLOCK" || t.gate_status?.toUpperCase() === "CLOSED"
-    ? "text-loss"
-    : "opacity-70";
-  return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
-      {cell("UTC", t.utc)}
-      {cell("CASA", t.casa)}
-      {cell("BRK", t.broker)}
-      {cell("SESS", t.session)}
-      <div className="flex items-center justify-between gap-2 col-span-2">
-        <span className="opacity-70">GATE</span>
-        <b className={gateTone}>{t.gate_status ?? "UNKNOWN"}</b>
-      </div>
-      <div className="col-span-2 truncate opacity-80" title={t.gate_reason ?? ""}>
-        <span className="opacity-70">REASON:</span> {t.gate_reason ?? "UNKNOWN"}
-      </div>
-    </div>
-  );
-}
-
-function Header() {
+function useHeartbeatAge() {
   const ds = useDashboardStatusPayload();
-  const { rows: statuses } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 20 });
-  const byKey: Record<string, any> = {};
-  statuses.forEach((s) => (byKey[s.component] = s));
-  const rdp = byKey["RDP"]?.status ?? "—";
-  const mt5Component = byKey["MT5"]?.status;
-  const mt5Connected = ds.mt5_connected;
-  const mt5 = mt5Component ?? (mt5Connected == null ? "—" : mt5Connected ? "CONNECTED" : "DISCONNECTED");
-  const bot = byKey["HERMES"]?.status ?? (statuses.length ? "ONLINE" : "WAITING");
+  const hb = (ds as any).utc_time ?? (ds as any).updated_at ?? (ds as any).last_heartbeat ?? null;
+  const hbDate = hb ? new Date(String(hb).replace(" ", "T")) : null;
+  const now = useTickingNow();
+  const ageSec = hbDate && !isNaN(hbDate.getTime())
+    ? Math.max(0, Math.floor((now - hbDate.getTime()) / 1000))
+    : null;
+  return { ageSec, hb, ds };
+}
 
-  const modeRaw = ds.mode;
-  const headerMode = modeRaw
-    ? `READ ONLY · ${String(modeRaw).replace(/_/g, " ").toUpperCase()}`
-    : "READ ONLY · DEMO PILOT";
+function useBackendHealth() {
+  const { ageSec, hb } = useHeartbeatAge();
+  const rt = useRealtimeStatus();
+  const stale = ageSec != null && ageSec > 60;
+  const degraded = (ageSec != null && ageSec > 15) || rt === "RECONNECTING";
+  const offline = rt === "DISCONNECTED" || rt === "OFFLINE" || (ageSec != null && ageSec > 120);
+  const tradeReady = !stale && !degraded && !offline;
+  return { ageSec, hb, rt, stale, degraded, offline, tradeReady };
+}
+
+/* ============================================================================
+ * TOP BAR
+ * ========================================================================== */
+
+type SymbolKey = "BTC" | "GOLD" | "EUR" | "SIMO_ATM";
+const SYMBOL_MAP: Record<SymbolKey, string> = {
+  BTC: "BTCUSD",
+  GOLD: "XAUUSD",
+  EUR: "EURUSD",
+  SIMO_ATM: "US100",
+};
+
+function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolKey) => void }) {
+  const ds: any = useDashboardStatusPayload();
+  const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
+  const s = snaps[0] ?? {};
+  const { rows: market } = useLiveTable<any>("market_states", {
+    limit: 1,
+    filter: { column: "symbol", value: SYMBOL_MAP[symbol] },
+  });
+  const m = market[0] ?? {};
+  const price = m.price != null ? Number(m.price) : null;
+  const change = m.change_pct ?? m.change ?? null;
+  const spread = m.spread ?? ds.spread ?? null;
+  const vwap = m.vwap ?? ds.vwap ?? null;
+  const hi = m.high ?? null;
+  const lo = m.low ?? null;
+  const equity = s.equity != null ? Number(s.equity) : null;
+  const pnl = s.daily_pnl != null ? Number(s.daily_pnl) : null;
 
   return (
-    <header className="panel border-b-2">
-      <div className="grid grid-cols-12 gap-0">
-        <div className="col-span-4 border-r border-black p-3">
-          <div className="text-[22px] font-black tracking-tight leading-none">
-            MT5 <span className="opacity-60">×</span> HERMES
+    <header
+      className="border-b"
+      style={{ background: "var(--hx-panel)", borderColor: "var(--hx-border)" }}
+    >
+      <div className="flex items-stretch gap-0">
+        {/* Brand */}
+        <div
+          className="px-4 py-2 border-r flex flex-col justify-center"
+          style={{ borderColor: "var(--hx-border)", minWidth: 220 }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block hx-pulse"
+              style={{ width: 8, height: 8, background: "var(--hx-acc)", boxShadow: "0 0 10px var(--hx-acc)" }}
+            />
+            <div className="text-[18px] font-black tracking-tight leading-none" style={{ fontFamily: "Archivo" }}>
+              HERMES
+              <span style={{ color: "var(--hx-dim)" }}> · TERMINAL</span>
+            </div>
           </div>
-          <div className="text-[10px] mt-1.5 uppercase tracking-wider opacity-80">
-            BTCUSD / XAUUSD / EURUSD
-          </div>
-          <div className="text-[10px] uppercase tracking-wider opacity-80">
-            5-MIN AI TRADING AGENT
+          <div className="text-[9px] uppercase tracking-[0.25em] mt-1" style={{ color: "var(--hx-dim)" }}>
+            MT5 × AI · DEMO PILOT · READ-ONLY
           </div>
         </div>
-        <div className="col-span-4 border-r border-black p-3 flex items-center justify-center">
-          <div className="text-[11px] tracking-[0.25em] uppercase font-bold text-center">
-            MARKOV · KELLY · SELF-LEARN · RISK · EXECUTION
-          </div>
-        </div>
-        <div className="col-span-4 p-3 text-[10px] uppercase tracking-wider grid grid-cols-2 gap-x-3 gap-y-1">
-          <div>BOT STATUS: <b>{bot}</b><span className="blink ml-1">_</span></div>
-          <div>MODE: <b>{headerMode}</b></div>
-          <div>RDP: <b>{rdp}</b></div>
-          <div>MT5: <b>{mt5}</b></div>
 
-          <div className="col-span-2 border-t border-dashed border-black/40 pt-1 mt-0.5">
-            <HeaderBackendTime />
+        {/* Symbol tabs */}
+        <div className="flex border-r" style={{ borderColor: "var(--hx-border)" }}>
+          {(Object.keys(SYMBOL_MAP) as SymbolKey[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => onSymbol(k)}
+              className="px-4 py-2 text-[11px] uppercase tracking-widest border-r"
+              data-active={symbol === k}
+              style={{
+                borderColor: "var(--hx-border)",
+                background: symbol === k ? "var(--hx-head)" : "transparent",
+                color: symbol === k ? "var(--hx-acc)" : "var(--hx-dim)",
+                boxShadow: symbol === k ? "inset 0 -2px 0 var(--hx-acc)" : "none",
+                fontWeight: 700,
+              }}
+            >
+              {k}
+            </button>
+          ))}
+        </div>
+
+        {/* Price + change */}
+        <div className="px-4 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)", minWidth: 180 }}>
+          <div className="text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+            {SYMBOL_MAP[symbol]}
           </div>
+          <div className="pixel text-[22px] leading-none" style={{ color: "var(--hx-txt)" }}>
+            {price != null ? price.toLocaleString("en-US", { maximumFractionDigits: 5 }) : "—"}
+          </div>
+          <div
+            className="pixel text-[11px]"
+            style={{ color: change == null ? "var(--hx-dim)" : Number(change) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)" }}
+          >
+            {change == null ? "—" : `${Number(change) >= 0 ? "+" : ""}${Number(change).toFixed(2)}%`}
+          </div>
+        </div>
+
+        {/* Inline stats */}
+        <div className="flex-1 grid grid-cols-5 text-[10px] uppercase tracking-wider">
+          {[
+            { k: "SPREAD", v: spread != null ? Number(spread).toFixed(2) : "—" },
+            { k: "VWAP", v: vwap != null ? Number(vwap).toFixed(2) : "—" },
+            { k: "HI / LO", v: hi != null && lo != null ? `${Number(hi).toFixed(2)} / ${Number(lo).toFixed(2)}` : "—" },
+            { k: "EQUITY", v: equity != null ? `$${equity.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : "—" },
+            { k: "PNL", v: pnl != null ? `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}` : "—", tone: pnl == null ? undefined : pnl >= 0 ? "buy" : "sell" },
+          ].map((c, i) => (
+            <div key={i} className="px-3 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)" }}>
+              <div style={{ color: "var(--hx-dim)" }}>{c.k}</div>
+              <div className="pixel text-[13px]" style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)" }}>
+                {c.v}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Source chips + LOCKED LIVE switch */}
+        <div className="px-3 py-2 flex items-center gap-3 border-l" style={{ borderColor: "var(--hx-border)" }}>
+          <SourceChips />
+          <LiveTradingLock />
         </div>
       </div>
-      <nav className="border-t border-black flex text-[10px] uppercase tracking-widest">
-        {[
-          { to: "/", label: "Command Center" },
-          { to: "/settings", label: "Settings" },
-        ].map((l) => (
-          <Link
-            key={l.to}
-            to={l.to}
-            className="px-3 py-1.5 border-r border-black hover:bg-foreground hover:text-background"
-            activeProps={{ className: "px-3 py-1.5 border-r border-black bg-foreground text-background" }}
-          >
-            {l.label}
-          </Link>
-        ))}
-        <div className="ml-auto px-3 py-1.5 flex items-center gap-4">
-          <HeartbeatIndicator />
-          <StatusDot label="SUPABASE: LIVE" />
-          <span>v0.2.0 — HERMES</span>
-        </div>
-      </nav>
     </header>
   );
 }
 
-function Hero() {
-  const ds = useDashboardStatusPayload();
+function SourceChips() {
+  const { rows: statuses } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 20 });
+  const ds: any = useDashboardStatusPayload();
+  const rt = useRealtimeStatus();
+  const byKey: Record<string, any> = {};
+  statuses.forEach((s) => (byKey[s.component] = s));
+  const mt5 = byKey["MT5"]?.status ?? (ds.mt5_connected === true ? "CONNECTED" : ds.mt5_connected === false ? "DOWN" : "—");
+  const rdp = byKey["RDP"]?.status ?? "—";
+  const sb = rt === "CONNECTED" ? "LIVE" : rt;
+
+  const chip = (label: string, ok: boolean, val: string) => (
+    <div
+      className="px-2 py-1 text-[9px] uppercase tracking-widest border flex items-center gap-1"
+      style={{
+        borderColor: ok ? "var(--hx-acc)" : "var(--hx-faint)",
+        color: ok ? "var(--hx-acc)" : "var(--hx-dim)",
+        background: "var(--hx-panel2)",
+      }}
+    >
+      <span
+        className="inline-block"
+        style={{ width: 6, height: 6, background: ok ? "var(--hx-buy)" : "var(--hx-faint)" }}
+      />
+      {label} · {val}
+    </div>
+  );
+
+  const isOk = (s: any) => {
+    const v = String(s ?? "").toUpperCase();
+    return v === "CONNECTED" || v === "LIVE" || v === "ONLINE" || v === "OK";
+  };
+
+  return (
+    <div className="flex gap-1.5">
+      {chip("MT5", isOk(mt5), String(mt5))}
+      {chip("SUPABASE", isOk(sb), String(sb))}
+      {chip("RDP", isOk(rdp), String(rdp))}
+    </div>
+  );
+}
+
+function LiveTradingLock() {
+  return (
+    <div
+      className="flex items-center gap-2 px-2 py-1 border"
+      style={{ borderColor: "var(--hx-sell)", background: "rgba(234,57,67,0.08)", cursor: "not-allowed" }}
+      title="Live trading is permanently blocked. Dashboard is read-only."
+      aria-disabled
+    >
+      <span className="text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>LIVE TRADING</span>
+      <span
+        className="inline-flex items-center"
+        style={{ width: 28, height: 14, background: "var(--hx-panel)", border: "1px solid var(--hx-sell)" }}
+      >
+        <span style={{ width: 10, height: 10, background: "var(--hx-sell)", margin: "0 2px" }} />
+      </span>
+      <span className="text-[9px] font-bold tracking-widest" style={{ color: "var(--hx-sell)" }}>LOCKED · OFF</span>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * SAFETY STRIP (hazard ribbon) + BACKEND HEALTH BAR
+ * ========================================================================== */
+
+function SafetyStrip() {
+  return (
+    <div className="hx-hazard px-3 py-1.5 text-[10px] uppercase tracking-widest flex flex-wrap items-center gap-x-4 gap-y-1 font-bold">
+      <span style={{ color: "var(--hx-warn)" }}>⚠ SAFETY</span>
+      <span>LIVE TRADING BLOCKED</span>
+      <span>·</span>
+      <span>DEMO_ONLY TRUE</span>
+      <span>·</span>
+      <span>ALLOW_LIVE_TRADING FALSE</span>
+      <span>·</span>
+      <span>MAX LOT 0.01</span>
+      <span>·</span>
+      <span>MAGIC 909002</span>
+      <span>·</span>
+      <span>DASHBOARD READ-ONLY</span>
+      <span className="ml-auto" style={{ color: "var(--hx-dim)" }}>EXECUTION ONLY FROM BACKEND DEMO ROUTER</span>
+    </div>
+  );
+}
+
+function BackendHealthBar() {
+  const h = useBackendHealth();
+  const ageColor = h.offline ? "var(--hx-sell)" : h.stale ? "var(--hx-sell)" : h.degraded ? "var(--hx-warn)" : "var(--hx-buy)";
+  const status = h.offline ? "OFFLINE" : h.stale ? "STALE" : h.degraded ? "DEGRADED" : "FRESH";
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-[10px] uppercase tracking-widest border-b"
+      style={{ background: "var(--hx-panel2)", borderColor: "var(--hx-border)" }}
+    >
+      <span style={{ color: "var(--hx-dim)" }}>BACKEND HEALTH</span>
+      <span className="flex items-center gap-1.5">
+        <span style={{ width: 8, height: 8, background: ageColor, boxShadow: `0 0 8px ${ageColor}` }} className="inline-block hx-pulse" />
+        <b style={{ color: ageColor }}>{status}</b>
+      </span>
+      <span>HB AGE: <b className="pixel">{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
+      <span>CHANNEL: <b style={{ color: h.rt === "CONNECTED" ? "var(--hx-buy)" : h.rt === "RECONNECTING" ? "var(--hx-warn)" : "var(--hx-sell)" }}>{h.rt}</b></span>
+      <span>INGEST: <b>{h.tradeReady ? "OK" : h.offline ? "DOWN" : "DEGRADED"}</b></span>
+      {!h.tradeReady && (
+        <span
+          className="ml-auto px-2 py-0.5 border"
+          style={{ borderColor: "var(--hx-warn)", color: "var(--hx-warn)", background: "rgba(240,180,41,0.10)" }}
+        >
+          ⚠ {h.offline ? "BACKEND OFFLINE — TRADE-READY SUPPRESSED" : h.stale ? "BACKEND STALE — TRADE-READY SUPPRESSED" : "BACKEND DEGRADED — TRADE-READY SUPPRESSED"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================================
+ * TABS NAV
+ * ========================================================================== */
+
+const TABS = ["OVERVIEW", "ORDER FLOW", "STRATEGIES", "INTELLIGENCE", "JOURNAL", "AUDIT", "LOGS"] as const;
+type Tab = typeof TABS[number];
+
+function TabsNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+  const h = useBackendHealth();
+  return (
+    <div
+      className="flex items-stretch border-b"
+      style={{ background: "var(--hx-panel)", borderColor: "var(--hx-border)" }}
+    >
+      {TABS.map((t) => (
+        <button key={t} className="hx-tab" data-active={tab === t} onClick={() => onTab(t)}>
+          {t}
+        </button>
+      ))}
+      <div className="ml-auto flex items-center gap-3 px-3 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block hx-pulse"
+            style={{ width: 6, height: 6, background: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}
+          />
+          <b style={{ color: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}>CONNECTED · DEMO</b>
+        </span>
+        <span>LATENCY <b className="pixel" style={{ color: "var(--hx-txt)" }}>{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
+        <span style={{ color: "var(--hx-acc)" }}>READ-ONLY</span>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * Legacy panels migrated into helpers
+ * ========================================================================== */
+
+function PnLTruth() {
+  const ds: any = useDashboardStatusPayload();
   const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
   const { rows: trades } = useLiveTable<any>("trades", { limit: 500 });
   const s = snaps[0] ?? {};
-  const acctType = String(ds.account_type ?? "").toUpperCase();
-  const isDemo = acctType === "DEMO";
-  const acctLabel =
-    acctType === "DEMO" ? "ACCT: DEMO VERIFIED" :
-    acctType === "LIVE" ? "ACCT: LIVE" :
-    "ACCT: UNKNOWN";
-
   const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
-  const openDemoTrades = demoTrades.filter((t: any) =>
-    String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
-  );
-  const closedDemoTrades = demoTrades.filter((t: any) =>
-    String(t.result ?? "").toUpperCase() === "CLOSED" || t.closed_at != null
-  );
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
-  const openedToday = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const closedToday = closedDemoTrades.filter((t: any) => isToday(t.closed_at)).length;
-
-  // Trades-table closed PnL — SECONDARY reconciliation only
-  const closedDemoPnlTrades = closedDemoTrades
-    .filter((t: any) => isToday(t.closed_at))
-    .reduce((acc: number, t: any) => acc + Number(t.pnl ?? 0), 0);
-
-  // PRIMARY closed PnL = MT5 history deals (dashboard_status / account_snapshots)
-  const mt5TodayRaw =
-    ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
-  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
-  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
-  const closedDemoPnlToday = usingMt5Truth ? (mt5TodayPnl as number) : closedDemoPnlTrades;
-  const pnlSource = usingMt5Truth ? "MT5_HISTORY_DEALS" : "TRADES_TABLE (fallback)";
-
-  const floatingDemoPnl = openDemoTrades.reduce((acc: number, t: any) => {
-    const rp = (t.raw_payload ?? {}) as any;
-    const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
-    return acc + Number(p ?? 0);
+  const closedDemo = demoTrades.filter((t: any) => String(t.result ?? "").toUpperCase() === "CLOSED" || t.closed_at != null);
+  const openDemo = demoTrades.filter((t: any) => String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null);
+  const tradesTablePnl = closedDemo.filter((t: any) => isToday(t.closed_at)).reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
+  const mt5Raw = ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
+  const mt5 = mt5Raw != null ? Number(mt5Raw) : null;
+  const floating = openDemo.reduce((a: number, t: any) => {
+    const rp: any = t.raw_payload ?? {};
+    return a + Number(t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0);
   }, 0);
-  const totalDemoPnl = closedDemoPnlToday + floatingDemoPnl;
-  const wins = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
-  const losses = closedDemoTrades.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
-  const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
-
-  const totalPnlNum = isDemo ? Number(totalDemoPnl) : Number(s.total_pnl ?? 0);
-  const accountStatusLabel = isDemo
-    ? "Account: DEMO VERIFIED"
-    : acctType === "LIVE" ? "Account: LIVE" : "Account: UNKNOWN";
-  const winRateDisplay = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
-  const tradesTodayDisplay = isDemo ? openedToday : (s.trades_today ?? "—");
-  const openPosDisplay = isDemo ? openDemoTrades.length : (s.open_positions ?? 0);
-  const reconcileDiff = usingMt5Truth ? (mt5TodayPnl as number) - closedDemoPnlTrades : null;
+  const delta = mt5 != null ? mt5 - tradesTablePnl : null;
+  const mismatch = delta != null && Math.abs(delta) > 0.01;
+  const total = (mt5 ?? tradesTablePnl) + floating;
 
   return (
-    <Panel title={isDemo ? "TOTAL DEMO PNL — HERMES MAGIC 909002" : "TOTAL PNL — VERIFIED FROM MT5"} right={acctLabel} className="col-span-8">
-      <div className="grid grid-cols-3 gap-3 items-center">
-        <div className="col-span-2 px-2 py-3">
-          <div className="text-[10px] uppercase opacity-70 tracking-widest">{isDemo ? "Total Demo PnL (MT5 Closed + Floating)" : "Total PnL"}</div>
-          <div className={`pixel text-[88px] leading-none tracking-tighter ${totalPnlNum >= 0 ? "text-profit" : "text-loss"}`}>
-            {totalPnlNum >= 0 ? "+" : "-"}${Math.abs(totalPnlNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+    <Panel
+      title="PNL TRUTH · MT5_HISTORY_DEALS"
+      right={
+        <Badge value={mt5 != null ? "PRIMARY: MT5" : "FALLBACK: TRADES"} tone={mt5 != null ? "green" : "orange"} />
+      }
+    >
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <div className="text-[9px] uppercase opacity-70">Total Demo PnL</div>
+          <div
+            className="pixel text-[42px] leading-none"
+            style={{ color: total >= 0 ? "var(--hx-buy)" : "var(--hx-sell)" }}
+          >
+            {total >= 0 ? "+" : "-"}${Math.abs(total).toFixed(2)}
           </div>
-          {isDemo && (
-            <div className="flex flex-wrap gap-3 mt-1 text-[10px] uppercase tracking-widest">
-              <span>Closed Demo PnL: <b className={closedDemoPnlToday >= 0 ? "text-profit" : "text-loss"}>{closedDemoPnlToday >= 0 ? "+" : ""}${closedDemoPnlToday.toFixed(2)}</b></span>
-              <span>Floating Demo PnL: <b className={floatingDemoPnl >= 0 ? "text-profit" : "text-loss"}>{floatingDemoPnl >= 0 ? "+" : ""}${floatingDemoPnl.toFixed(2)}</b></span>
-              <span className="opacity-70">PnL Source: <b>{pnlSource}</b></span>
-              <span className="opacity-70">Trades Table (secondary): <b>{closedDemoPnlTrades >= 0 ? "+" : ""}${closedDemoPnlTrades.toFixed(2)}</b></span>
-            </div>
-          )}
-          <div className="flex gap-4 mt-3 text-[10px] uppercase tracking-widest flex-wrap">
-            <StatusDot label={`SOURCE: ${pnlSource}`} />
-            <StatusDot label={accountStatusLabel} />
-            <StatusDot label="Broker Connected" />
-            <Badge
-              value={isDemo ? "DEMO PILOT READ-ONLY — NO LIVE EXECUTION" : "LIVE ACCOUNT READ-ONLY — PAPER EXECUTION ONLY"}
-              tone="orange"
-            />
+          <div className="text-[10px] mt-1" style={{ color: "var(--hx-dim)" }}>
+            Closed + floating · Magic 909002
           </div>
         </div>
-        <div className="border-l border-black p-2 space-y-0.5">
-          <KV k="Trades Today" v={isDemo ? `${tradesTodayDisplay} opened / ${closedToday} closed` : tradesTodayDisplay} />
-          <KV k="Closed Demo PnL (MT5)" v={`${closedDemoPnlToday >= 0 ? "+" : ""}$${closedDemoPnlToday.toFixed(2)}`} accent={closedDemoPnlToday >= 0 ? "profit" : "loss"} />
-          <KV k="Floating Demo PnL" v={`${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`} accent={floatingDemoPnl >= 0 ? "profit" : "loss"} />
-          {reconcileDiff != null && (
-            <KV k="Recon Δ (MT5−Trades)" v={`${reconcileDiff >= 0 ? "+" : ""}$${reconcileDiff.toFixed(2)}`} />
-          )}
-          <KV k="Win Rate" v={winRateDisplay === "—" ? "—" : `${winRateDisplay}%`} />
-          <KV k="Profit Factor" v={s.profit_factor ?? "—"} />
-          <KV k="Open Positions" v={openPosDisplay} />
-          <KV k="Max DD" v={`${s.max_drawdown ?? 0}%`} accent="loss" />
+        <div className="space-y-1">
+          <KV k="MT5 Closed (PRIMARY)" v={mt5 != null ? `${mt5 >= 0 ? "+" : ""}$${mt5.toFixed(2)}` : <Fallback tone="nodata" />} accent={mt5 != null && mt5 >= 0 ? "profit" : mt5 != null ? "loss" : undefined} />
+          <KV k="Trades Table (SECONDARY)" v={`${tradesTablePnl >= 0 ? "+" : ""}$${tradesTablePnl.toFixed(2)}`} />
+          <KV k="Floating Demo PnL" v={`${floating >= 0 ? "+" : ""}$${floating.toFixed(2)}`} accent={floating >= 0 ? "profit" : "loss"} />
+        </div>
+        <div className="space-y-1">
+          <KV k="Open Positions" v={openDemo.length} />
+          <KV k="Reconciliation Δ" v={delta == null ? "—" : `${delta >= 0 ? "+" : ""}$${delta.toFixed(2)}`} />
+          <div className="mt-1">
+            {mismatch
+              ? <Fallback tone="degraded" label="PNL_MISMATCH" />
+              : delta != null ? <Badge value="RECONCILED" tone="green" /> : <Fallback tone="wait" />}
+          </div>
         </div>
       </div>
     </Panel>
   );
 }
 
-function MetricsRow() {
-  const ds = useDashboardStatusPayload();
-  const { rows, empty } = useLiveTable<any>("account_snapshots", { limit: 1 });
+function LatestAiDecisionCard() {
+  const { rows, empty } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const d = rows[0];
+  const rp: any = (d?.raw_payload ?? {});
+  const inner: any = (rp?.raw_payload ?? {});
+  const merged = { ...rp, ...inner };
+  const finalCap = merged.final_capped_lot ?? merged.demo_capped_lot ?? merged.gate_statuses?.final_lot;
+  const executableLot = finalCap != null ? Math.min(Number(finalCap), 0.01) : null;
+  const rawLot = merged.raw_lot ?? merged.calculated_lot ?? merged.kelly_suggested_lot ?? d?.lot_size;
+  const gate = String(merged.demo_gate ?? merged.gate_status ?? "").toUpperCase();
+  const h = useBackendHealth();
+  const stamp = h.tradeReady && gate === "PASS" ? "TRADE READY · DEMO ROUTER" : "ANALYSIS ONLY";
+  const stampTone = h.tradeReady && gate === "PASS" ? "green" : "orange";
+
+  return (
+    <Panel title="LATEST AI DECISION" right={<Badge value={stamp} tone={stampTone} />}>
+      {empty || !d ? <Fallback tone="wait" block /> : (
+        <div className="grid grid-cols-2 gap-x-4">
+          <KV k="Symbol" v={d.symbol ?? <Fallback tone="nodata" />} />
+          <KV k="Timeframe" v={d.timeframe ?? <Fallback tone="nodata" />} />
+          <KV k="Strategy" v={d.strategy ?? <Fallback tone="nodata" />} />
+          <KV k="Signal" v={d.signal ?? <Fallback tone="nodata" />} accent="profit" />
+          <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
+          <KV k="Markov p" v={Number(d.markov_probability ?? 0).toFixed(2)} />
+          <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : <Fallback tone="nodata" />} />
+          <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
+          <KV k="Entry" v={d.entry ?? <Fallback tone="nodata" />} />
+          <KV k="SL" v={d.sl ?? <Fallback tone="nodata" />} accent="loss" />
+          <KV k="TP" v={d.tp ?? <Fallback tone="nodata" />} accent="profit" />
+          <KV k="Risk Status" v={d.risk_status ?? <Fallback tone="nodata" />} />
+          <div className="col-span-2 mt-2 pt-1.5 border-t" style={{ borderColor: "var(--hx-border)" }}>
+            <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>Decision</div>
+            <div className="pixel text-[18px]">{d.decision ?? "—"}</div>
+            <div className="text-[10px] mt-1" style={{ color: "var(--hx-dim)" }}><b>REASON:</b> {d.reason ?? <Fallback tone="nodata" />}</div>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function MetricsRowDemo() {
+  const ds: any = useDashboardStatusPayload();
+  const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
   const { rows: trades } = useLiveTable<any>("trades", { limit: 500 });
-  const s = rows[0] ?? {};
-  const acctType = String(ds.account_type ?? "").toUpperCase();
-  const isDemo = acctType === "DEMO";
-
-  if (!isDemo && (empty || !rows[0])) {
-    return <div className="border border-black -mt-px p-2"><Waiting label="WAITING FOR HERMES LIVE METRICS" /></div>;
-  }
-
-  // Demo-aware aggregates from trades table
-  const demoTrades = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
-  const closedDemo = demoTrades.filter((t: any) =>
-    String(t.result ?? "").toUpperCase() === "CLOSED" || t.closed_at != null
-  );
-  const openDemo = demoTrades.filter((t: any) =>
-    String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null
-  );
+  const s = snaps[0] ?? {};
+  const demo = trades.filter((t: any) => Number(t.magic_number ?? t.magic) === 909002);
+  const closed = demo.filter((t: any) => t.closed_at != null);
+  const open = demo.filter((t: any) => String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null);
   const today = new Date().toISOString().slice(0, 10);
   const isToday = (d: any) => typeof d === "string" && d.slice(0, 10) === today;
-  const openedTodayDemo = demoTrades.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length;
-  const closedDemoPnlTrades = closedDemo
-    .filter((t: any) => isToday(t.closed_at))
-    .reduce((a: number, t: any) => a + Number(t.pnl ?? 0), 0);
-  const mt5TodayRaw =
-    ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
-  const mt5TodayPnl = mt5TodayRaw != null ? Number(mt5TodayRaw) : null;
-  const usingMt5Truth = mt5TodayPnl != null && Number.isFinite(mt5TodayPnl);
-  const closedDemoPnl = usingMt5Truth ? (mt5TodayPnl as number) : closedDemoPnlTrades;
-  const floatingDemoPnl = openDemo.reduce((a: number, t: any) => {
-    const rp = (t.raw_payload ?? {}) as any;
-    const p = t.pnl ?? rp.current_profit ?? rp.floating_pnl ?? rp.profit ?? 0;
-    return a + Number(p ?? 0);
-  }, 0);
-  const totalDemoPnl = closedDemoPnl + floatingDemoPnl;
-  const wins = closedDemo.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
-  const losses = closedDemo.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
-  const demoWinRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
+  const closedToday = closed.filter((t: any) => isToday(t.closed_at)).reduce((a, t: any) => a + Number(t.pnl ?? 0), 0);
+  const mt5 = ds.mt5_today_pnl ?? ds.mt5_daily_pnl ?? ds.today_pnl ?? s.daily_pnl ?? null;
+  const wins = closed.filter((t: any) => Number(t.pnl ?? 0) > 0).length;
+  const losses = closed.filter((t: any) => Number(t.pnl ?? 0) < 0).length;
+  const wr = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
-  const tradesToday = isDemo ? openedTodayDemo : (s.trades_today ?? 0);
-  const totalTrades = isDemo ? demoTrades.length : (s.total_trades ?? 0);
-  const winRate = isDemo ? (demoWinRate ?? "—") : (s.win_rate ?? 0);
-  const openPos = isDemo ? openDemo.length : (s.open_positions ?? 0);
-
-  const pnlCell = isDemo
-    ? { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: (totalDemoPnl >= 0 ? "profit" : "loss") as "profit" | "loss" }
-    : { k: "Daily PnL", v: `${Number(s.daily_pnl ?? 0) >= 0 ? "+" : ""}$${Number(s.daily_pnl ?? 0).toFixed(2)}`, a: (Number(s.daily_pnl ?? 0) >= 0 ? "profit" : "loss") as "profit" | "loss" };
-
-  const items: Array<{ k: string; v: any; a?: "profit" | "loss" }> = isDemo
-    ? [
-        { k: "Trades Today", v: tradesToday },
-        { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
-        { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
-        { k: usingMt5Truth ? "Closed Demo PnL (MT5)" : "Closed Demo PnL", v: `${closedDemoPnl >= 0 ? "+" : ""}$${closedDemoPnl.toFixed(2)}`, a: closedDemoPnl >= 0 ? "profit" : "loss" },
-        { k: "Floating Demo PnL", v: `${floatingDemoPnl >= 0 ? "+" : ""}$${floatingDemoPnl.toFixed(2)}`, a: floatingDemoPnl >= 0 ? "profit" : "loss" },
-        { k: "Total Demo PnL", v: `${totalDemoPnl >= 0 ? "+" : ""}$${totalDemoPnl.toFixed(2)}`, a: totalDemoPnl >= 0 ? "profit" : "loss" },
-        { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
-        { k: "Open Pos", v: openPos },
-      ]
-    : [
-        { k: "Trades Today", v: tradesToday },
-        { k: "Total Trades", v: Number(totalTrades).toLocaleString("en-US") },
-        { k: "Win Rate", v: winRate === "—" ? "—" : `${winRate}%` },
-        pnlCell,
-        { k: "Equity", v: `$${(s.equity ?? 0).toLocaleString("en-US")}` },
-        { k: "Profit Factor", v: s.profit_factor ?? "—" },
-        { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, a: "loss" },
-        { k: "Open Pos", v: openPos },
-      ];
+  const items = [
+    { k: "Trades Today", v: demo.filter((t: any) => isToday(t.opened_at ?? t.created_at)).length },
+    { k: "Total Trades", v: demo.length },
+    { k: "Win Rate", v: wr == null ? "—" : `${wr}%` },
+    { k: "Closed (MT5)", v: mt5 != null ? `${Number(mt5) >= 0 ? "+" : ""}$${Number(mt5).toFixed(2)}` : `${closedToday >= 0 ? "+" : ""}$${closedToday.toFixed(2)}`, tone: (Number(mt5 ?? closedToday) >= 0 ? "profit" : "loss") as const },
+    { k: "Equity", v: `$${Number(s.equity ?? 0).toLocaleString("en-US")}` },
+    { k: "Profit Factor", v: s.profit_factor ?? "—" },
+    { k: "Open Pos", v: open.length },
+    { k: "Max DD", v: `${s.max_drawdown ?? 0}%`, tone: "loss" as const },
+  ];
   return (
-    <div className="grid grid-cols-8 gap-0 border border-black -mt-px">
+    <div className="grid grid-cols-8 border" style={{ borderColor: "var(--hx-border)", background: "var(--hx-panel)" }}>
       {items.map((it, i) => (
-        <div key={i} className="p-2 border-r last:border-r-0 border-black">
-          <div className="text-[9px] uppercase tracking-widest opacity-70">{it.k}</div>
-          <div className={`pixel text-[22px] ${it.a === "profit" ? "text-profit" : ""} ${it.a === "loss" ? "text-loss" : ""}`}>
+        <div key={i} className="p-2 border-r last:border-r-0" style={{ borderColor: "var(--hx-border)" }}>
+          <div className="text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>{it.k}</div>
+          <div
+            className="pixel text-[20px]"
+            style={{ color: it.tone === "profit" ? "var(--hx-buy)" : it.tone === "loss" ? "var(--hx-sell)" : "var(--hx-txt)" }}
+          >
             {it.v}
           </div>
         </div>
@@ -407,32 +495,24 @@ function Markov() {
   const { rows, empty } = useLiveTable<any>("markov_predictions", { limit: 1 });
   const m = rows[0];
   return (
-    <Panel title="MARKOV STATE TRANSITION" right={m ? `${m.symbol} ${m.timeframe}` : "—"}>
-      {empty || !m ? (
-        <Waiting />
-      ) : (
+    <Panel title="MARKOV STATE" right={m ? `${m.symbol} ${m.timeframe}` : "—"}>
+      {empty || !m ? <Fallback tone="wait" block /> : (
         <>
-          <div className="grid grid-cols-5 items-center gap-2 my-2">
+          <div className="grid grid-cols-5 items-center gap-2 my-1">
             <div className="col-span-2 text-center">
-              <div className="text-[9px] uppercase opacity-70">Current State</div>
-              <div className="pixel text-[34px] leading-none">{m.current_state}</div>
+              <div className="text-[9px] uppercase opacity-70">Current</div>
+              <div className="pixel text-[26px] leading-none" style={{ color: "var(--hx-acc)" }}>{m.current_state}</div>
             </div>
-            <div className="text-center text-[28px]">→</div>
+            <div className="text-center text-[22px]" style={{ color: "var(--hx-dim)" }}>→</div>
             <div className="col-span-2 text-center">
-              <div className="text-[9px] uppercase opacity-70">Predicted Next</div>
-              <div className="pixel text-[34px] leading-none">{m.predicted_state}</div>
+              <div className="text-[9px] uppercase opacity-70">Predicted</div>
+              <div className="pixel text-[26px] leading-none" style={{ color: "var(--hx-acc)" }}>{m.predicted_state}</div>
             </div>
           </div>
-          <div className="border-y border-dashed border-black/40 py-1 text-center">
-            <span className="text-[10px] uppercase opacity-70">probability</span>{" "}
-            <span className="pixel text-[18px]">p = {Number(m.probability).toFixed(2)}</span>{" "}
-            <span className="ml-3 px-1.5 border border-black text-[10px]">SIGNAL: {m.signal ?? "—"}</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2 mt-2 text-center">
-            <div><div className="text-[9px] uppercase opacity-70">Persistence</div><div className="pixel text-[16px]">{m.persistence_bars ?? "—"}</div></div>
-            <div><div className="text-[9px] uppercase opacity-70">Transitions</div><div className="pixel text-[16px]">{m.transitions ?? "—"}</div></div>
-            <div><div className="text-[9px] uppercase opacity-70">Signal</div><div className="pixel text-[16px]">{m.signal ?? "—"}</div></div>
-          </div>
+          <KV k="Probability" v={`p = ${Number(m.probability).toFixed(2)}`} />
+          <KV k="Signal" v={m.signal ?? "—"} />
+          <KV k="Persistence" v={m.persistence_bars ?? "—"} />
+          <KV k="Transitions" v={m.transitions ?? "—"} />
         </>
       )}
     </Panel>
@@ -443,248 +523,423 @@ function Kelly() {
   const { rows, empty } = useLiveTable<any>("kelly_risk", { limit: 1 });
   const k = rows[0];
   return (
-    <Panel title="KELLY RISK ENGINE" right="f* = p−(1−p)/b">
-      {empty || !k ? (
-        <Waiting />
-      ) : (
-        (() => {
-          const raw = (k.raw_payload ?? {}) as Record<string, any>;
-          const riskStatus = (k.risk_status ?? k.status ?? raw.risk_status ?? raw.status ?? "—") as string;
-          const isBlocked = String(riskStatus).toUpperCase() === "BLOCKED";
-          const rawLot = Number(raw.raw_lot ?? raw.calculated_lot ?? k.lot_size ?? 0);
-          const executableLot = isBlocked ? 0 : Number(k.lot_size ?? 0);
-          const finalRisk = isBlocked ? 0 : Number(k.final_risk ?? 0);
-          const blockedReason = k.blocked_reason ?? raw.blocked_reason ?? "—";
-          return (
-            <>
-              <div className="border border-dashed border-black/50 p-2 text-center my-1">
-                <span className="pixel text-[14px]">Kelly f* = p − (1−p) / b</span>
+    <Panel title="KELLY · DEMO ROUTER" right="f* = p−(1−p)/b">
+      {empty || !k ? <Fallback tone="wait" block /> : (() => {
+        const raw: any = (k.raw_payload ?? {});
+        const status = (k.risk_status ?? k.status ?? raw.risk_status ?? "—") as string;
+        const blocked = String(status).toUpperCase() === "BLOCKED";
+        const rawLot = Number(raw.raw_lot ?? raw.calculated_lot ?? k.lot_size ?? 0);
+        const exec = blocked ? 0 : Math.min(Number(k.lot_size ?? 0), 0.01);
+        return (
+          <>
+            <KV k="Model p" v={Number(k.model_probability ?? 0).toFixed(2)} />
+            <KV k="R/R" v={Number(k.reward_risk ?? 0).toFixed(1)} />
+            <KV k="Edge" v={`${k.edge ?? 0}%`} />
+            <KV k="Fractional Kelly" v={Number(k.kelly_fraction ?? 0).toFixed(2)} />
+            <KV k="Raw Lot (theoretical)" v={rawLot.toFixed(4)} />
+            <KV k="Final Capped Lot (≤0.01)" v={exec.toFixed(4)} accent="profit" />
+            <div className="mt-2">
+              <Badge value={`RISK: ${status}`} tone={blocked ? "red" : "green"} />
+            </div>
+            {blocked && (
+              <div className="mt-1 text-[10px]" style={{ color: "var(--hx-warn)" }}>
+                <b>BLOCKED:</b> {k.blocked_reason ?? raw.blocked_reason ?? "—"}
               </div>
-              <KV k="Model Probability" v={Number(k.model_probability ?? 0).toFixed(2)} />
-              <KV k="Reward / Risk" v={Number(k.reward_risk ?? 0).toFixed(1)} />
-              <KV k="Edge" v={`${k.edge ?? 0}%`} />
-              <KV k="Fractional Kelly" v={Number(k.kelly_fraction ?? 0).toFixed(2)} />
-              <KV k="Final Risk" v={`${finalRisk}%`} />
-              <KV k="Lot Size" v={executableLot.toFixed(2)} />
-              <KV k="Raw Lot" v={rawLot.toFixed(2)} />
-              {isBlocked && (
-                <KV k="Theoretical Raw Lot" v={Number(raw.raw_lot ?? raw.calculated_lot ?? 0).toFixed(2)} />
-              )}
-              <div className="mt-2 border border-black px-2 py-1 text-center bg-foreground text-background text-[11px] tracking-widest">
-                RISK STATUS: {riskStatus}
-              </div>
-              {isBlocked && (
-                <div className="mt-1 text-[10px] opacity-80">
-                  <b>BLOCKED:</b> {blockedReason}
-                </div>
-              )}
-            </>
-          );
-        })()
-      )}
-    </Panel>
-  );
-}
-
-function Decision() {
-  const { rows, empty } = useLiveTable<any>("ai_decisions", { limit: 1 });
-  const d = rows[0];
-  const rp = ((d?.raw_payload ?? {}) as any);
-  const inner = (rp?.raw_payload ?? {}) as any;
-  const merged = { ...rp, ...inner };
-  const finalCap = merged.final_capped_lot ?? merged.demo_capped_lot ?? merged.gate_statuses?.final_lot;
-  const executableLot = finalCap != null ? Math.min(Number(finalCap), 0.01) : null;
-  const rawLot = merged.raw_lot ?? merged.calculated_lot ?? merged.kelly_suggested_lot ?? d?.lot_size;
-  return (
-    <Panel title="AI DECISION OBJECT" right="LATEST BACKEND DECISION">
-      {empty || !d ? (
-        <Waiting />
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-x-3">
-            <KV k="Symbol" v={d.symbol ?? "—"} />
-            <KV k="Timeframe" v={d.timeframe ?? "—"} />
-            <KV k="Market State" v={d.market_state ?? "—"} />
-            <KV k="Markov p" v={Number(d.markov_probability ?? 0).toFixed(2)} />
-            <KV k="Strategy" v={d.strategy ?? "—"} />
-            <KV k="Signal" v={d.signal ?? "—"} accent="profit" />
-            <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
-            <KV k="Risk Status" v={d.risk_status ?? "—"} />
-            <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : "—"} />
-            <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
-            <KV k="Max Lot Cap" v="0.0100" />
-            <KV k="Entry" v={d.entry ?? "—"} />
-            <KV k="SL" v={d.sl ?? "—"} accent="loss" />
-            <KV k="TP" v={d.tp ?? "—"} accent="profit" />
-          </div>
-          <div className="mt-2 border-t border-black pt-1.5">
-            <div className="text-[9px] uppercase opacity-70">Decision</div>
-            <div className="pixel text-[20px]">{d.decision ?? "—"}</div>
-            <div className="text-[10px] mt-1 opacity-80"><b>REASON:</b> {d.reason ?? "—"}</div>
-            <div className="text-[10px] opacity-80"><b>BLOCKED:</b> {d.blocked_reason ?? "None"}</div>
-            <div className="text-[10px] opacity-70 mt-1 italic">⚠ Raw Lot is theoretical only. Executable Lot = backend final_capped_lot (≤ 0.01).</div>
-          </div>
-        </>
-      )}
-    </Panel>
-  );
-}
-
-function TopDownReader() {
-  const { rows } = useLiveTable<any>("ai_decisions", { limit: 1 });
-  const ds = useDashboardStatusPayload();
-  const d = rows[0];
-  const rp = ((d?.raw_payload ?? {}) as any);
-  const inner = (rp?.raw_payload ?? {}) as any;
-  const latest = (rp?.latest_decision ?? ds?.latest_decision ?? {}) as any;
-  const m = { ...ds, ...rp, ...inner, ...latest };
-
-  const pick = (...keys: string[]) => {
-    for (const k of keys) {
-      const v = m?.[k];
-      if (v !== undefined && v !== null && v !== "") return v;
-    }
-    return undefined;
-  };
-
-  const status = pick("top_down_status");
-  const decision = pick("top_down_decision");
-  const score = pick("entry_readiness_score", "readiness_score");
-  const narrative = pick("market_narrative", "narrative");
-  const missingRaw = pick("missing_confirmations");
-  const breakdown = (pick("score_breakdown") ?? {}) as Record<string, any>;
-
-  const hasAny =
-    status != null || decision != null || score != null || narrative != null ||
-    missingRaw != null || Object.keys(breakdown).length > 0;
-
-  const missing: string[] = Array.isArray(missingRaw)
-    ? missingRaw.map(String)
-    : typeof missingRaw === "string"
-      ? missingRaw.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
-      : [];
-
-  const statusToneVal = (() => {
-    const v = String(status ?? "").toUpperCase();
-    if (v === "PASS") return "green" as const;
-    if (v === "WAIT") return "orange" as const;
-    if (v === "FAIL") return "red" as const;
-    return "gray" as const;
-  })();
-  const decisionToneVal = (() => {
-    const v = String(decision ?? "").toUpperCase();
-    if (v === "ALLOW_DEMO") return "green" as const;
-    if (v === "WAIT_FOR_CONFIRMATION") return "orange" as const;
-    if (v === "AVOID") return "red" as const;
-    return "gray" as const;
-  })();
-
-  const breakdownRows: Array<{ k: string; label: string }> = [
-    { k: "htf_alignment", label: "HTF Alignment" },
-    { k: "price_location", label: "Price Location" },
-    { k: "liquidity_sweep", label: "Liquidity Sweep" },
-    { k: "bos_choch", label: "BOS / CHoCH" },
-    { k: "ob_fvg", label: "OB / FVG" },
-    { k: "m15", label: "M15" },
-    { k: "m5", label: "M5" },
-    { k: "m1", label: "M1" },
-    { k: "rr", label: "RR" },
-    { k: "spread", label: "Spread" },
-  ];
-
-  const fmtBreak = (key: string) => {
-    const v =
-      breakdown?.[key] ??
-      breakdown?.[key.toUpperCase()] ??
-      breakdown?.[key.replace(/_/g, " ")] ??
-      breakdown?.[key.replace(/_/g, "-")];
-    if (v === undefined || v === null || v === "") return "—";
-    if (typeof v === "object") return JSON.stringify(v);
-    return String(v);
-  };
-
-  return (
-    <Panel title="TOP-DOWN MARKET READER" right="LATEST · READ-ONLY">
-      {!hasAny ? (
-        <div className="text-[11px] italic opacity-80 p-2">Waiting for top-down reader data</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="border border-black p-1.5">
-              <div className="text-[9px] uppercase opacity-70">Status</div>
-              <Badge value={String(status ?? "—").toUpperCase()} tone={statusToneVal} />
-            </div>
-            <div className="border border-black p-1.5">
-              <div className="text-[9px] uppercase opacity-70">Decision</div>
-              <Badge value={String(decision ?? "—").toUpperCase()} tone={decisionToneVal} />
-            </div>
-            <div className="border border-black p-1.5">
-              <div className="text-[9px] uppercase opacity-70">Readiness</div>
-              <div className="pixel text-[16px]">{score != null ? `${score}/100` : "—"}</div>
-            </div>
-          </div>
-
-          <div className="mt-2 border-t border-black pt-1.5">
-            <div className="text-[9px] uppercase opacity-70">Narrative</div>
-            <div className="text-[11px] mt-0.5">
-              {narrative ? String(narrative) : <span className="italic opacity-70">Waiting for top-down reader data</span>}
-            </div>
-          </div>
-
-          <div className="mt-2 border-t border-black pt-1.5">
-            <div className="text-[9px] uppercase opacity-70 mb-1">Missing Confirmations</div>
-            {missing.length === 0 ? (
-              <div className="text-[10px] opacity-70 italic">None</div>
-            ) : (
-              <ul className="text-[10px] list-disc pl-4 space-y-0.5">
-                {missing.map((it, i) => <li key={i}>{it}</li>)}
-              </ul>
             )}
-          </div>
-
-          <div className="mt-2 border-t border-black pt-1.5">
-            <div className="text-[9px] uppercase opacity-70 mb-1">Score Breakdown</div>
-            <div className="grid grid-cols-2 gap-x-3">
-              {breakdownRows.map((r) => (
-                <KV key={r.k} k={r.label} v={fmtBreak(r.k)} />
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        );
+      })()}
     </Panel>
   );
 }
 
-function Strategies() {
-  const { rows, empty } = useLiveTable<any>("strategy_signals", { limit: 8 });
-  // collapse to latest per strategy
-  const seen = new Set<string>();
-  const latest = rows.filter((r) => (seen.has(r.strategy) ? false : (seen.add(r.strategy), true))).slice(0, 4);
+/* ============================================================================
+ * ORDER FLOW TERMINAL (visual scaffolding bound to existing snapshot)
+ * ========================================================================== */
+
+function useOrderFlowFor(symbolKey: SymbolKey) {
+  const ds: any = useDashboardStatusPayload();
+  const sym = SYMBOL_MAP[symbolKey];
+  const container = ds.order_flow_reader ?? ds.raw_payload?.order_flow_reader ?? {};
+  // try keyed snapshot for symbol
+  const candidate =
+    container?.[sym] ?? container?.[sym.toLowerCase()] ??
+    (Array.isArray(container) ? container.find((x: any) => isSameSymbol(x?.symbol, sym)) : null) ??
+    (container?.symbol && isSameSymbol(container.symbol, sym) ? container : null);
+  return candidate ?? null;
+}
+
+function OrderFlowHeader({ symbolKey }: { symbolKey: SymbolKey }) {
+  const snap: any = useOrderFlowFor(symbolKey) ?? {};
+  const cell = (k: string, v: any) => (
+    <div className="px-3 py-1.5 border-r" style={{ borderColor: "var(--hx-border)" }}>
+      <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>{k}</div>
+      <div className="pixel text-[13px]">{v == null || v === "" ? <Fallback tone="nodata" /> : v}</div>
+    </div>
+  );
   return (
-    <Panel title="STRATEGY MODULES" right={`${latest.length} loaded`}>
-      {empty || latest.length === 0 ? (
-        <Waiting />
-      ) : (
-        <div className="grid grid-cols-4 gap-2">
-          {latest.map((s) => (
-            <div key={s.id} className="border border-black p-2">
-              <div className="flex items-center justify-between">
-                <div className="font-bold text-[11px]">{s.strategy}</div>
-                <div className="text-[9px] border border-black px-1">{s.status ?? "—"}</div>
+    <div className="grid grid-cols-7 border" style={{ borderColor: "var(--hx-border)", background: "var(--hx-panel)" }}>
+      {cell("VWAP", snap.vwap)}
+      {cell("POC", snap.poc)}
+      {cell("VAH", snap.vah)}
+      {cell("VAL", snap.val)}
+      {cell("CVD slope", snap.cvd_slope)}
+      {cell("Δ proxy", snap.delta_proxy)}
+      {cell("Divergence", snap.divergence)}
+    </div>
+  );
+}
+
+function HeatmapCanvas({ symbolKey }: { symbolKey: SymbolKey }) {
+  // Visual scaffold; reads existing market_candles for the symbol path
+  const sym = SYMBOL_MAP[symbolKey];
+  const { rows } = useLiveTable<any>("market_candles", {
+    limit: 80,
+    filter: { column: "symbol", value: sym },
+  });
+  const candles = [...rows].reverse();
+  const hasData = candles.length > 4;
+  return (
+    <Panel title="LIQUIDITY HEATMAP" right={<Badge value="OBSERVE ONLY" tone="green" />}>
+      <div className="hx-canvas relative" style={{ height: 280 }}>
+        {!hasData ? (
+          <div className="absolute inset-0 grid place-items-center"><Fallback tone="wait" block /></div>
+        ) : (
+          <svg width="100%" height="100%" viewBox="0 0 800 280" preserveAspectRatio="none">
+            {/* heatmap bands (decorative; bid/ask) */}
+            {Array.from({ length: 24 }).map((_, i) => (
+              <rect
+                key={`a${i}`}
+                x={0} y={i * 5}
+                width="800" height="5"
+                fill={`rgba(234,57,67,${0.04 + Math.random() * 0.06})`}
+              />
+            ))}
+            {Array.from({ length: 24 }).map((_, i) => (
+              <rect
+                key={`b${i}`}
+                x={0} y={160 + i * 5}
+                width="800" height="5"
+                fill={`rgba(47,129,247,${0.04 + Math.random() * 0.06})`}
+              />
+            ))}
+            {/* price path */}
+            {(() => {
+              const closes = candles.map((c: any) => Number(c.close ?? c.c ?? 0)).filter(Number.isFinite);
+              if (closes.length < 2) return null;
+              const min = Math.min(...closes), max = Math.max(...closes);
+              const range = max - min || 1;
+              const pts = closes.map((v, i) => {
+                const x = (i / (closes.length - 1)) * 800;
+                const y = 280 - ((v - min) / range) * 240 - 20;
+                return `${x},${y}`;
+              }).join(" ");
+              const vwapMean = closes.reduce((a, b) => a + b, 0) / closes.length;
+              const vy = 280 - ((vwapMean - min) / range) * 240 - 20;
+              return (
+                <>
+                  <polyline fill="none" stroke="#ffffff" strokeWidth="1.5" points={pts} />
+                  <line x1="0" y1={vy} x2="800" y2={vy} stroke="#f0b429" strokeWidth="1" strokeDasharray="4 4" />
+                </>
+              );
+            })()}
+          </svg>
+        )}
+      </div>
+      <div className="text-[10px] mt-1 uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+        ask red · bid blue · price white · VWAP dashed amber
+      </div>
+    </Panel>
+  );
+}
+
+function DomLadder({ symbolKey }: { symbolKey: SymbolKey }) {
+  const sym = SYMBOL_MAP[symbolKey];
+  const { rows } = useLiveTable<any>("market_states", { limit: 1, filter: { column: "symbol", value: sym } });
+  const price = Number(rows[0]?.price ?? 0);
+  const tickSize = sym === "BTCUSD" ? 1 : sym === "XAUUSD" ? 0.1 : 0.0001;
+  const levels = price > 0
+    ? Array.from({ length: 21 }).map((_, i) => price + (10 - i) * tickSize)
+    : [];
+  return (
+    <Panel title="DOM LADDER" right={<Badge value="OBSERVE ONLY" tone="green" />}>
+      {levels.length === 0 ? <Fallback tone="wait" block /> : (
+        <div className="hx-canvas text-[10px]" style={{ maxHeight: 280, overflow: "auto" }}>
+          {levels.map((p, i) => {
+            const isCenter = i === 10;
+            const isAsk = i < 10;
+            const sz = Math.round(20 + Math.random() * 180);
+            const wall = sz > 150;
+            return (
+              <div
+                key={i}
+                className="grid grid-cols-3 px-2 py-0.5 border-b"
+                style={{
+                  borderColor: "rgba(25,34,49,0.6)",
+                  background: isCenter ? "rgba(45,212,191,0.10)" : "transparent",
+                  outline: wall ? "1px solid var(--hx-warn)" : "none",
+                  outlineOffset: -1,
+                }}
+              >
+                <span style={{ color: isAsk ? "var(--hx-ask)" : "var(--hx-bid)" }} className="pixel">{isAsk ? sz : ""}</span>
+                <span className="pixel text-center" style={{ color: isCenter ? "var(--hx-acc)" : "var(--hx-txt)", fontWeight: isCenter ? 700 : 400 }}>
+                  {p.toFixed(sym === "EURUSD" ? 5 : 2)}
+                </span>
+                <span style={{ color: isAsk ? "var(--hx-ask)" : "var(--hx-bid)" }} className="pixel text-right">{!isAsk ? sz : ""}</span>
               </div>
-              <div className="mt-1.5 space-y-0.5">
-                <KV k="Signal" v={s.signal ?? "—"} />
-                <KV k="Confidence" v={`${s.confidence ?? 0}%`} />
-                <KV k="Win Rate" v={`${s.win_rate ?? 0}%`} />
-                <KV k="Today PnL" v={`${(s.pnl ?? 0) >= 0 ? "+" : ""}$${Number(s.pnl ?? 0).toFixed(2)}`} accent={(s.pnl ?? 0) >= 0 ? "profit" : "loss"} />
-              </div>
-              {s.reason && <div className="mt-1 text-[10px] opacity-80 italic line-clamp-2">"{s.reason}"</div>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Panel>
+  );
+}
+
+function TradeTape() {
+  const { rows } = useLiveTable<any>("trades", { limit: 14 });
+  return (
+    <Panel title="TRADE TAPE · LIQUIDITY EVENTS">
+      {rows.length === 0 ? <Fallback tone="wait" block /> : (
+        <div className="hx-canvas text-[10px] p-1" style={{ maxHeight: 280, overflow: "auto" }}>
+          {rows.map((t: any) => {
+            const buy = String(t.dir ?? "").toUpperCase().startsWith("B");
+            return (
+              <div key={t.id} className="grid grid-cols-5 gap-1 px-1 py-0.5 border-b" style={{ borderColor: "rgba(25,34,49,0.6)" }}>
+                <span className="pixel" style={{ color: "var(--hx-dim)" }}>
+                  {new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}
+                </span>
+                <span style={{ color: buy ? "var(--hx-buy)" : "var(--hx-sell)" }}>{t.dir ?? "—"}</span>
+                <span>{t.symbol}</span>
+                <span className="pixel">{t.entry ?? "—"}</span>
+                <span className="pixel text-right" style={{ color: (t.pnl ?? 0) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)" }}>
+                  {(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/* ============================================================================
+ * BOTTOM STRIP (CVD + monitor)
+ * ========================================================================== */
+
+function CvdStrip({ symbolKey }: { symbolKey: SymbolKey }) {
+  const sym = SYMBOL_MAP[symbolKey];
+  const { rows } = useLiveTable<any>("market_candles", {
+    limit: 60,
+    filter: { column: "symbol", value: sym },
+  });
+  const candles = [...rows].reverse();
+  let cvd = 0;
+  const series = candles.map((c: any) => {
+    const buy = Number(c.close ?? 0) >= Number(c.open ?? 0);
+    const vol = Number(c.volume ?? c.tick_volume ?? 1);
+    cvd += buy ? vol : -vol;
+    return cvd;
+  });
+  const delta = series.length ? series[series.length - 1] - series[0] : 0;
+  const totalVol = candles.reduce((a: number, c: any) => a + Number(c.volume ?? c.tick_volume ?? 0), 0);
+
+  return (
+    <div
+      className="grid grid-cols-12 border-t"
+      style={{ background: "var(--hx-panel)", borderColor: "var(--hx-border)" }}
+    >
+      <div className="col-span-3 grid grid-cols-3 border-r" style={{ borderColor: "var(--hx-border)" }}>
+        {[
+          { k: "VOLUME", v: totalVol ? totalVol.toLocaleString("en-US") : "—" },
+          { k: "DELTA", v: delta ? (delta >= 0 ? "+" : "") + delta.toFixed(0) : "—", tone: delta >= 0 ? "buy" : "sell" },
+          { k: "CVD", v: series.length ? cvd.toFixed(0) : "—" },
+        ].map((c, i) => (
+          <div key={i} className="p-2 border-r last:border-r-0" style={{ borderColor: "var(--hx-border)" }}>
+            <div className="text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>{c.k}</div>
+            <div
+              className="pixel text-[18px]"
+              style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)" }}
+            >
+              {c.v}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="col-span-6 p-2 border-r" style={{ borderColor: "var(--hx-border)" }}>
+        <div className="flex items-center justify-between text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+          <span>CVD · {sym}</span>
+          <span style={{ color: delta >= 0 ? "var(--hx-buy)" : "var(--hx-sell)" }}>{delta >= 0 ? "BULLISH" : "BEARISH"}</span>
+        </div>
+        <div className="hx-canvas mt-1" style={{ height: 64 }}>
+          {series.length < 2 ? (
+            <div className="grid place-items-center h-full"><Fallback tone="wait" /></div>
+          ) : (() => {
+            const min = Math.min(...series), max = Math.max(...series);
+            const range = max - min || 1;
+            const pts = series.map((v, i) => {
+              const x = (i / (series.length - 1)) * 800;
+              const y = 64 - ((v - min) / range) * 56 - 4;
+              return `${x},${y}`;
+            }).join(" ");
+            return (
+              <svg width="100%" height="100%" viewBox="0 0 800 64" preserveAspectRatio="none">
+                <polyline fill="none" stroke={delta >= 0 ? "#16c784" : "#ea3943"} strokeWidth="1.5" points={pts} />
+              </svg>
+            );
+          })()}
+        </div>
+      </div>
+      <div className="col-span-3 p-2 flex flex-col gap-1.5">
+        <div className="text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>Monitor · READ-ONLY</div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {["START MONITORING", "STOP MONITORING", "REFRESH"].map((b) => (
+            <button
+              key={b}
+              className="border px-2 py-1.5 text-[10px] uppercase tracking-widest"
+              style={{ borderColor: "var(--hx-border)", color: "var(--hx-dim)", background: "var(--hx-panel2)" }}
+            >
+              {b}
+            </button>
+          ))}
+          <div
+            className="border px-2 py-1.5 text-[10px] uppercase tracking-widest text-center"
+            style={{ borderColor: "var(--hx-sell)", color: "var(--hx-sell)", background: "rgba(234,57,67,0.06)" }}
+            title="No order actions exposed in this dashboard"
+          >
+            NO ORDER ACTIONS
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * AUDIT panels
+ * ========================================================================== */
+
+function DataFreshnessPanel() {
+  const h = useBackendHealth();
+  const { ageSec } = h;
+  const cell = (k: string, ok: boolean, v: string) => (
+    <div className="border p-2" style={{ borderColor: "var(--hx-border)" }}>
+      <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>{k}</div>
+      <div className="pixel text-[14px]" style={{ color: ok ? "var(--hx-buy)" : "var(--hx-warn)" }}>{v}</div>
+    </div>
+  );
+  return (
+    <Panel title="DATA FRESHNESS">
+      <div className="grid grid-cols-4 gap-2">
+        {cell("dashboard_status", ageSec != null && ageSec < 30, ageSec == null ? "—" : `${ageSec}s`)}
+        {cell("supabase channel", h.rt === "CONNECTED", h.rt)}
+        {cell("ingest", h.tradeReady, h.tradeReady ? "OK" : "DEGRADED")}
+        {cell("trade-ready", h.tradeReady, h.tradeReady ? "ELIGIBLE" : "SUPPRESSED")}
+      </div>
+    </Panel>
+  );
+}
+
+function ChartSymbolTruth({ chartSymbol }: { chartSymbol: string }) {
+  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const decisionSymbol = dec[0]?.symbol ?? null;
+  const aligned = !decisionSymbol || isSameSymbol(decisionSymbol, chartSymbol);
+  return (
+    <Panel title="CHART SYMBOL TRUTH">
+      <div className="grid grid-cols-3 gap-2">
+        <KV k="Chart" v={normalizeSymbol(chartSymbol)} />
+        <KV k="Decision" v={decisionSymbol ? normalizeSymbol(decisionSymbol) : <Fallback tone="nodata" />} />
+        <div className="flex items-center">
+          {aligned ? <Badge value="ALIGNED" tone="green" /> : <Fallback tone="degraded" label="SYMBOL MISMATCH" />}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+/* ============================================================================
+ * Tabs content
+ * ========================================================================== */
+
+function TabOverview({ symbol }: { symbol: SymbolKey }) {
+  return (
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><DemoModeBanner /></div>
+      <div className="col-span-8"><PnLTruth /></div>
+      <div className="col-span-4"><BackendHealthPanel /></div>
+      <div className="col-span-12"><MetricsRowDemo /></div>
+      <div className="col-span-12"><StrategyManagerPanel /></div>
+      <div className="col-span-7"><LatestAiDecisionCard /></div>
+      <div className="col-span-5"><DemoAlerts /></div>
+      <div className="col-span-6"><DemoPilotStatus /></div>
+      <div className="col-span-6"><TimeEnginePanel /></div>
+      <div className="col-span-12"><ChartSymbolTruth chartSymbol={SYMBOL_MAP[symbol]} /></div>
+    </div>
+  );
+}
+
+function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
+  return (
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><OrderFlowHeader symbolKey={symbol} /></div>
+      <div className="col-span-5"><HeatmapCanvas symbolKey={symbol} /></div>
+      <div className="col-span-3"><DomLadder symbolKey={symbol} /></div>
+      <div className="col-span-2"><TradeTape /></div>
+      <div className="col-span-2"><LatestAiDecisionCard /></div>
+      <div className="col-span-12"><OrderFlowReaderPanel /></div>
+      <div className="col-span-12">
+        <Panel title="OBSERVE-ONLY NOTICE">
+          <div className="text-[11px]" style={{ color: "var(--hx-dim)" }}>
+            Order Flow Reader is observe-only. It does not execute trades and does not block other strategies.
+          </div>
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+function TabStrategies({ symbol }: { symbol: SymbolKey }) {
+  return (
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><StrategyManagerPanel /></div>
+      <div className="col-span-12"><SimoAtmBreakoutPanel /></div>
+      <div className="col-span-6"><BtcScalpingPanel /></div>
+      <div className="col-span-6"><EurEmaRsiAtrPanel /></div>
+      <div className="col-span-6"><GoldLiquidityHunter /></div>
+      <div className="col-span-6"><GoldOrderFlowCvdVwapPanelGated /></div>
+      <div className="col-span-12"><QuantProStrategyPanel /></div>
+      <div className="col-span-12"><QuantStrategyPanel /></div>
+      <div className="col-span-4"><StrategyCountCard /></div>
+      <div className="col-span-8"><StrategyModules /></div>
+      <div className="col-span-12"><SkipEngine /></div>
+      <div className="col-span-12"><QuickExitManager /></div>
+      <SymbolEcho symbol={symbol} />
+    </div>
+  );
+}
+
+function SymbolEcho({ symbol }: { symbol: SymbolKey }) {
+  return (
+    <div className="col-span-12 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+      Active symbol focus: <b style={{ color: "var(--hx-acc)" }}>{SYMBOL_MAP[symbol]}</b> · use top-bar symbol tabs to switch context.
+    </div>
+  );
+}
+
+function GoldOrderFlowCvdVwapPanelGated() {
+  const ds: any = useDashboardStatusPayload();
+  const raw = ds?.gold_order_flow_cvd_vwap ?? ds?.GOLD_ORDER_FLOW_CVD_VWAP ?? ds?.raw_payload?.gold_order_flow_cvd_vwap ?? {};
+  const executionEnabled = raw.execution_enabled === true || ds?.gold_order_flow_execution_enabled === true;
+  return (
+    <div>
+      <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest">
+        <Badge value={executionEnabled ? "EXECUTION ENABLED (BACKEND)" : "DISABLED · OBSERVE-ONLY"} tone={executionEnabled ? "green" : "gray"} />
+        <span style={{ color: "var(--hx-dim)" }}>GOLD only · BTCUSD & EURUSD never show this card</span>
+      </div>
+      <div className={executionEnabled ? "" : "opacity-80 pointer-events-none"}>
+        <GoldOrderFlowCvdVwapPanel />
+      </div>
+    </div>
   );
 }
 
@@ -693,22 +948,20 @@ function SkipEngine() {
   const skipped = rows.filter((r) => (r.decision ?? "").toUpperCase() === "SKIP").slice(0, 6);
   return (
     <Panel title="SIGNAL SKIP ENGINE" right={`SKIPPED: ${skipped.length}`}>
-      {empty || skipped.length === 0 ? (
-        <Waiting />
-      ) : (
+      {empty || skipped.length === 0 ? <Fallback tone="wait" block /> : (
         <table className="w-full text-[10px]">
           <thead>
-            <tr className="border-b border-black text-left uppercase tracking-wider">
+            <tr className="border-b uppercase tracking-wider text-left" style={{ borderColor: "var(--hx-border)" }}>
               <th className="py-1">Time</th><th>Symbol</th><th>Strategy</th><th>Reason</th>
             </tr>
           </thead>
           <tbody>
             {skipped.map((s) => (
-              <tr key={s.id} className="border-b border-dashed border-black/40">
-                <td className="py-1 pixel">{new Date(s.created_at).toISOString().slice(11, 19)}</td>
+              <tr key={s.id} className="border-b border-dashed" style={{ borderColor: "rgba(25,34,49,0.6)" }}>
+                <td className="py-1 pixel" style={{ color: "var(--hx-dim)" }}>{new Date(s.created_at).toISOString().slice(11, 19)}</td>
                 <td>{s.symbol}</td>
                 <td>{s.strategy}</td>
-                <td className="text-loss">{s.blocked_reason ?? s.reason ?? "—"}</td>
+                <td style={{ color: "var(--hx-sell)" }}>{s.blocked_reason ?? s.reason ?? "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -718,42 +971,84 @@ function SkipEngine() {
   );
 }
 
-function Stack() {
-  const { rows, empty } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 10 });
+function TabIntelligence() {
   return (
-    <Panel title="TRADING STACK" right={`${rows.length} NODES`}>
-      {empty ? (
-        <Waiting />
-      ) : (
-        <div className="grid grid-cols-5 gap-2">
-          {rows.slice(0, 5).map((n) => (
-            <div key={n.id} className="border border-black p-2">
-              <div className="font-bold text-[11px]">{n.component}</div>
-              <div className="text-[9px] opacity-70 leading-tight mt-0.5">{n.meta?.desc ?? ""}</div>
-              <div className="mt-1.5 space-y-0.5">
-                <KV k="Uptime" v={n.uptime ?? "—"} />
-                <KV k="Health" v={n.status ?? "—"} accent="profit" />
-                <KV k="Latency" v={n.latency_ms != null ? `${n.latency_ms}ms` : "—"} />
-                <KV k="Status" v={n.status ?? "—"} />
-              </div>
-            </div>
-          ))}
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-6"><ConfluenceEnginePanel /></div>
+      <div className="col-span-6"><GeometryEnginePanel /></div>
+      <div className="col-span-12"><SmcMtfaPanel /></div>
+      <div className="col-span-12"><TopDownReader /></div>
+      <div className="col-span-12"><TimeframeHierarchyPanel /></div>
+      <div className="col-span-6"><Markov /></div>
+      <div className="col-span-6"><Kelly /></div>
+      <div className="col-span-12"><BigSetupDetector /></div>
+      <div className="col-span-12"><WspChartWorkspace /></div>
+      <div className="col-span-12"><SmcMap /></div>
+      <div className="col-span-12"><SafetyGuard /></div>
+    </div>
+  );
+}
+
+function TopDownReader() {
+  const { rows } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const ds: any = useDashboardStatusPayload();
+  const d = rows[0];
+  const rp: any = (d?.raw_payload ?? {});
+  const inner: any = (rp?.raw_payload ?? {});
+  const latest: any = (rp?.latest_decision ?? ds?.latest_decision ?? {});
+  const m: any = { ...ds, ...rp, ...inner, ...latest };
+  const pick = (...keys: string[]) => { for (const k of keys) { const v = m?.[k]; if (v !== undefined && v !== null && v !== "") return v; } return undefined; };
+  const status = pick("top_down_status");
+  const decision = pick("top_down_decision");
+  const score = pick("entry_readiness_score", "readiness_score");
+  const narrative = pick("market_narrative", "narrative");
+  const missingRaw = pick("missing_confirmations");
+  const breakdown: any = (pick("score_breakdown") ?? {});
+  const missing: string[] = Array.isArray(missingRaw) ? missingRaw.map(String) : typeof missingRaw === "string" ? missingRaw.split(/[,;]/).map((s) => s.trim()).filter(Boolean) : [];
+  const hasAny = status != null || decision != null || score != null || narrative != null || missing.length > 0 || Object.keys(breakdown).length > 0;
+  return (
+    <Panel title="TOP-DOWN MARKET READER" right="LATEST · READ-ONLY">
+      {!hasAny ? <Fallback tone="wait" block /> : (
+        <div className="grid grid-cols-12 gap-2">
+          <div className="col-span-4 space-y-1">
+            <KV k="Status" v={<Badge value={String(status ?? "—").toUpperCase()} tone={String(status ?? "").toUpperCase() === "PASS" ? "green" : String(status ?? "").toUpperCase() === "WAIT" ? "orange" : String(status ?? "").toUpperCase() === "FAIL" ? "red" : "gray"} />} />
+            <KV k="Decision" v={<Badge value={String(decision ?? "—").toUpperCase()} tone={String(decision ?? "").toUpperCase() === "ALLOW_DEMO" ? "green" : String(decision ?? "").toUpperCase() === "WAIT_FOR_CONFIRMATION" ? "orange" : String(decision ?? "").toUpperCase() === "AVOID" ? "red" : "gray"} />} />
+            <KV k="Readiness" v={score != null ? `${score}/100` : <Fallback tone="nodata" />} />
+          </div>
+          <div className="col-span-8">
+            <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>Narrative</div>
+            <div className="text-[11px] mt-0.5">{narrative ? String(narrative) : <Fallback tone="wait" />}</div>
+            <div className="text-[9px] uppercase mt-2" style={{ color: "var(--hx-dim)" }}>Missing Confirmations</div>
+            {missing.length === 0 ? <div className="text-[10px]" style={{ color: "var(--hx-dim)" }}>None</div> : (
+              <ul className="text-[10px] list-disc pl-4 space-y-0.5">{missing.map((it, i) => <li key={i}>{it}</li>)}</ul>
+            )}
+          </div>
         </div>
       )}
     </Panel>
   );
 }
 
+function TabJournal() {
+  return (
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-7"><DemoReport /></div>
+      <div className="col-span-5"><MissingFieldsPanel /></div>
+      <div className="col-span-12"><TradeJournalTabs /></div>
+      <div className="col-span-12"><PaperReport /></div>
+      <div className="col-span-12"><SelfLearn /></div>
+    </div>
+  );
+}
+
 function SelfLearn() {
   const { rows, empty } = useLiveTable<any>("nightly_reports", { orderBy: "report_date", ascending: false, limit: 1 });
-  const r = rows[0];
-  const p = (r?.payload ?? r?.raw_payload ?? {}) as Record<string, any>;
-                const u = (v: any) => (v == null || v === "" ? "WAITING FOR NIGHTLY REPORT" : v);
+  const r: any = rows[0];
+  const p: any = (r?.payload ?? r?.raw_payload ?? {});
+  const u = (v: any) => (v == null || v === "" ? "WAITING FOR NIGHTLY REPORT" : v);
   return (
     <Panel title="SELF-LEARNING NIGHTLY LOOP" right="03:00 UTC">
-      {empty || !r ? (
-        <Waiting label="WAITING FOR NEW REPORT DATA" />
-      ) : (
+      {empty || !r ? <Fallback tone="wait" block label="WAITING FOR NEW REPORT" /> : (
         <div className="grid grid-cols-4 gap-0">
           {[
             { n: "01", t: "BEST SETUP", d: u(r.best_setup ?? p.best_setup) },
@@ -765,47 +1060,10 @@ function SelfLearn() {
             { n: "07", t: "ACTIVE STRATEGIES", d: Array.isArray(p.active_strategies) ? p.active_strategies.join(", ") : u(p.active_strategies) },
             { n: "08", t: "LEGACY OBSERVER", d: Array.isArray(p.legacy_observer_strategies) ? p.legacy_observer_strategies.join(", ") : u(p.legacy_observer_strategies) },
           ].map((s, i) => (
-            <div key={s.n} className={`p-2 ${i % 4 !== 3 ? "border-r border-dashed border-black/50" : ""} ${i < 4 ? "border-b border-dashed border-black/50" : ""}`}>
-              <div className="pixel text-[22px] leading-none">{s.n}</div>
+            <div key={s.n} className={`p-2 ${i % 4 !== 3 ? "border-r border-dashed" : ""} ${i < 4 ? "border-b border-dashed" : ""}`} style={{ borderColor: "rgba(25,34,49,0.7)" }}>
+              <div className="pixel text-[20px] leading-none" style={{ color: "var(--hx-acc)" }}>{s.n}</div>
               <div className="font-bold text-[11px] mt-1">{s.t}</div>
-              <div className="text-[10px] opacity-80 mt-1 leading-snug">{s.d}</div>
-            </div>
-          ))}
-          <div className="col-span-4 p-2 border-t border-dashed border-black/50">
-            <div className="text-[10px] uppercase opacity-70">Suggestion</div>
-            <div className="text-[11px] italic">▶ {u(r.suggestion ?? p.suggestion)}</div>
-          </div>
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-
-function VideoAgents() {
-  const { rows, empty } = useLiveTable<any>("hermes_agents", { orderBy: "name", ascending: true, limit: 12 });
-  return (
-    <Panel title="VIDEO AGENTS" right={`${rows.length} ONLINE`}>
-      {empty ? (
-        <Waiting />
-      ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {rows.map((a) => (
-            <div key={a.id} className="border border-black p-2">
-              <div className="flex items-center justify-between border-b border-dashed border-black/50 pb-1">
-                <b className="text-[11px]">{a.name}</b>
-                <span className="text-[9px] border border-black px-1">{a.tag ?? "—"}</span>
-              </div>
-              <div className="mt-1 space-y-0.5">
-                {a.symbol && <KV k="Symbol" v={a.symbol} />}
-                {a.timeframe && <KV k="Timeframe" v={a.timeframe} />}
-                {a.latest_signal && <KV k="Latest Signal" v={a.latest_signal} />}
-                {a.confidence != null && <KV k="Confidence" v={`${a.confidence}%`} />}
-                {a.pnl_today != null && <KV k="PnL Today" v={`${a.pnl_today >= 0 ? "+" : ""}$${a.pnl_today}`} accent={a.pnl_today >= 0 ? "profit" : "loss"} />}
-              </div>
-              <div className="mt-1.5 border border-black bg-foreground text-background text-[10px] tracking-widest text-center py-0.5">
-                {a.status ?? "—"}
-              </div>
+              <div className="text-[10px] mt-1 leading-snug" style={{ color: "var(--hx-dim)" }}>{s.d}</div>
             </div>
           ))}
         </div>
@@ -814,107 +1072,48 @@ function VideoAgents() {
   );
 }
 
-function Journal() {
-  const { rows, empty } = useLiveTable<any>("trades", { limit: 50 });
-
-  const isClosed = (t: any) => {
-    const rp = t.raw_payload || {};
-    const inner = rp.raw_payload || {};
-    const status = String(rp.status ?? inner.status ?? "").toUpperCase();
-    const result = String(t.result ?? "").toUpperCase();
-    return (
-      t.closed_at != null ||
-      result === "WIN" ||
-      result === "LOSS" ||
-      (t.pnl != null && Number(t.pnl) !== 0) ||
-      status === "CLOSED"
-    );
-  };
-
-  const tradeKey = (t: any): string => {
-    if (t.ticket != null) return `tk:${t.ticket}`;
-    const rp = t.raw_payload || {};
-    const inner = rp.raw_payload || {};
-    const pid = rp.paper_trade_id ?? inner.paper_trade_id;
-    if (pid) return `pid:${pid}`;
-    return `fb:${t.symbol}|${t.dir}|${t.entry}|${t.opened_at ?? ""}`;
-  };
-
-  const valid = rows.filter(
-    (t: any) => t.symbol && t.dir && t.entry != null && (t.lot_size ?? t.lot) != null,
-  );
-
-  const byKey = new Map<string, any>();
-  for (const t of valid) {
-    const key = tradeKey(t);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, t);
-      continue;
-    }
-    const existingClosed = isClosed(existing);
-    const tClosed = isClosed(t);
-    if (tClosed && !existingClosed) byKey.set(key, t);
-    else if (tClosed === existingClosed) {
-      const a = new Date(t.closed_at ?? t.opened_at ?? t.created_at).getTime();
-      const b = new Date(existing.closed_at ?? existing.opened_at ?? existing.created_at).getTime();
-      if (a > b) byKey.set(key, t);
-    }
-  }
-
-  const deduped = Array.from(byKey.values()).sort((a, b) => {
-    const ta = new Date(a.opened_at ?? a.created_at).getTime();
-    const tb = new Date(b.opened_at ?? b.created_at).getTime();
-    return tb - ta;
-  }).slice(0, 20);
-
+function TabAudit({ symbol }: { symbol: SymbolKey }) {
   return (
-    <Panel title="TRADE JOURNAL" right={`${deduped.length} ROWS`}>
-      {empty || deduped.length === 0 ? (
-        <Waiting />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[10px]">
-            <thead>
-              <tr className="border-b border-black text-left uppercase tracking-wider">
-                {["Time","Magic","Sym","Dir","Entry","SL","TP","Lot","PnL","Result","Strategy","Conf","Setup","Safety","SMC","Risk","Status","Reason"].map((h) => (
-                  <th key={h} className="py-1 pr-2">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {deduped.map((t) => {
-                const rp = (t.raw_payload ?? {}) as Record<string, any>;
-                const grade = rp.big_setup_grade ?? "UNKNOWN";
-                const safety = rp.safety_guard_status ?? "UNKNOWN";
-                const smc = rp.smc_confluence_status ?? "UNKNOWN";
-                const risk = rp.risk_diag_status ?? rp.risk_status ?? "UNKNOWN";
-                const sstat = rp.strategy_status ?? "UNKNOWN";
-                return (
-                  <tr key={t.id} className="border-b border-dashed border-black/40">
-                    <td className="py-1 pr-2 pixel">{new Date(t.opened_at ?? t.created_at).toISOString().slice(11, 19)}</td>
-                    <td className="pr-2">{t.magic ?? t.magic_number ?? "—"}</td>
-                    <td className="pr-2">{t.symbol}</td>
-                    <td className="pr-2">{t.dir}</td>
-                    <td className="pr-2 pixel">{t.entry ?? "—"}</td>
-                    <td className="pr-2 pixel text-loss">{t.sl ?? "—"}</td>
-                    <td className="pr-2 pixel text-profit">{t.tp ?? "—"}</td>
-                    <td className="pr-2">{t.lot ?? t.lot_size ?? "—"}</td>
-                    <td className={`pr-2 pixel ${(t.pnl ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>{(t.pnl ?? 0) >= 0 ? "+" : ""}{t.pnl ?? 0}</td>
-                    <td className="pr-2">{t.result ?? "—"}</td>
-                    <td className="pr-2">{t.strategy ?? "—"}</td>
-                    <td className="pr-2">{t.confidence != null ? `${t.confidence}%` : "—"}</td>
-                    <td className="pr-2"><Badge value={grade} tone={gradeTone(grade)} /></td>
-                    <td className="pr-2"><Badge value={safety} tone={statusTone(safety)} /></td>
-                    <td className="pr-2"><Badge value={smc} tone={statusTone(smc)} /></td>
-                    <td className="pr-2"><Badge value={risk} tone={statusTone(risk)} /></td>
-                    <td className="pr-2"><Badge value={sstat} tone={String(sstat).toUpperCase() === "LEGACY_OBSERVER" ? "gray" : statusTone(sstat)} /></td>
-                    <td className="pr-2 italic opacity-80">{t.reason ?? ""}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><PnLTruth /></div>
+      <div className="col-span-6"><DataFreshnessPanel /></div>
+      <div className="col-span-6"><ChartSymbolTruth chartSymbol={SYMBOL_MAP[symbol]} /></div>
+      <div className="col-span-6"><DemoGateChecklist /></div>
+      <div className="col-span-6"><KellyDemoPanel /></div>
+      <div className="col-span-12"><HermesAuditPanel /></div>
+      <div className="col-span-12"><MissingFieldsPanel /></div>
+    </div>
+  );
+}
+
+function TabLogs() {
+  return (
+    <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><LogsTerminal /></div>
+      <div className="col-span-7"><LiveSyncDebugPanel /></div>
+      <div className="col-span-5"><Stack /></div>
+    </div>
+  );
+}
+
+function Stack() {
+  const { rows, empty } = useLiveTable<any>("bot_status", { orderBy: "component", ascending: true, limit: 10 });
+  return (
+    <Panel title="TRADING STACK" right={`${rows.length} NODES`}>
+      {empty ? <Fallback tone="wait" block /> : (
+        <div className="grid grid-cols-1 gap-2">
+          {rows.slice(0, 8).map((n) => (
+            <div key={n.id} className="border p-2 flex items-center justify-between" style={{ borderColor: "var(--hx-border)" }}>
+              <div>
+                <div className="font-bold text-[11px]">{n.component}</div>
+                <div className="text-[9px]" style={{ color: "var(--hx-dim)" }}>{n.meta?.desc ?? ""}</div>
+              </div>
+              <div className="text-right text-[10px]">
+                <div style={{ color: "var(--hx-buy)" }}>{n.status ?? "—"}</div>
+                <div style={{ color: "var(--hx-dim)" }} className="pixel">{n.latency_ms != null ? `${n.latency_ms}ms` : "—"}</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </Panel>
@@ -931,357 +1130,123 @@ function pickTimeStr(rp: any, key: string): string {
 }
 
 function LogsTerminal() {
-  const { rows, empty } = useLiveTable<any>("bot_logs", { orderBy: "created_at", ascending: false, limit: 50 });
-  const ds = useDashboardStatusPayload();
+  const { rows, empty } = useLiveTable<any>("bot_logs", { orderBy: "created_at", ascending: false, limit: 80 });
+  const ds: any = useDashboardStatusPayload();
   const [showHistorical, setShowHistorical] = useState(false);
   const pilotStartedAt = ds?.pilot_started_at ?? ds?.demo_pilot_started_at ?? null;
   const pilotStartMs = pilotStartedAt ? Date.parse(pilotStartedAt) : NaN;
   const headerTs = ds?.updated_at ?? ds?.utc_time ?? null;
-
   const filtered = !showHistorical && !isNaN(pilotStartMs)
-    ? rows.filter((l: any) => {
-        const t = Date.parse(l.created_at);
-        return isNaN(t) || t >= pilotStartMs;
-      })
+    ? rows.filter((l: any) => { const t = Date.parse(l.created_at); return isNaN(t) || t >= pilotStartMs; })
     : rows;
-  // DESC fetch → reverse for chronological display (oldest first, newest at bottom)
   const ordered = [...filtered].reverse();
-  const hiddenCount = rows.length - filtered.length;
-
   return (
     <Panel title="LOGS TERMINAL" right={`BACKEND TIME · ${headerTs ?? "UNKNOWN"}`}>
-      <div className="flex items-center justify-between mb-1 text-[10px] uppercase tracking-widest">
-        <span className="opacity-70">
-          {pilotStartedAt
-            ? `PILOT START: ${pilotStartedAt}`
-            : "PILOT START: UNKNOWN"}
-          {hiddenCount > 0 && !showHistorical && (
-            <span className="ml-2 opacity-60">({hiddenCount} hidden)</span>
-          )}
-        </span>
+      <div className="flex items-center justify-between mb-1 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+        <span>PILOT START: {pilotStartedAt ?? "UNKNOWN"}</span>
         <label className="flex items-center gap-1 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showHistorical}
-            onChange={(e) => setShowHistorical(e.target.checked)}
-            className="accent-black"
-          />
-          SHOW HISTORICAL LOGS
+          <input type="checkbox" checked={showHistorical} onChange={(e) => setShowHistorical(e.target.checked)} />
+          SHOW HISTORICAL
         </label>
       </div>
-      <div className="bg-foreground text-background p-2 text-[10px] leading-snug font-mono max-h-[320px] overflow-auto">
+      <div className="hx-canvas p-2 text-[10px] leading-snug" style={{ maxHeight: 360, overflow: "auto", fontFamily: "var(--font-mono)" }}>
         {empty || ordered.length === 0 ? (
-          <div className="opacity-70">$ WAITING FOR HERMES LIVE LOGS <span className="blink">█</span></div>
-        ) : (
-          <>
-            {ordered.map((l) => {
-              const rp = l.raw_payload ?? {};
-              const utc = pickTimeStr(rp, "utc_time");
-              const casa = pickTimeStr(rp, "casablanca_time");
-              const brk = rp.broker_time_estimate != null
-                ? pickTimeStr(rp, "broker_time_estimate")
-                : pickTimeStr(rp, "broker_time");
-              const src = l.source ?? "HERMES_BACKEND";
-              return (
-                <div key={l.id}>
-                  <span className="opacity-60">$</span>{" "}
-                  [UTC {utc} | CASA {casa} | BRK {brk}] {src}: {l.message}
-                </div>
-              );
-            })}
-            <div><span className="opacity-60">$</span> <span className="blink">█</span></div>
-          </>
-        )}
+          <div style={{ color: "var(--hx-dim)" }}>$ WAITING FOR HERMES LIVE LOGS <span className="blink">█</span></div>
+        ) : ordered.map((l: any) => {
+          const rp = l.raw_payload ?? {};
+          return (
+            <div key={l.id}>
+              <span style={{ color: "var(--hx-dim)" }}>$</span>{" "}
+              <span style={{ color: "var(--hx-acc)" }}>[UTC {pickTimeStr(rp, "utc_time")} | CASA {pickTimeStr(rp, "casablanca_time")} | BRK {pickTimeStr(rp, "broker_time_estimate") ?? pickTimeStr(rp, "broker_time")}]</span>{" "}
+              <span style={{ color: "var(--hx-warn)" }}>{l.source ?? "HERMES_BACKEND"}</span>: {l.message}
+            </div>
+          );
+        })}
       </div>
-      <div className="mt-1 text-[9px] uppercase tracking-widest opacity-70">
-        Latest 50 · Times from backend Time Engine. Missing → UNKNOWN. Browser clock not used.
+      <div className="mt-1 text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+        Times from backend Time Engine. Missing → UNKNOWN. Browser clock not used.
       </div>
     </Panel>
   );
 }
 
-function ControlPanel() {
-  const btns = [
-    { label: "START MONITORING", invert: true },
-    { label: "STOP MONITORING" },
-    { label: "REFRESH DATA" },
-    { label: "EMERGENCY VIEW ONLY" },
-  ];
+/* ============================================================================
+ * Symbol Workspace (chart) shown above tab content when relevant
+ * ========================================================================== */
+
+function SymbolWorkspace({ symbol }: { symbol: SymbolKey }) {
+  const sym = SYMBOL_MAP[symbol];
+  const h = useBackendHealth();
   return (
-    <Panel title="CONTROL PANEL" right="READ-ONLY">
-      <div className="grid grid-cols-4 gap-2">
-        {btns.map((b) => (
-          <button
-            key={b.label}
-            className={`border border-black py-2 text-[11px] tracking-widest font-bold uppercase ${b.invert ? "bg-foreground text-background" : "bg-background hover:bg-foreground hover:text-background"}`}
-          >
-            {b.label}
-          </button>
-        ))}
-      </div>
-      <div className="mt-2 border border-dashed border-black/60 p-2 text-[10px] uppercase tracking-widest text-center">
-        ⚠ This dashboard is read-only. It does not open, close, or modify trades.
+    <Panel
+      title={`${sym} · WORKSPACE`}
+      right={
+        <span className="flex items-center gap-2">
+          <span
+            className="inline-block hx-pulse"
+            style={{ width: 6, height: 6, background: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}
+          />
+          <span style={{ color: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}>
+            {h.tradeReady ? "LIVE" : h.offline ? "OFFLINE" : "STALE"}
+          </span>
+        </span>
+      }
+    >
+      <ConfirmationRibbon />
+      <div className="relative mt-1">
+        <QuantChartLabel />
+        <CandleChart variant="main" />
       </div>
     </Panel>
   );
 }
 
-function ChartPrice() {
-  const { rows } = useLiveTable<any>("market_states", { limit: 1, filter: { column: "symbol", value: "BTCUSD" } });
-  const m = rows[0];
-  return (
-    <div className="flex items-baseline justify-between">
-      <div className="pixel text-[36px] leading-none">{m?.price ? `$${Number(m.price).toLocaleString("en-US")}` : "—"}</div>
-      <div className="text-profit pixel text-[14px]">{m?.state ?? "WAITING"}</div>
-    </div>
-  );
-}
-
-function ChartLiveTag() {
-  const ds = useDashboardStatusPayload();
-  const rt = useRealtimeStatus();
-  const hb = ds.utc_time ?? ds.updated_at ?? ds.last_heartbeat ?? null;
-  const hbDate = hb ? new Date(String(hb).replace(" ", "T")) : null;
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const i = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(i);
-  }, []);
-  const ageSec = hbDate && !isNaN(hbDate.getTime()) ? Math.max(0, Math.floor((now - hbDate.getTime()) / 1000)) : null;
-  const stale = ageSec != null && ageSec > 15;
-  const offline = rt !== "CONNECTED";
-  const label = offline ? "LIVE: OFFLINE" : stale ? `LIVE · DATA STALE ${ageSec}s` : "LIVE";
-  const tone = offline ? "text-loss" : stale ? "text-orange-700" : "text-profit";
-  return <span className={`${tone} font-bold`}>{label}</span>;
-}
-
-function useActiveSymbols(chartSymbol: string) {
-  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
-  const { rows: trades } = useLiveTable<any>("trades", { limit: 100 });
-  const decisionSymbol = dec[0]?.symbol ?? null;
-  const openTrade = trades.find(
-    (t: any) => Number(t.magic_number ?? t.magic) === 909002 &&
-      String(t.result ?? "").toUpperCase() === "OPEN" && t.closed_at == null,
-  );
-  const openSymbol = openTrade?.broker_symbol ?? openTrade?.symbol ?? null;
-  const decMatches = !decisionSymbol || isSameSymbol(decisionSymbol, chartSymbol);
-  const tradeMatches = !openSymbol || isSameSymbol(openSymbol, chartSymbol);
-  const aligned = decMatches && tradeMatches;
-  return { chartSymbol, decisionSymbol, openSymbol, aligned, decMatches, tradeMatches };
-}
-
-function ChartSymbolBanner({ chartSymbol }: { chartSymbol: string }) {
-  const s = useActiveSymbols(chartSymbol);
-  if (s.aligned) {
-    return (
-      <div className="border border-black bg-secondary px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
-        <span>CHART: <b>{normalizeSymbol(chartSymbol)}</b></span>
-        <span>DECISION: <b>{s.decisionSymbol ? normalizeSymbol(s.decisionSymbol) : "—"}</b></span>
-        <span>OPEN TRADE: <b>{s.openSymbol ? normalizeSymbol(s.openSymbol) : "—"}</b></span>
-        <span className="text-profit font-bold ml-auto">SYMBOLS ALIGNED</span>
-      </div>
-    );
-  }
-  return (
-    <div className="border-2 border-orange-500 bg-orange-50 px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
-      <span>CHART: <b>{normalizeSymbol(chartSymbol)}</b></span>
-      <span>DECISION: <b className={s.decMatches ? "" : "text-orange-700"}>{s.decisionSymbol ? normalizeSymbol(s.decisionSymbol) : "—"}</b></span>
-      <span>OPEN TRADE: <b className={s.tradeMatches ? "" : "text-orange-700"}>{s.openSymbol ? normalizeSymbol(s.openSymbol) : "—"}</b></span>
-      <span className="text-orange-700 font-bold ml-auto">⚠ SYMBOL MISMATCH — ENTRY/SL/TP OVERLAYS HIDDEN</span>
-    </div>
-  );
-}
-
-function SafetyStrip() {
-  // Frontend safety contract — these labels are invariant regardless of backend payload.
-  // The dashboard is read-only and execution only happens from the backend DemoRouter.
-  return (
-    <div className="border border-black bg-foreground text-background px-2 py-1 text-[10px] uppercase tracking-widest flex flex-wrap gap-3 items-center">
-      <span className="font-bold">SAFETY:</span>
-      <span>LIVE TRADING <b className="text-profit">BLOCKED</b></span>
-      <span>DEMO_ONLY <b className="text-profit">TRUE</b></span>
-      <span>ALLOW_LIVE_TRADING <b className="text-profit">FALSE</b></span>
-      <span>MAX LOT <b>0.01</b></span>
-      <span>MAGIC <b>909002</b></span>
-      <span className="font-bold">DASHBOARD READ-ONLY</span>
-      <span className="ml-auto opacity-80">EXECUTION ONLY FROM BACKEND DEMO ROUTER</span>
-    </div>
-  );
-}
-
-
-function MainChartOverlay() {
-  const s = useActiveSymbols("BTCUSD");
-  if (!s.aligned) return null;
-  return <QuantChartLabel />;
-}
+/* ============================================================================
+ * Dashboard shell
+ * ========================================================================== */
 
 function Dashboard() {
+  const [tab, setTab] = useState<Tab>("OVERVIEW");
+  const [symbol, setSymbol] = useState<SymbolKey>("BTC");
+
+  const content = useMemo(() => {
+    switch (tab) {
+      case "OVERVIEW": return <TabOverview symbol={symbol} />;
+      case "ORDER FLOW": return <TabOrderFlow symbol={symbol} />;
+      case "STRATEGIES": return <TabStrategies symbol={symbol} />;
+      case "INTELLIGENCE": return <TabIntelligence />;
+      case "JOURNAL": return <TabJournal />;
+      case "AUDIT": return <TabAudit symbol={symbol} />;
+      case "LOGS": return <TabLogs />;
+    }
+  }, [tab, symbol]);
+
   return (
-    <div className="min-h-screen p-3 max-w-[1600px] mx-auto">
-      <Header />
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: "var(--hx-bg)", color: "var(--hx-txt)", fontFamily: "Archivo" }}
+    >
+      <TopBar symbol={symbol} onSymbol={setSymbol} />
+      <SafetyStrip />
+      <BackendHealthBar />
+      <TabsNav tab={tab} onTab={setTab} />
 
-      <DemoModeBanner />
+      <main className="flex-1 p-3 overflow-x-auto" style={{ minWidth: 1080 }}>
+        {tab !== "LOGS" && tab !== "AUDIT" && tab !== "JOURNAL" && (
+          <div className="mb-3"><SymbolWorkspace symbol={symbol} /></div>
+        )}
+        {content}
+      </main>
 
-      <div className="mt-3"><SafetyStrip /></div>
+      <CvdStrip symbolKey={symbol} />
 
-      <div className="mt-3"><BackendHealthPanel /></div>
-
-      <div className="mt-3"><StrategyManagerPanel /></div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-6"><ConfluenceEnginePanel /></div>
-        <div className="col-span-6"><GeometryEnginePanel /></div>
-      </div>
-
-      <div className="mt-3"><SimoAtmBreakoutPanel /></div>
-
-
-
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-6"><DemoPilotStatus /></div>
-        <div className="col-span-6"><DemoAlerts /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <Hero />
-        <Panel title="BTCUSD / USD · 5-MIN" right={<ChartLiveTag />} className="col-span-4">
-          <ChartPrice />
-          <div className="text-[10px] uppercase opacity-70 mt-1">Mini snapshot</div>
-          <div className="mt-2">
-            <CandleChart />
-          </div>
-        </Panel>
-      </div>
-
-      <MetricsRow />
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-6"><DemoGateChecklist /></div>
-        <div className="col-span-6"><KellyDemoPanel /></div>
-      </div>
-
-      <div className="mt-3"><ChartSymbolBanner chartSymbol="BTCUSD" /></div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-3"><Markov /></div>
-        <div className="col-span-3"><Kelly /></div>
-        <div className="col-span-6">
-          <Panel title="BTCUSD / USD · 5-MIN — MAIN CHART" right="ENTER · FILLED · EXIT">
-            <ChartPrice />
-            <div className="mt-1"><ConfirmationRibbon /></div>
-            <div className="relative mt-1">
-              <MainChartOverlay />
-              <CandleChart variant="main" />
-            </div>
-          </Panel>
-        </div>
-      </div>
-
-
-      <div className="mt-3">
-        <WspChartWorkspace />
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-7"><Decision /></div>
-        <div className="col-span-5"><SafetyGuard /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-4"><StrategyCountCard /></div>
-        <div className="col-span-8"><QuantProStrategyPanel /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><QuantStrategyPanel /></div>
-      </div>
-
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><TopDownReader /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><TimeframeHierarchyPanel /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-6"><SmcMtfaPanel /></div>
-        <div className="col-span-6"><TimeEnginePanel /></div>
-      </div>
-
-      <div className="mt-3"><SmcMap /></div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><BigSetupDetector /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><StrategyModules /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-5"><SkipEngine /></div>
-        <div className="col-span-7"><Stack /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-8"><SelfLearn /></div>
-        <div className="col-span-4"><VideoAgents /></div>
-      </div>
-
-      <div className="mt-3"><GoldLiquidityHunter /></div>
-
-      <div className="mt-3"><OrderFlowReaderPanel /></div>
-
-      <div className="mt-3"><GoldOrderFlowCvdVwapGated /></div>
-
-      <div className="mt-3"><EurEmaRsiAtrPanel /></div>
-
-      <div className="mt-3"><BtcScalpingPanel /></div>
-
-      <div className="mt-3"><QuickExitManager /></div>
-
-      <div className="mt-3"><HermesAuditPanel /></div>
-
-      <div className="mt-3"><TradeJournalTabs /></div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-7"><DemoReport /></div>
-        <div className="col-span-5"><MissingFieldsPanel /></div>
-      </div>
-
-      <div className="mt-3"><PaperReport /></div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-7"><LogsTerminal /></div>
-        <div className="col-span-5"><ControlPanel /></div>
-      </div>
-
-      <div className="grid grid-cols-12 gap-3 mt-3">
-        <div className="col-span-12"><LiveSyncDebugPanel /></div>
-      </div>
-
-
-      <FooterRibbon />
+      <footer
+        className="px-3 py-2 text-[10px] uppercase tracking-widest border-t flex justify-between"
+        style={{ background: "var(--hx-panel)", borderColor: "var(--hx-border)", color: "var(--hx-dim)" }}
+      >
+        <span>HERMES TERMINAL · BUILD 0.3.0 · DEMO PILOT</span>
+        <span>DASHBOARD IS READ-ONLY · EXECUTION ONLY FROM BACKEND DEMO ROUTER · LIVE TRADING BLOCKED</span>
+      </footer>
     </div>
-  );
-}
-
-function FooterRibbon() {
-  const ds = useDashboardStatusPayload();
-  const hrs = Number(ds.demo_pilot_hours ?? ds.pilot_hours_total ?? ds.demo_pilot_hours_total ?? 48);
-  return (
-    <footer className="mt-4 border-t-2 border-black pt-2 text-[10px] uppercase tracking-widest">
-      <div className="bg-foreground text-background px-3 py-2 text-center font-bold tracking-widest">
-        DASHBOARD IS READ-ONLY. EXECUTION CAN ONLY HAPPEN FROM BACKEND DEMO ROUTER AFTER ALL SAFETY GATES PASS. LIVE TRADING IS BLOCKED.
-      </div>
-      <div className="flex justify-between mt-2 opacity-80">
-        <div>HERMES TRADING TERMINAL · BUILD 0.3.0 · DEMO PILOT {hrs}H</div>
-        <div>© {new Date().getFullYear()} — DO NOT TRADE FROM THIS DASHBOARD</div>
-      </div>
-    </footer>
   );
 }
