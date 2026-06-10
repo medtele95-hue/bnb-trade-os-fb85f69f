@@ -433,32 +433,57 @@ function LatestAiDecisionCard() {
   const rawLot = merged.raw_lot ?? merged.calculated_lot ?? merged.kelly_suggested_lot ?? d?.lot_size;
   const gate = String(merged.demo_gate ?? merged.gate_status ?? "").toUpperCase();
   const h = useBackendHealth();
-  const stamp = h.tradeReady && gate === "PASS" ? "TRADE READY · DEMO ROUTER" : "ANALYSIS ONLY";
-  const stampTone = h.tradeReady && gate === "PASS" ? "green" : "orange";
+  const now = useTickingNow();
+  const STALE_SEC = 60 * 60; // 1h
+  const decisionAge = d?.created_at
+    ? Math.max(0, Math.floor((now - Date.parse(String(d.created_at).replace(" ", "T"))) / 1000))
+    : null;
+  const decisionStale = decisionAge != null && decisionAge > STALE_SEC;
+  const fmtAge = (s: number) => s >= 3600 ? `${Math.floor(s / 3600)}h` : s >= 60 ? `${Math.floor(s / 60)}m` : `${s}s`;
+  const stamp = !decisionStale && h.tradeReady && gate === "PASS" ? "TRADE READY · DEMO ROUTER" : "ANALYSIS ONLY";
+  const stampTone = !decisionStale && h.tradeReady && gate === "PASS" ? "green" : "orange";
 
   return (
-    <Panel title="LATEST AI DECISION" right={<Badge value={stamp} tone={stampTone} />}>
-      {empty || !d ? <Fallback tone="wait" block /> : (
-        <div className="grid grid-cols-2 gap-x-4">
-          <KV k="Symbol" v={d.symbol ?? <Fallback tone="nodata" />} />
-          <KV k="Timeframe" v={d.timeframe ?? <Fallback tone="nodata" />} />
-          <KV k="Strategy" v={d.strategy ?? <Fallback tone="nodata" />} />
-          <KV k="Signal" v={d.signal ?? <Fallback tone="nodata" />} accent="profit" />
-          <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
-          <KV k="Markov p" v={Number(d.markov_probability ?? 0).toFixed(2)} />
-          <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : <Fallback tone="nodata" />} />
-          <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
-          <KV k="Entry" v={d.entry ?? <Fallback tone="nodata" />} />
-          <KV k="SL" v={d.sl ?? <Fallback tone="nodata" />} accent="loss" />
-          <KV k="TP" v={d.tp ?? <Fallback tone="nodata" />} accent="profit" />
-          <KV k="Risk Status" v={d.risk_status ?? <Fallback tone="nodata" />} />
-          <div className="col-span-2 mt-2 pt-1.5 border-t" style={{ borderColor: "var(--hx-border)" }}>
-            <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>Decision</div>
-            <div className="pixel text-[18px]">{d.decision ?? "—"}</div>
-            <div className="text-[10px] mt-1" style={{ color: "var(--hx-dim)" }}><b>REASON:</b> {d.reason ?? <Fallback tone="nodata" />}</div>
+    <Panel
+      title="LATEST AI DECISION"
+      right={
+        <span className="flex items-center gap-2">
+          {decisionStale && decisionAge != null && (
+            <Badge value={`STALE · ${fmtAge(decisionAge)}`} tone="red" />
+          )}
+          <Badge value={stamp} tone={stampTone} />
+        </span>
+      }
+    >
+      <div style={decisionStale ? { opacity: 0.55 } : undefined}>
+        {empty || !d ? <Fallback tone="wait" block /> : (
+          <div className="grid grid-cols-2 gap-x-4">
+            <KV k="Symbol" v={d.symbol ?? <Fallback tone="nodata" />} />
+            <KV k="Timeframe" v={d.timeframe ?? <Fallback tone="nodata" />} />
+            <KV k="Strategy" v={d.strategy ?? <Fallback tone="nodata" />} />
+            <KV k="Signal" v={d.signal ?? <Fallback tone="nodata" />} accent="profit" />
+            <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
+            <KV k="Markov p" v={Number(d.markov_probability ?? 0).toFixed(2)} />
+            <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : <Fallback tone="nodata" />} />
+            <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
+            <KV k="Entry" v={d.entry ?? <Fallback tone="nodata" />} />
+            <KV k="SL" v={d.sl ?? <Fallback tone="nodata" />} accent="loss" />
+            <KV k="TP" v={d.tp ?? <Fallback tone="nodata" />} accent="profit" />
+            <KV k="Risk Status" v={d.risk_status ?? <Fallback tone="nodata" />} />
+            <div className="col-span-2 mt-2 pt-1.5 border-t" style={{ borderColor: "var(--hx-border)" }}>
+              <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>Decision</div>
+              <div className="pixel text-[18px]">{d.decision ?? "—"}</div>
+              <div className="text-[10px] mt-1" style={{ color: "var(--hx-dim)" }}><b>REASON:</b> {d.reason ?? <Fallback tone="nodata" />}</div>
+              {decisionStale && decisionAge != null && (
+                <div className="mt-1 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-warn)" }}>
+                  ⚠ DECISION IS STALE ({fmtAge(decisionAge)}) — ANALYSIS ONLY
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
     </Panel>
   );
 }
