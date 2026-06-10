@@ -78,15 +78,27 @@ const SYMBOL_MAP: Record<SymbolKey, string> = {
   SIMO_ATM: "US100",
 };
 
+function useMarketAge(sym: string) {
+  const { rows } = useLiveTable<any>("market_states", {
+    limit: 1,
+    filter: { column: "symbol", value: sym },
+  });
+  const now = useTickingNow();
+  const m = rows[0] ?? {};
+  const stamp = m.updated_at ?? m.created_at ?? m.ts ?? null;
+  const ageSec = stamp
+    ? Math.max(0, Math.floor((now - Date.parse(String(stamp).replace(" ", "T"))) / 1000))
+    : null;
+  return { m, ageSec, stale: ageSec != null && ageSec > 60 };
+}
+
 function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolKey) => void }) {
   const ds: any = useDashboardStatusPayload();
   const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
   const s = snaps[0] ?? {};
-  const { rows: market } = useLiveTable<any>("market_states", {
-    limit: 1,
-    filter: { column: "symbol", value: SYMBOL_MAP[symbol] },
-  });
-  const m = market[0] ?? {};
+  const { m, stale: mStale } = useMarketAge(SYMBOL_MAP[symbol]);
+  const h = useBackendHealth();
+  const stale = mStale || h.verdict !== "ONLINE";
   const price = m.price != null ? Number(m.price) : null;
   const change = m.change_pct ?? m.change ?? null;
   const spread = m.spread ?? ds.spread ?? null;
@@ -95,6 +107,11 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
   const lo = m.low ?? null;
   const equity = s.equity != null ? Number(s.equity) : null;
   const pnl = s.daily_pnl != null ? Number(s.daily_pnl) : null;
+
+  const dimStyle = stale ? { opacity: 0.55 } : undefined;
+  const staleTag = stale ? (
+    <span className="ml-1 px-1 text-[8px] uppercase tracking-widest border" style={{ borderColor: "var(--hx-warn)", color: "var(--hx-warn)" }}>STALE</span>
+  ) : null;
 
   return (
     <header
@@ -144,16 +161,16 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
         </div>
 
         {/* Price + change */}
-        <div className="px-4 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)", minWidth: 180 }}>
-          <div className="text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
-            {SYMBOL_MAP[symbol]}
+        <div className="px-4 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)", minWidth: 200 }}>
+          <div className="text-[9px] uppercase tracking-widest flex items-center" style={{ color: "var(--hx-dim)" }}>
+            {SYMBOL_MAP[symbol]}{staleTag}
           </div>
-          <div className="pixel text-[22px] leading-none" style={{ color: "var(--hx-txt)" }}>
+          <div className="pixel text-[22px] leading-none" style={{ color: "var(--hx-txt)", ...dimStyle }}>
             {price != null ? price.toLocaleString("en-US", { maximumFractionDigits: 5 }) : "—"}
           </div>
           <div
             className="pixel text-[11px]"
-            style={{ color: change == null ? "var(--hx-dim)" : Number(change) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)" }}
+            style={{ color: change == null ? "var(--hx-dim)" : Number(change) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)", ...dimStyle }}
           >
             {change == null ? "—" : `${Number(change) >= 0 ? "+" : ""}${Number(change).toFixed(2)}%`}
           </div>
@@ -169,13 +186,14 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
             { k: "PNL", v: pnl != null ? `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}` : "—", tone: pnl == null ? undefined : pnl >= 0 ? "buy" : "sell" },
           ].map((c, i) => (
             <div key={i} className="px-3 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)" }}>
-              <div style={{ color: "var(--hx-dim)" }}>{c.k}</div>
-              <div className="pixel text-[13px]" style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)" }}>
+              <div style={{ color: "var(--hx-dim)" }} className="flex items-center">{c.k}{stale && staleTag}</div>
+              <div className="pixel text-[13px]" style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)", ...dimStyle }}>
                 {c.v}
               </div>
             </div>
           ))}
         </div>
+
 
         {/* Source chips + LOCKED LIVE switch */}
         <div className="px-3 py-2 flex items-center gap-3 border-l" style={{ borderColor: "var(--hx-border)" }}>
