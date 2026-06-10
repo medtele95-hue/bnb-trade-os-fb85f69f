@@ -1302,11 +1302,9 @@ function Dashboard() {
       <TabsNav tab={tab} onTab={setTab} />
 
       <main className="flex-1 p-3 overflow-x-auto" style={{ minWidth: 1080 }}>
-        {tab !== "LOGS" && tab !== "AUDIT" && tab !== "JOURNAL" && (
-          <div className="mb-3"><SymbolWorkspace symbol={symbol} /></div>
-        )}
         {content}
       </main>
+
 
       <CvdStrip symbolKey={symbol} />
 
