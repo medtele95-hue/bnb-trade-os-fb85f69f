@@ -1012,15 +1012,6 @@ function TabStrategies({ symbol }: { symbol: SymbolKey }) {
   return (
     <div className="grid grid-cols-12 gap-3">
       <div className="col-span-12"><StrategyManagerPanel /></div>
-      <div className="col-span-12"><SimoAtmBreakoutPanel /></div>
-      <div className="col-span-6"><BtcScalpingPanel /></div>
-      <div className="col-span-6"><EurEmaRsiAtrPanel /></div>
-      <div className="col-span-6"><GoldLiquidityHunter /></div>
-      <div className="col-span-6"><GoldOrderFlowCvdVwapPanelGated /></div>
-      <div className="col-span-12"><QuantProStrategyPanel /></div>
-      <div className="col-span-12"><QuantStrategyPanel /></div>
-      <div className="col-span-4"><StrategyCountCard /></div>
-      <div className="col-span-8"><StrategyModules /></div>
       <div className="col-span-12"><SkipEngine /></div>
       <div className="col-span-12"><QuickExitManager /></div>
       <SymbolEcho symbol={symbol} />
@@ -1029,26 +1020,21 @@ function TabStrategies({ symbol }: { symbol: SymbolKey }) {
 }
 
 function SymbolEcho({ symbol }: { symbol: SymbolKey }) {
+  const { rows: dec } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const ds: any = useDashboardStatusPayload();
+  const backendActive =
+    dec[0]?.symbol ??
+    ds.active_symbol ??
+    ds.raw_payload?.active_symbol ??
+    null;
+  const viewing = SYMBOL_MAP[symbol];
+  const backendSym = backendActive ? normalizeSymbol(backendActive) : "—";
+  const mismatch = backendSym !== "—" && backendSym !== viewing;
   return (
     <div className="col-span-12 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
-      Active symbol focus: <b style={{ color: "var(--hx-acc)" }}>{SYMBOL_MAP[symbol]}</b> · use top-bar symbol tabs to switch context.
-    </div>
-  );
-}
-
-function GoldOrderFlowCvdVwapPanelGated() {
-  const ds: any = useDashboardStatusPayload();
-  const raw = ds?.gold_order_flow_cvd_vwap ?? ds?.GOLD_ORDER_FLOW_CVD_VWAP ?? ds?.raw_payload?.gold_order_flow_cvd_vwap ?? {};
-  const executionEnabled = raw.execution_enabled === true || ds?.gold_order_flow_execution_enabled === true;
-  return (
-    <div>
-      <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest">
-        <Badge value={executionEnabled ? "EXECUTION ENABLED (BACKEND)" : "DISABLED · OBSERVE-ONLY"} tone={executionEnabled ? "green" : "gray"} />
-        <span style={{ color: "var(--hx-dim)" }}>GOLD only · BTCUSD & EURUSD never show this card</span>
-      </div>
-      <div className={executionEnabled ? "" : "opacity-80 pointer-events-none"}>
-        <GoldOrderFlowCvdVwapPanel />
-      </div>
+      Viewing: <b style={{ color: "var(--hx-acc)" }}>{viewing}</b>
+      {" · "}Backend active: <b style={{ color: mismatch ? "var(--hx-warn)" : "var(--hx-acc)" }}>{backendSym}</b>
+      {mismatch && <span className="ml-2" style={{ color: "var(--hx-warn)" }}>(display only — backend sets active symbol)</span>}
     </div>
   );
 }
