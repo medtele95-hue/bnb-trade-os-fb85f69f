@@ -1,4 +1,3 @@
-import * as React from "react";
 import { Panel, KV } from "./Panel";
 import { Badge } from "./Badges";
 import { useLiveTable } from "@/hooks/useLiveTable";
@@ -119,18 +118,8 @@ export function GoldOrderFlowCvdVwapPanel() {
   const avgLoss = losses.length > 0 ? -(grossLoss / losses.length) : null;
   const last10 = closedStrat.slice(0, 10);
 
-  // Logs filter UI
-  const [logFilter, setLogFilter] = React.useState<string | null>(null);
-  const filteredLogs = React.useMemo(() => {
-    if (!logFilter) return logs.slice(0, 25);
-    const f = logFilter.toUpperCase();
-    return logs
-      .filter((l: any) => {
-        const hay = `${l.component ?? ""} ${l.event ?? ""} ${l.message ?? ""} ${JSON.stringify(l.payload ?? l.raw_payload ?? {})}`.toUpperCase();
-        return hay.includes(f);
-      })
-      .slice(0, 25);
-  }, [logs, logFilter]);
+  // Logs feed moved to the Logs tab — local fetching removed.
+  void logs; void LOG_FILTERS;
 
   // Safety status from dashboard_status payload
   const demoOnly = ds.demo_only ?? ds.DEMO_ONLY ?? (String(ds.account_type ?? "").toUpperCase() === "DEMO");
@@ -254,39 +243,9 @@ export function GoldOrderFlowCvdVwapPanel() {
           </div>
         </div>
 
-        {/* Logs filter */}
-        <div className="border border-black/40 p-2">
-          <div className="flex flex-wrap items-center gap-1 mb-2">
-            <span className="text-[10px] uppercase tracking-wider opacity-70 mr-1">Logs Filter:</span>
-            <button
-              onClick={() => setLogFilter(null)}
-              className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-black ${logFilter === null ? "bg-foreground text-background" : ""}`}
-            >
-              ALL
-            </button>
-            {LOG_FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setLogFilter(f)}
-                className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-black ${logFilter === f ? "bg-foreground text-background" : ""}`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          {filteredLogs.length === 0 ? (
-            <div className="text-[10px] opacity-60">No matching log entries</div>
-          ) : (
-            <ul className="text-[10px] space-y-0.5 max-h-48 overflow-auto">
-              {filteredLogs.map((l: any, i: number) => (
-                <li key={l.id ?? i} className="flex gap-2 border-b border-black/10 py-0.5">
-                  <span className="opacity-60 shrink-0">{l.created_at ? String(l.created_at).replace("T", " ").slice(5, 19) : "—"}</span>
-                  <span className="font-bold shrink-0">{String(l.component ?? l.event ?? "—").toUpperCase()}</span>
-                  <span className="opacity-90 truncate">{String(l.message ?? JSON.stringify(l.payload ?? l.raw_payload ?? "")).slice(0, 200)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* Logs feed moved to the Logs tab — keep this card focused on strategy data */}
+        <div className="border border-black/40 p-2 text-[10px] opacity-70 uppercase tracking-wider">
+          Live log feed for this strategy is available in the Logs tab.
         </div>
 
         <div className="text-[9px] opacity-60 uppercase tracking-wider">
