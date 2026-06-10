@@ -11,7 +11,7 @@ import { StrategyModules } from "@/components/dashboard/StrategyModules";
 import { PaperReport } from "@/components/dashboard/PaperReport";
 import { Badge, gradeTone, statusTone } from "@/components/dashboard/Badges";
 import {
-  DemoModeBanner, DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
+  DemoPilotStatus, DemoGateChecklist, KellyDemoPanel,
   TimeEnginePanel, SmcMtfaPanel, TradeJournalTabs, DemoReport, DemoAlerts, MissingFieldsPanel,
   useBackendTime, useDashboardStatusPayload,
 } from "@/components/dashboard/DemoCenter";
@@ -36,6 +36,7 @@ import { SimoAtmBreakoutPanel } from "@/components/dashboard/SimoAtmBreakoutPane
 import { ConfluenceEnginePanel } from "@/components/dashboard/ConfluenceEnginePanel";
 import { GeometryEnginePanel } from "@/components/dashboard/GeometryEnginePanel";
 import { BackendHealthPanel } from "@/components/dashboard/BackendHealthPanel";
+import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
@@ -64,15 +65,6 @@ function useHeartbeatAge() {
   return { ageSec, hb, ds };
 }
 
-function useBackendHealth() {
-  const { ageSec, hb } = useHeartbeatAge();
-  const rt = useRealtimeStatus();
-  const stale = ageSec != null && ageSec > 60;
-  const degraded = (ageSec != null && ageSec > 15) || rt === "RECONNECTING";
-  const offline = rt === "OFFLINE" || (ageSec != null && ageSec > 120);
-  const tradeReady = !stale && !degraded && !offline;
-  return { ageSec, hb, rt, stale, degraded, offline, tradeReady };
-}
 
 /* ============================================================================
  * TOP BAR
@@ -86,15 +78,27 @@ const SYMBOL_MAP: Record<SymbolKey, string> = {
   SIMO_ATM: "US100",
 };
 
+function useMarketAge(sym: string) {
+  const { rows } = useLiveTable<any>("market_states", {
+    limit: 1,
+    filter: { column: "symbol", value: sym },
+  });
+  const now = useTickingNow();
+  const m = rows[0] ?? {};
+  const stamp = m.updated_at ?? m.created_at ?? m.ts ?? null;
+  const ageSec = stamp
+    ? Math.max(0, Math.floor((now - Date.parse(String(stamp).replace(" ", "T"))) / 1000))
+    : null;
+  return { m, ageSec, stale: ageSec != null && ageSec > 60 };
+}
+
 function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolKey) => void }) {
   const ds: any = useDashboardStatusPayload();
   const { rows: snaps } = useLiveTable<any>("account_snapshots", { limit: 1 });
   const s = snaps[0] ?? {};
-  const { rows: market } = useLiveTable<any>("market_states", {
-    limit: 1,
-    filter: { column: "symbol", value: SYMBOL_MAP[symbol] },
-  });
-  const m = market[0] ?? {};
+  const { m, stale: mStale } = useMarketAge(SYMBOL_MAP[symbol]);
+  const h = useBackendHealth();
+  const stale = mStale || h.verdict !== "ONLINE";
   const price = m.price != null ? Number(m.price) : null;
   const change = m.change_pct ?? m.change ?? null;
   const spread = m.spread ?? ds.spread ?? null;
@@ -103,6 +107,11 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
   const lo = m.low ?? null;
   const equity = s.equity != null ? Number(s.equity) : null;
   const pnl = s.daily_pnl != null ? Number(s.daily_pnl) : null;
+
+  const dimStyle = stale ? { opacity: 0.55 } : undefined;
+  const staleTag = stale ? (
+    <span className="ml-1 px-1 text-[8px] uppercase tracking-widest border" style={{ borderColor: "var(--hx-warn)", color: "var(--hx-warn)" }}>STALE</span>
+  ) : null;
 
   return (
     <header
@@ -152,16 +161,16 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
         </div>
 
         {/* Price + change */}
-        <div className="px-4 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)", minWidth: 180 }}>
-          <div className="text-[9px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
-            {SYMBOL_MAP[symbol]}
+        <div className="px-4 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)", minWidth: 200 }}>
+          <div className="text-[9px] uppercase tracking-widest flex items-center" style={{ color: "var(--hx-dim)" }}>
+            {SYMBOL_MAP[symbol]}{staleTag}
           </div>
-          <div className="pixel text-[22px] leading-none" style={{ color: "var(--hx-txt)" }}>
+          <div className="pixel text-[22px] leading-none" style={{ color: "var(--hx-txt)", ...dimStyle }}>
             {price != null ? price.toLocaleString("en-US", { maximumFractionDigits: 5 }) : "—"}
           </div>
           <div
             className="pixel text-[11px]"
-            style={{ color: change == null ? "var(--hx-dim)" : Number(change) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)" }}
+            style={{ color: change == null ? "var(--hx-dim)" : Number(change) >= 0 ? "var(--hx-buy)" : "var(--hx-sell)", ...dimStyle }}
           >
             {change == null ? "—" : `${Number(change) >= 0 ? "+" : ""}${Number(change).toFixed(2)}%`}
           </div>
@@ -177,13 +186,14 @@ function TopBar({ symbol, onSymbol }: { symbol: SymbolKey; onSymbol: (s: SymbolK
             { k: "PNL", v: pnl != null ? `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}` : "—", tone: pnl == null ? undefined : pnl >= 0 ? "buy" : "sell" },
           ].map((c, i) => (
             <div key={i} className="px-3 py-2 border-r flex flex-col justify-center" style={{ borderColor: "var(--hx-border)" }}>
-              <div style={{ color: "var(--hx-dim)" }}>{c.k}</div>
-              <div className="pixel text-[13px]" style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)" }}>
+              <div style={{ color: "var(--hx-dim)" }} className="flex items-center">{c.k}{stale && staleTag}</div>
+              <div className="pixel text-[13px]" style={{ color: c.tone === "buy" ? "var(--hx-buy)" : c.tone === "sell" ? "var(--hx-sell)" : "var(--hx-txt)", ...dimStyle }}>
                 {c.v}
               </div>
             </div>
           ))}
         </div>
+
 
         {/* Source chips + LOCKED LIVE switch */}
         <div className="px-3 py-2 flex items-center gap-3 border-l" style={{ borderColor: "var(--hx-border)" }}>
@@ -282,8 +292,12 @@ function SafetyStrip() {
 
 function BackendHealthBar() {
   const h = useBackendHealth();
-  const ageColor = h.offline ? "var(--hx-sell)" : h.stale ? "var(--hx-sell)" : h.degraded ? "var(--hx-warn)" : "var(--hx-buy)";
-  const status = h.offline ? "OFFLINE" : h.stale ? "STALE" : h.degraded ? "DEGRADED" : "FRESH";
+  const ageColor =
+    h.verdict === "OFFLINE" ? "var(--hx-sell)" :
+    h.verdict === "STALE_DEGRADED" ? "var(--hx-warn)" : "var(--hx-buy)";
+  const status =
+    h.verdict === "OFFLINE" ? "OFFLINE" :
+    h.verdict === "STALE_DEGRADED" ? "STALE · DEGRADED" : "ONLINE";
   return (
     <div
       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-[10px] uppercase tracking-widest border-b"
@@ -296,18 +310,19 @@ function BackendHealthBar() {
       </span>
       <span>HB AGE: <b className="pixel">{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
       <span>CHANNEL: <b style={{ color: h.rt === "CONNECTED" ? "var(--hx-buy)" : h.rt === "RECONNECTING" ? "var(--hx-warn)" : "var(--hx-sell)" }}>{h.rt}</b></span>
-      <span>INGEST: <b>{h.tradeReady ? "OK" : h.offline ? "DOWN" : "DEGRADED"}</b></span>
+      <span>INGEST: <b>{h.verdict === "ONLINE" ? "OK" : h.verdict === "OFFLINE" ? "DOWN" : "DEGRADED"}</b></span>
       {!h.tradeReady && (
         <span
           className="ml-auto px-2 py-0.5 border"
           style={{ borderColor: "var(--hx-warn)", color: "var(--hx-warn)", background: "rgba(240,180,41,0.10)" }}
         >
-          ⚠ {h.offline ? "BACKEND OFFLINE — TRADE-READY SUPPRESSED" : h.stale ? "BACKEND STALE — TRADE-READY SUPPRESSED" : "BACKEND DEGRADED — TRADE-READY SUPPRESSED"}
+          ⚠ {h.verdict === "OFFLINE" ? "BACKEND OFFLINE — TRADE-READY SUPPRESSED" : "BACKEND STALE · DEGRADED — TRADE-READY SUPPRESSED"}
         </span>
       )}
     </div>
   );
 }
+
 
 /* ============================================================================
  * TABS NAV
@@ -336,7 +351,7 @@ function TabsNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
           />
           <b style={{ color: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}>CONNECTED · DEMO</b>
         </span>
-        <span>LATENCY <b className="pixel" style={{ color: "var(--hx-txt)" }}>{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
+        <span>HB AGE <b className="pixel" style={{ color: "var(--hx-txt)" }}>{h.ageSec == null ? "—" : `${h.ageSec}s`}</b></span>
         <span style={{ color: "var(--hx-acc)" }}>READ-ONLY</span>
       </div>
     </div>
@@ -418,32 +433,57 @@ function LatestAiDecisionCard() {
   const rawLot = merged.raw_lot ?? merged.calculated_lot ?? merged.kelly_suggested_lot ?? d?.lot_size;
   const gate = String(merged.demo_gate ?? merged.gate_status ?? "").toUpperCase();
   const h = useBackendHealth();
-  const stamp = h.tradeReady && gate === "PASS" ? "TRADE READY · DEMO ROUTER" : "ANALYSIS ONLY";
-  const stampTone = h.tradeReady && gate === "PASS" ? "green" : "orange";
+  const now = useTickingNow();
+  const STALE_SEC = 60 * 60; // 1h
+  const decisionAge = d?.created_at
+    ? Math.max(0, Math.floor((now - Date.parse(String(d.created_at).replace(" ", "T"))) / 1000))
+    : null;
+  const decisionStale = decisionAge != null && decisionAge > STALE_SEC;
+  const fmtAge = (s: number) => s >= 3600 ? `${Math.floor(s / 3600)}h` : s >= 60 ? `${Math.floor(s / 60)}m` : `${s}s`;
+  const stamp = !decisionStale && h.tradeReady && gate === "PASS" ? "TRADE READY · DEMO ROUTER" : "ANALYSIS ONLY";
+  const stampTone = !decisionStale && h.tradeReady && gate === "PASS" ? "green" : "orange";
 
   return (
-    <Panel title="LATEST AI DECISION" right={<Badge value={stamp} tone={stampTone} />}>
-      {empty || !d ? <Fallback tone="wait" block /> : (
-        <div className="grid grid-cols-2 gap-x-4">
-          <KV k="Symbol" v={d.symbol ?? <Fallback tone="nodata" />} />
-          <KV k="Timeframe" v={d.timeframe ?? <Fallback tone="nodata" />} />
-          <KV k="Strategy" v={d.strategy ?? <Fallback tone="nodata" />} />
-          <KV k="Signal" v={d.signal ?? <Fallback tone="nodata" />} accent="profit" />
-          <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
-          <KV k="Markov p" v={Number(d.markov_probability ?? 0).toFixed(2)} />
-          <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : <Fallback tone="nodata" />} />
-          <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
-          <KV k="Entry" v={d.entry ?? <Fallback tone="nodata" />} />
-          <KV k="SL" v={d.sl ?? <Fallback tone="nodata" />} accent="loss" />
-          <KV k="TP" v={d.tp ?? <Fallback tone="nodata" />} accent="profit" />
-          <KV k="Risk Status" v={d.risk_status ?? <Fallback tone="nodata" />} />
-          <div className="col-span-2 mt-2 pt-1.5 border-t" style={{ borderColor: "var(--hx-border)" }}>
-            <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>Decision</div>
-            <div className="pixel text-[18px]">{d.decision ?? "—"}</div>
-            <div className="text-[10px] mt-1" style={{ color: "var(--hx-dim)" }}><b>REASON:</b> {d.reason ?? <Fallback tone="nodata" />}</div>
+    <Panel
+      title="LATEST AI DECISION"
+      right={
+        <span className="flex items-center gap-2">
+          {decisionStale && decisionAge != null && (
+            <Badge value={`STALE · ${fmtAge(decisionAge)}`} tone="red" />
+          )}
+          <Badge value={stamp} tone={stampTone} />
+        </span>
+      }
+    >
+      <div style={decisionStale ? { opacity: 0.55 } : undefined}>
+        {empty || !d ? <Fallback tone="wait" block /> : (
+          <div className="grid grid-cols-2 gap-x-4">
+            <KV k="Symbol" v={d.symbol ?? <Fallback tone="nodata" />} />
+            <KV k="Timeframe" v={d.timeframe ?? <Fallback tone="nodata" />} />
+            <KV k="Strategy" v={d.strategy ?? <Fallback tone="nodata" />} />
+            <KV k="Signal" v={d.signal ?? <Fallback tone="nodata" />} accent="profit" />
+            <KV k="Confidence" v={`${d.confidence ?? 0}%`} />
+            <KV k="Markov p" v={Number(d.markov_probability ?? 0).toFixed(2)} />
+            <KV k="Raw Lot" v={rawLot != null ? Number(rawLot).toFixed(4) : <Fallback tone="nodata" />} />
+            <KV k="Executable Lot" v={executableLot != null ? executableLot.toFixed(4) : "0.0100"} accent="profit" />
+            <KV k="Entry" v={d.entry ?? <Fallback tone="nodata" />} />
+            <KV k="SL" v={d.sl ?? <Fallback tone="nodata" />} accent="loss" />
+            <KV k="TP" v={d.tp ?? <Fallback tone="nodata" />} accent="profit" />
+            <KV k="Risk Status" v={d.risk_status ?? <Fallback tone="nodata" />} />
+            <div className="col-span-2 mt-2 pt-1.5 border-t" style={{ borderColor: "var(--hx-border)" }}>
+              <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>Decision</div>
+              <div className="pixel text-[18px]">{d.decision ?? "—"}</div>
+              <div className="text-[10px] mt-1" style={{ color: "var(--hx-dim)" }}><b>REASON:</b> {d.reason ?? <Fallback tone="nodata" />}</div>
+              {decisionStale && decisionAge != null && (
+                <div className="mt-1 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-warn)" }}>
+                  ⚠ DECISION IS STALE ({fmtAge(decisionAge)}) — ANALYSIS ONLY
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
     </Panel>
   );
 }
@@ -861,19 +901,42 @@ function ChartSymbolTruth({ chartSymbol }: { chartSymbol: string }) {
  * Tabs content
  * ========================================================================== */
 
-function TabOverview({ symbol }: { symbol: SymbolKey }) {
+function HealthVerdictPanel() {
+  const h = useBackendHealth();
+  const label = h.verdict === "ONLINE" ? "ONLINE" : h.verdict === "OFFLINE" ? "OFFLINE" : "STALE · DEGRADED";
+  const tone = h.verdict === "ONLINE" ? "var(--hx-buy)" : h.verdict === "OFFLINE" ? "var(--hx-sell)" : "var(--hx-warn)";
+  return (
+    <Panel title="BACKEND HEALTH · VERDICT" right={<Badge value={label} tone={h.verdict === "ONLINE" ? "green" : h.verdict === "OFFLINE" ? "red" : "orange"} />}>
+      <div className="grid grid-cols-3 gap-2 text-[11px]">
+        <div>
+          <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>STATUS</div>
+          <div className="pixel text-[20px]" style={{ color: tone }}>{label}</div>
+        </div>
+        <div>
+          <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>HB AGE</div>
+          <div className="pixel text-[20px]">{h.ageSec == null ? "—" : `${h.ageSec}s`}</div>
+        </div>
+        <div>
+          <div className="text-[9px] uppercase" style={{ color: "var(--hx-dim)" }}>CHANNEL</div>
+          <div className="pixel text-[20px]" style={{ color: h.rt === "CONNECTED" ? "var(--hx-buy)" : "var(--hx-warn)" }}>{h.rt}</div>
+        </div>
+      </div>
+      <div className="mt-2 text-[10px] uppercase tracking-widest" style={{ color: "var(--hx-dim)" }}>
+        Trade-ready: <b style={{ color: h.tradeReady ? "var(--hx-buy)" : "var(--hx-warn)" }}>{h.tradeReady ? "ELIGIBLE" : "SUPPRESSED"}</b>
+        {" · "}Full breakdown in <b>AUDIT</b> tab.
+      </div>
+    </Panel>
+  );
+}
+
+function TabOverview({ symbol: _symbol }: { symbol: SymbolKey }) {
   return (
     <div className="grid grid-cols-12 gap-3">
-      <div className="col-span-12"><DemoModeBanner /></div>
-      <div className="col-span-8"><PnLTruth /></div>
-      <div className="col-span-4"><BackendHealthPanel /></div>
-      <div className="col-span-12"><MetricsRowDemo /></div>
-      <div className="col-span-12"><StrategyManagerPanel /></div>
-      <div className="col-span-7"><LatestAiDecisionCard /></div>
-      <div className="col-span-5"><DemoAlerts /></div>
-      <div className="col-span-6"><DemoPilotStatus /></div>
-      <div className="col-span-6"><TimeEnginePanel /></div>
-      <div className="col-span-12"><ChartSymbolTruth chartSymbol={SYMBOL_MAP[symbol]} /></div>
+      <div className="col-span-4"><HealthVerdictPanel /></div>
+      <div className="col-span-4"><StrategyCountCard /></div>
+      <div className="col-span-4"><DemoAlerts /></div>
+      <div className="col-span-7"><PnLTruth /></div>
+      <div className="col-span-5"><LatestAiDecisionCard /></div>
     </div>
   );
 }
@@ -881,6 +944,7 @@ function TabOverview({ symbol }: { symbol: SymbolKey }) {
 function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
   return (
     <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><SymbolWorkspace symbol={symbol} /></div>
       <div className="col-span-12"><OrderFlowHeader symbolKey={symbol} /></div>
       <div className="col-span-5"><HeatmapCanvas symbolKey={symbol} /></div>
       <div className="col-span-3"><DomLadder symbolKey={symbol} /></div>
@@ -897,6 +961,8 @@ function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
     </div>
   );
 }
+
+
 
 function TabStrategies({ symbol }: { symbol: SymbolKey }) {
   return (
@@ -1075,6 +1141,9 @@ function SelfLearn() {
 function TabAudit({ symbol }: { symbol: SymbolKey }) {
   return (
     <div className="grid grid-cols-12 gap-3">
+      <div className="col-span-12"><BackendHealthPanel /></div>
+      <div className="col-span-6"><DemoPilotStatus /></div>
+      <div className="col-span-6"><TimeEnginePanel /></div>
       <div className="col-span-12"><PnLTruth /></div>
       <div className="col-span-6"><DataFreshnessPanel /></div>
       <div className="col-span-6"><ChartSymbolTruth chartSymbol={SYMBOL_MAP[symbol]} /></div>
@@ -1085,6 +1154,7 @@ function TabAudit({ symbol }: { symbol: SymbolKey }) {
     </div>
   );
 }
+
 
 function TabLogs() {
   return (
@@ -1232,11 +1302,9 @@ function Dashboard() {
       <TabsNav tab={tab} onTab={setTab} />
 
       <main className="flex-1 p-3 overflow-x-auto" style={{ minWidth: 1080 }}>
-        {tab !== "LOGS" && tab !== "AUDIT" && tab !== "JOURNAL" && (
-          <div className="mb-3"><SymbolWorkspace symbol={symbol} /></div>
-        )}
         {content}
       </main>
+
 
       <CvdStrip symbolKey={symbol} />
 

@@ -215,6 +215,7 @@ export function DemoPilotStatus() {
     if (!isNaN(ms)) hoursRemaining = Math.max(0, ms / 3600000).toFixed(2);
   }
   const accountType = getField(sources, "account_type");
+  const comment = getField(sources, "demo_comment");
   const mt5 = getField(sources, "mt5_connected");
   const lastGateDec =
     getField([ds, bsRP, bs, decRP, dec[0]], "latest_demo_gate_decision") ??
@@ -248,6 +249,7 @@ export function DemoPilotStatus() {
         <KV k="paper_trading" v={String(u(paperTrading))} />
         <KV k="allow_live_trading" v={String(u(allowLive))} accent={allowLive ? "loss" : undefined} />
         <KV k="account_type" v={String(u(accountType))} />
+        <KV k="demo_comment" v={String(u(comment))} />
         <KV k="mt5_connected" v={String(u(mt5))} />
         <KV k="pilot_started_at" v={pilotStartedAt ? new Date(pilotStartedAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
         <KV k="pilot_expires_at" v={pilotExpiresAt ? new Date(pilotExpiresAt).toISOString().slice(0, 19).replace("T", " ") : UNK} />
