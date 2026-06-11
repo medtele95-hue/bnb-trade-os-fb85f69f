@@ -36,16 +36,24 @@ const LOG_FILTERS = [
 function pickStrategyPayload(raw: any): any {
   if (!raw || typeof raw !== "object") return {};
   const inner = raw.raw_payload ?? {};
-  return (
+  const nested =
     raw.gold_order_flow_cvd_vwap ??
     inner.gold_order_flow_cvd_vwap ??
     raw.GOLD_ORDER_FLOW_CVD_VWAP ??
     inner.GOLD_ORDER_FLOW_CVD_VWAP ??
     raw[STRATEGY] ??
     inner[STRATEGY] ??
-    {}
-  );
+    null;
+  if (nested && typeof nested === "object" && Object.keys(nested).length > 0) return nested;
+  // Fallback: GOLD_ORDER_FLOW decisions stamp fields flat onto raw_payload.
+  const hasFlat = (o: any) =>
+    o && typeof o === "object" &&
+    (o.poc != null || o.vwap != null || o.vah != null || o.val != null || o.cvd_slope != null);
+  if (hasFlat(inner)) return inner;
+  if (hasFlat(raw)) return raw;
+  return {};
 }
+
 
 export function GoldOrderFlowCvdVwapPanel() {
   const ds = useDashboardStatusPayload();

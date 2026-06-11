@@ -3,6 +3,7 @@ import { Panel, KV } from "./Panel";
 import { Badge } from "./Badges";
 import { useDashboardStatusPayload } from "./DemoCenter";
 import { useLiveTable } from "@/hooks/useLiveTable";
+import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { isSameSymbol, normalizeSymbol } from "@/lib/symbol";
 
 const STRATEGY = "ORDER_FLOW_READER";
@@ -25,63 +26,121 @@ function ageSecFrom(ts: any): number | null {
 
 type Snap = Record<string, any>;
 
-/** Find an order-flow snapshot for a given symbol from various possible locations. */
-function collectSnapshots(ds: Snap, decisions: any[]): Record<string, Snap> {
-  const out: Record<string, Snap> = {};
+/** Normalize a raw snapshot blob into the field names the UI expects. */
+function normalizeSnap(raw: any, fallbackSym?: string): Snap | null {
+  if (!raw || typeof raw !== "object") return null;
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      if (raw[k] !== undefined && raw[k] !== null && raw[k] !== "") return raw[k];
+    }
+    return undefined;
+  };
+  const symbol = pick("symbol", "broker_symbol", "brokerSymbol") ?? fallbackSym;
+  const out: Snap = {
+    ...raw,
+    symbol,
+    broker_symbol: pick("broker_symbol", "brokerSymbol"),
+    status: pick("status", "mode"),
+    poc: pick("poc", "POC", "point_of_control"),
+    vah: pick("vah", "VAH", "value_area_high"),
+    val: pick("val", "VAL", "value_area_low"),
+    vwap: pick("vwap", "VWAP"),
+    cvd_slope: pick("cvd_slope", "CVD_SLOPE", "cvdSlope"),
+    cvd_proxy: pick("cvd_proxy", "CVD_PROXY", "cvd"),
+    delta_proxy: pick("delta_proxy", "DELTA", "delta", "latest_delta"),
+    divergence: pick("divergence", "DIVERGENCE"),
+    last_update: pick("last_update", "updated_at", "created_at"),
+  };
+  return out;
+}
 
-  const tryMerge = (sym: string | undefined | null, snap: any) => {
-    if (!snap || typeof snap !== "object") return;
+/** Find an order-flow snapshot for a given symbol from various possible locations. */
+function collectSnapshots(
+  ds: Snap,
+  decisions: any[],
+): { snaps: Record<string, Snap>; sources: Record<string, string> } {
+  const out: Record<string, Snap> = {};
+  const sources: Record<string, string> = {};
+
+  const tryMerge = (sym: string | undefined | null, raw: any, srcLabel: string) => {
+    const snap = normalizeSnap(raw, sym ?? undefined);
+    if (!snap) return;
     const s = normalizeSymbol(sym ?? snap.symbol ?? "");
-    if (!s) return;
-    // Prefer the freshest snapshot we see first.
-    if (!out[s]) out[s] = { ...snap, symbol: snap.symbol ?? sym };
+    if (!s || s === "—") return;
+    if (!out[s]) {
+      out[s] = snap;
+      sources[s] = srcLabel;
+    }
   };
 
-  // dashboard_status keyed payloads
-  const containers: any[] = [
-    ds.order_flow_reader,
-    ds.ORDER_FLOW_READER,
-    ds.order_flow,
-    ds.raw_payload?.order_flow_reader,
-    ds.raw_payload?.ORDER_FLOW_READER,
-  ].filter(Boolean);
+  // dashboard_status containers — including the `.tabs` object shape used by HERMES.
+  type Container = { value: any; label: string };
+  const rp = (ds as any).raw_payload ?? {};
+  const containers: Container[] = [
+    { value: ds.order_flow_snapshot, label: "dashboard_status.order_flow_snapshot" },
+    { value: ds.latest_order_flow, label: "dashboard_status.latest_order_flow" },
+    { value: ds.order_flow_snapshots, label: "dashboard_status.order_flow_snapshots" },
+    { value: ds.order_flow_reader, label: "dashboard_status.order_flow_reader" },
+    { value: ds.ORDER_FLOW_READER, label: "dashboard_status.ORDER_FLOW_READER" },
+    { value: ds.order_flow, label: "dashboard_status.order_flow" },
+    { value: (ds.order_flow as any)?.tabs, label: "dashboard_status.order_flow.tabs" },
+    { value: (ds.order_flow_reader as any)?.tabs, label: "dashboard_status.order_flow_reader.tabs" },
+    { value: rp.order_flow_reader, label: "raw_payload.order_flow_reader" },
+    { value: rp.order_flow, label: "raw_payload.order_flow" },
+    { value: rp.order_flow?.tabs, label: "raw_payload.order_flow.tabs" },
+  ].filter((c) => c.value);
 
-  for (const c of containers) {
+  for (const { value: c, label } of containers) {
     if (Array.isArray(c)) {
-      c.forEach((snap) => tryMerge(snap?.symbol, snap));
+      c.forEach((snap) => tryMerge(snap?.symbol, snap, label));
     } else if (typeof c === "object") {
-      // Could be keyed by symbol or a single snapshot
-      if (c.symbol) {
-        tryMerge(c.symbol, c);
-      }
+      if (c.symbol) tryMerge(c.symbol, c, label);
       for (const [k, v] of Object.entries(c)) {
-        if (v && typeof v === "object" && !Array.isArray(v) && (("poc" in (v as any)) || ("vwap" in (v as any)) || ("symbol" in (v as any)) || ("status" in (v as any)))) {
-          tryMerge(k, v);
+        if (v && typeof v === "object" && !Array.isArray(v)) {
+          const vo = v as any;
+          if ("poc" in vo || "vwap" in vo || "VWAP" in vo || "symbol" in vo || "status" in vo || "mode" in vo) {
+            tryMerge(k, vo, `${label}.${k}`);
+          }
         }
       }
     }
   }
 
-  // ai_decisions raw_payload
+  // ai_decisions fallbacks: nested ORDER_FLOW keys, OR flat raw_payload from GOLD_ORDER_FLOW strategy.
   for (const d of decisions) {
-    const rp = d?.raw_payload ?? {};
-    const ofr =
-      rp.order_flow_reader ??
-      rp.ORDER_FLOW_READER ??
-      rp[STRATEGY] ??
-      null;
-    if (ofr) {
-      if (Array.isArray(ofr)) ofr.forEach((s) => tryMerge(s?.symbol, s));
-      else if (typeof ofr === "object") {
-        if (ofr.symbol) tryMerge(ofr.symbol, ofr);
-        for (const [k, v] of Object.entries(ofr)) {
-          if (v && typeof v === "object" && !Array.isArray(v)) tryMerge(k, v);
+    const drp = d?.raw_payload ?? {};
+    const inner = drp.raw_payload ?? {};
+    const candidates: Array<[any, string]> = [
+      [drp.order_flow_reader, "ai_decisions.raw_payload.order_flow_reader"],
+      [drp.ORDER_FLOW_READER, "ai_decisions.raw_payload.ORDER_FLOW_READER"],
+      [drp.order_flow, "ai_decisions.raw_payload.order_flow"],
+      [drp.order_flow_snapshot, "ai_decisions.raw_payload.order_flow_snapshot"],
+      [inner.order_flow, "ai_decisions.raw_payload.raw_payload.order_flow"],
+    ];
+    for (const [c, label] of candidates) {
+      if (!c) continue;
+      if (Array.isArray(c)) c.forEach((s) => tryMerge(s?.symbol, s, label));
+      else if (typeof c === "object") {
+        if (c.symbol) tryMerge(c.symbol, c, label);
+        if (c.tabs && typeof c.tabs === "object") {
+          for (const [k, v] of Object.entries(c.tabs)) tryMerge(k, v, `${label}.tabs.${k}`);
+        }
+        for (const [k, v] of Object.entries(c)) {
+          if (v && typeof v === "object" && !Array.isArray(v) && ("poc" in (v as any) || "vwap" in (v as any))) {
+            tryMerge(k, v, `${label}.${k}`);
+          }
         }
       }
     }
+    // Flat shape: ai_decision row itself has poc/vwap/etc (e.g. GOLD_ORDER_FLOW_CVD_VWAP).
+    const flat = inner.poc != null || inner.vwap != null ? inner : (drp.poc != null || drp.vwap != null ? drp : null);
+    if (flat) {
+      const sym = flat.symbol ?? flat.broker_symbol ?? d?.symbol;
+      tryMerge(sym, flat, `ai_decisions[${d?.strategy ?? "?"}].raw_payload`);
+    }
   }
 
-  return out;
+  return { snaps: out, sources };
 }
 
 const CORE_FIELDS = ["status", "symbol", "poc", "vah", "val", "vwap", "cvd_slope", "cvd_proxy", "delta_proxy", "divergence", "last_update"];
@@ -301,8 +360,13 @@ function SymbolTab({ snap }: { snap: Snap | null }) {
 export function OrderFlowReaderPanel() {
   const ds = useDashboardStatusPayload();
   const { rows: decisions } = useLiveTable<any>("ai_decisions", { limit: 50 });
+  const { verdict } = useBackendHealth();
+  const [debugOpen, setDebugOpen] = React.useState(false);
 
-  const snaps = React.useMemo(() => collectSnapshots(ds as Snap, decisions ?? []), [ds, decisions]);
+  const { snaps, sources } = React.useMemo(
+    () => collectSnapshots(ds as Snap, decisions ?? []),
+    [ds, decisions],
+  );
 
   // Tabs: defaults first (in fixed order), then any extra detected symbols.
   const tabs = React.useMemo(() => {
@@ -318,13 +382,19 @@ export function OrderFlowReaderPanel() {
     if (!tabs.includes(active)) setActive(tabs[0] ?? "BTCUSD");
   }, [tabs, active]);
 
-  const activeSnap =
-    snaps[active] ??
-    Object.entries(snaps).find(([k]) => isSameSymbol(k, active))?.[1] ??
+  const lookupSnap = (s: string): Snap | null =>
+    snaps[s] ?? Object.entries(snaps).find(([k]) => isSameSymbol(k, s))?.[1] ?? null;
+
+  const activeSnap = lookupSnap(active);
+  const activeSource =
+    sources[active] ??
+    Object.entries(sources).find(([k]) => isSameSymbol(k, active))?.[1] ??
     null;
 
   const labelFor = (s: string) =>
     isSameSymbol(s, "XAUUSD") ? "GOLD" : isSameSymbol(s, "BTCUSD") ? "BTCUSD" : isSameSymbol(s, "EURUSD") ? "EURUSD" : s;
+
+  const showDegradedNotice = !activeSnap && verdict !== "ONLINE";
 
   return (
     <Panel
@@ -334,7 +404,7 @@ export function OrderFlowReaderPanel() {
       <div className="space-y-2">
         <div className="flex flex-wrap gap-1">
           {tabs.map((s) => {
-            const snap = snaps[s] ?? Object.entries(snaps).find(([k]) => isSameSymbol(k, s))?.[1];
+            const snap = lookupSnap(s);
             const has = !!snap;
             const status = String(snap?.status ?? "").toUpperCase();
             const age = ageSecFrom(snap?.last_update ?? snap?.updated_at);
@@ -355,7 +425,38 @@ export function OrderFlowReaderPanel() {
           })}
         </div>
 
+        {showDegradedNotice && (
+          <div className="border border-loss p-2 text-[10px] uppercase tracking-wider text-loss">
+            ORDER FLOW COMPUTED BY BACKEND BUT REMOTE SNAPSHOT NOT AVAILABLE — INGEST {verdict}
+          </div>
+        )}
+
         <SymbolTab snap={activeSnap} />
+
+        <div className="border border-black/40 p-2">
+          <button
+            onClick={() => setDebugOpen((v) => !v)}
+            className="text-[10px] uppercase tracking-wider opacity-80 hover:opacity-100"
+          >
+            {debugOpen ? "▾" : "▸"} DEBUG ORDER FLOW PAYLOAD
+            {activeSource && <span className="opacity-60 ml-2">· source: {activeSource}</span>}
+          </button>
+          {debugOpen && (
+            <pre className="mt-2 text-[10px] leading-tight max-h-64 overflow-auto whitespace-pre-wrap break-all opacity-80">
+{JSON.stringify(
+  {
+    active_symbol: active,
+    source: activeSource,
+    health_verdict: verdict,
+    normalized_payload: activeSnap,
+    available_symbols: Object.keys(snaps),
+  },
+  null,
+  2,
+)}
+            </pre>
+          )}
+        </div>
 
         <div className="border border-black/40 p-2 text-[10px] uppercase tracking-wider">
           Order Flow Reader is observe-only. It does not execute trades and does not block other strategies.
@@ -364,3 +465,4 @@ export function OrderFlowReaderPanel() {
     </Panel>
   );
 }
+
