@@ -28,6 +28,7 @@ import { HermesAuditPanel } from "@/components/dashboard/HermesAuditPanel";
 import { GoldLiquidityHunter } from "@/components/dashboard/GoldLiquidityHunter";
 import { GoldOrderFlowCvdVwapPanel } from "@/components/dashboard/GoldOrderFlowCvdVwap";
 import { OrderFlowReaderPanel } from "@/components/dashboard/OrderFlowReader";
+import { OrderFlowExecutionAgentPanel } from "@/components/dashboard/OrderFlowExecutionAgent";
 import { EurEmaRsiAtrPanel } from "@/components/dashboard/EurEmaRsiAtrPanel";
 import { BtcScalpingPanel } from "@/components/dashboard/BtcScalpingPanel";
 import { QuickExitManager } from "@/components/dashboard/QuickExitManager";
@@ -1000,6 +1001,7 @@ function TabOrderFlow({ symbol }: { symbol: SymbolKey }) {
       <div className="col-span-3"><DomLadder symbolKey={symbol} /></div>
       <div className="col-span-2"><TradeTape /></div>
       <div className="col-span-2"><LatestAiDecisionCard /></div>
+      <div className="col-span-12"><OrderFlowExecutionAgentPanel /></div>
       <div className="col-span-12"><OrderFlowReaderPanel /></div>
     </div>
   );
