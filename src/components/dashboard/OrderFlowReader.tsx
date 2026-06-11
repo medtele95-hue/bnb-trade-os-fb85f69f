@@ -360,8 +360,13 @@ function SymbolTab({ snap }: { snap: Snap | null }) {
 export function OrderFlowReaderPanel() {
   const ds = useDashboardStatusPayload();
   const { rows: decisions } = useLiveTable<any>("ai_decisions", { limit: 50 });
+  const { verdict } = useBackendHealth();
+  const [debugOpen, setDebugOpen] = React.useState(false);
 
-  const snaps = React.useMemo(() => collectSnapshots(ds as Snap, decisions ?? []), [ds, decisions]);
+  const { snaps, sources } = React.useMemo(
+    () => collectSnapshots(ds as Snap, decisions ?? []),
+    [ds, decisions],
+  );
 
   // Tabs: defaults first (in fixed order), then any extra detected symbols.
   const tabs = React.useMemo(() => {
@@ -377,13 +382,19 @@ export function OrderFlowReaderPanel() {
     if (!tabs.includes(active)) setActive(tabs[0] ?? "BTCUSD");
   }, [tabs, active]);
 
-  const activeSnap =
-    snaps[active] ??
-    Object.entries(snaps).find(([k]) => isSameSymbol(k, active))?.[1] ??
+  const lookupSnap = (s: string): Snap | null =>
+    snaps[s] ?? Object.entries(snaps).find(([k]) => isSameSymbol(k, s))?.[1] ?? null;
+
+  const activeSnap = lookupSnap(active);
+  const activeSource =
+    sources[active] ??
+    Object.entries(sources).find(([k]) => isSameSymbol(k, active))?.[1] ??
     null;
 
   const labelFor = (s: string) =>
     isSameSymbol(s, "XAUUSD") ? "GOLD" : isSameSymbol(s, "BTCUSD") ? "BTCUSD" : isSameSymbol(s, "EURUSD") ? "EURUSD" : s;
+
+  const showDegradedNotice = !activeSnap && verdict !== "ONLINE";
 
   return (
     <Panel
@@ -393,7 +404,7 @@ export function OrderFlowReaderPanel() {
       <div className="space-y-2">
         <div className="flex flex-wrap gap-1">
           {tabs.map((s) => {
-            const snap = snaps[s] ?? Object.entries(snaps).find(([k]) => isSameSymbol(k, s))?.[1];
+            const snap = lookupSnap(s);
             const has = !!snap;
             const status = String(snap?.status ?? "").toUpperCase();
             const age = ageSecFrom(snap?.last_update ?? snap?.updated_at);
@@ -414,7 +425,38 @@ export function OrderFlowReaderPanel() {
           })}
         </div>
 
+        {showDegradedNotice && (
+          <div className="border border-loss p-2 text-[10px] uppercase tracking-wider text-loss">
+            ORDER FLOW COMPUTED BY BACKEND BUT REMOTE SNAPSHOT NOT AVAILABLE — INGEST {verdict}
+          </div>
+        )}
+
         <SymbolTab snap={activeSnap} />
+
+        <div className="border border-black/40 p-2">
+          <button
+            onClick={() => setDebugOpen((v) => !v)}
+            className="text-[10px] uppercase tracking-wider opacity-80 hover:opacity-100"
+          >
+            {debugOpen ? "▾" : "▸"} DEBUG ORDER FLOW PAYLOAD
+            {activeSource && <span className="opacity-60 ml-2">· source: {activeSource}</span>}
+          </button>
+          {debugOpen && (
+            <pre className="mt-2 text-[10px] leading-tight max-h-64 overflow-auto whitespace-pre-wrap break-all opacity-80">
+{JSON.stringify(
+  {
+    active_symbol: active,
+    source: activeSource,
+    health_verdict: verdict,
+    normalized_payload: activeSnap,
+    available_symbols: Object.keys(snaps),
+  },
+  null,
+  2,
+)}
+            </pre>
+          )}
+        </div>
 
         <div className="border border-black/40 p-2 text-[10px] uppercase tracking-wider">
           Order Flow Reader is observe-only. It does not execute trades and does not block other strategies.
@@ -423,3 +465,4 @@ export function OrderFlowReaderPanel() {
     </Panel>
   );
 }
+
