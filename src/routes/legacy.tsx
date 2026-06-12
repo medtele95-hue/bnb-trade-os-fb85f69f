@@ -40,7 +40,7 @@ import { BackendHealthPanel } from "@/components/dashboard/BackendHealthPanel";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { normalizeSymbol, isSameSymbol } from "@/lib/symbol";
 
-export const Route = createFileRoute("/")({ component: Dashboard });
+export const Route = createFileRoute("/legacy")({ component: Dashboard });
 
 /* ============================================================================
  * Shared hooks
