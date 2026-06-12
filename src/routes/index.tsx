@@ -6,7 +6,12 @@ import { BackendHealthBar } from "@/components/terminal/HealthBar";
 import { OverviewTab } from "@/components/terminal/tabs/OverviewTab";
 import { LiveMarketsTab } from "@/components/terminal/tabs/LiveMarketsTab";
 import { OrderFlowTab } from "@/components/terminal/tabs/OrderFlowTab";
-import { StubTab } from "@/components/terminal/tabs/StubTab";
+import { SetupHunterTab } from "@/components/terminal/tabs/SetupHunterTab";
+import { StrategyEngineTab } from "@/components/terminal/tabs/StrategyEngineTab";
+import { RiskPnlTab } from "@/components/terminal/tabs/RiskPnlTab";
+import { TradesTab } from "@/components/terminal/tabs/TradesTab";
+import { AuditTab } from "@/components/terminal/tabs/AuditTab";
+import { LogsTab } from "@/components/terminal/tabs/LogsTab";
 import { T } from "@/components/terminal/primitives";
 
 export const Route = createFileRoute("/")({ component: Terminal });
@@ -66,12 +71,12 @@ function Terminal() {
         {active === "overview" && <OverviewTab />}
         {active === "markets" && <LiveMarketsTab />}
         {active === "flow" && <OrderFlowTab />}
-        {active === "hunter" && <StubTab name="Setup Hunter" plan="Per (symbol × strategy) timeline: signal → contract validation → confirmation → SetupHunter → SafetyGuard → DemoRouter. Will bind to bot_logs SETUP_HUNTER_* tokens." />}
-        {active === "strategy" && <StubTab name="Strategy Engine" plan="Three sections: ACTIVE_EXECUTION_STRATEGY, CONFIRMATION_MODULE, INTERNAL_DATA_FEED. ORDER_FLOW_READER lives under feed only, EXECUTION_AGENT under active only." />}
-        {active === "risk" && <StubTab name="Risk & PnL" plan="MT5 snapshot as PnL source of truth. Equity curve from account_snapshots. BTC concentration card." />}
-        {active === "trades" && <StubTab name="Trades / Journal" plan="Open + closed tables. Reconciled rows visually distinct. Filter by symbol/strategy." />}
-        {active === "audit" && <StubTab name="Audit / Safety" plan="Immutable safety checklist, route-chain visualization, SAFETY_GUARD log tail." />}
-        {active === "logs" && <StubTab name="Logs" plan="bot_logs viewer with token filter chips: CANDIDATE, SETUP_HUNTER, CONFIRMATION, ORDER_FLOW, SAFETY_GUARD, DEMO_ORDER, ERROR, WARNING." />}
+        {active === "hunter" && <SetupHunterTab />}
+        {active === "strategy" && <StrategyEngineTab />}
+        {active === "risk" && <RiskPnlTab />}
+        {active === "trades" && <TradesTab />}
+        {active === "audit" && <AuditTab />}
+        {active === "logs" && <LogsTab />}
       </main>
     </div>
   );
