@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as LegacyRouteImport } from './routes/legacy'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicHermesPaperReportRouteImport } from './routes/api/public/hermes-paper-report'
 import { Route as ApiPublicHermesOpenPaperTradesRouteImport } from './routes/api/public/hermes-open-paper-trades'
@@ -18,6 +19,11 @@ import { Route as ApiPublicHermesIngestRouteImport } from './routes/api/public/h
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegacyRoute = LegacyRouteImport.update({
+  id: '/legacy',
+  path: '/legacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -45,6 +51,7 @@ const ApiPublicHermesIngestRoute = ApiPublicHermesIngestRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/legacy': typeof LegacyRoute
   '/settings': typeof SettingsRoute
   '/api/public/hermes-ingest': typeof ApiPublicHermesIngestRoute
   '/api/public/hermes-open-paper-trades': typeof ApiPublicHermesOpenPaperTradesRoute
@@ -52,6 +59,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/legacy': typeof LegacyRoute
   '/settings': typeof SettingsRoute
   '/api/public/hermes-ingest': typeof ApiPublicHermesIngestRoute
   '/api/public/hermes-open-paper-trades': typeof ApiPublicHermesOpenPaperTradesRoute
@@ -60,6 +68,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/legacy': typeof LegacyRoute
   '/settings': typeof SettingsRoute
   '/api/public/hermes-ingest': typeof ApiPublicHermesIngestRoute
   '/api/public/hermes-open-paper-trades': typeof ApiPublicHermesOpenPaperTradesRoute
@@ -69,6 +78,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/legacy'
     | '/settings'
     | '/api/public/hermes-ingest'
     | '/api/public/hermes-open-paper-trades'
@@ -76,6 +86,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/legacy'
     | '/settings'
     | '/api/public/hermes-ingest'
     | '/api/public/hermes-open-paper-trades'
@@ -83,6 +94,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/legacy'
     | '/settings'
     | '/api/public/hermes-ingest'
     | '/api/public/hermes-open-paper-trades'
@@ -91,6 +103,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LegacyRoute: typeof LegacyRoute
   SettingsRoute: typeof SettingsRoute
   ApiPublicHermesIngestRoute: typeof ApiPublicHermesIngestRoute
   ApiPublicHermesOpenPaperTradesRoute: typeof ApiPublicHermesOpenPaperTradesRoute
@@ -104,6 +117,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legacy': {
+      id: '/legacy'
+      path: '/legacy'
+      fullPath: '/legacy'
+      preLoaderRoute: typeof LegacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -139,6 +159,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LegacyRoute: LegacyRoute,
   SettingsRoute: SettingsRoute,
   ApiPublicHermesIngestRoute: ApiPublicHermesIngestRoute,
   ApiPublicHermesOpenPaperTradesRoute: ApiPublicHermesOpenPaperTradesRoute,
@@ -147,13 +168,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
