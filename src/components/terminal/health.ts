@@ -40,7 +40,7 @@ export function useDualHealth() {
   if (rt === "OFFLINE" && ingest === "LIVE") ingest = "DEGRADED";
 
   const hbAge = h.ageSec;
-  const cycleStatus = String(ds?.cycle_status ?? ds?.last_cycle?.status ?? "").toUpperCase();
+  const cycleStatus = String(ds?.cycle_status?.last_status ?? ds?.last_cycle?.status ?? "").toUpperCase();
 
   return {
     backend,
