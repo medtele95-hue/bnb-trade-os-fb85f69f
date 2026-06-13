@@ -177,3 +177,124 @@ function fmtConf(c: any): string {
   if (!Number.isFinite(n)) return "—";
   return (n <= 1 ? n * 100 : n).toFixed(0) + "%";
 }
+
+function FibConfluencePanel() {
+  const ds: any = useDashboardStatusPayload();
+  const fc = ds?.fib_confluence;
+  if (!fc) return (
+    <Panel title="FIB CONFLUENCE" right={<RoleBadge>SETUP HUNTER MODULE</RoleBadge>}>
+      <StatePanel state="NO_DATA" message="fib_confluence MISSING" />
+    </Panel>
+  );
+  const dec = String(fc.last_decision ?? "").toUpperCase();
+  const grade = String(fc.last_grade ?? "").toUpperCase();
+  const blockMC = ds?.market_open === false;
+  const blockD = grade === "D";
+  return (
+    <Panel
+      title={<span style={{ color: T.acc }}>FIB CONFLUENCE</span>}
+      right={
+        <>
+          <Chip tone={fc.enabled ? "buy" : "dim"}>{fc.enabled ? "ENABLED" : "DISABLED"}</Chip>
+          <RoleBadge>{fc.mode ?? "—"}</RoleBadge>
+          {blockMC && <Chip tone="sell">BLOCK · MARKET_CLOSED</Chip>}
+          {blockD && <Chip tone="sell">BLOCK · FINAL_CONFLUENCE_TOO_LOW</Chip>}
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4">
+        <KV label="Last Symbol" value={fc.last_symbol ?? "—"} tone="acc" />
+        <KV label="Decision" value={dec || "—"} tone={dec === "BUY" ? "buy" : dec === "SELL" ? "sell" : "warn"} />
+        <KV label="Score" value={fc.last_score ?? "—"} />
+        <KV label="Grade" value={fc.last_grade ?? "—"} tone={grade === "A" || grade === "B" ? "buy" : grade === "D" ? "sell" : "warn"} />
+        <KV label="RR" value={fc.last_rr ?? "—"} />
+        <KV label="Golden Zone" value={fc.fib_zone ?? "—"} />
+        <KV label="Swing High" value={fc.swing_high ?? "—"} />
+        <KV label="Swing Low" value={fc.swing_low ?? "—"} />
+        <KV label="Demo Eligible" value={fc.demo_eligible === true ? "TRUE" : fc.demo_eligible === false ? "FALSE" : "—"} tone={fc.demo_eligible ? "buy" : "warn"} />
+        <div className="col-span-2 md:col-span-3"><KV label="Reason" value={fc.last_reason ?? "—"} /></div>
+      </div>
+    </Panel>
+  );
+}
+
+function HermesPackPanel() {
+  const ds: any = useDashboardStatusPayload();
+  const hp = ds?.strategy_pack;
+  if (!hp) return (
+    <Panel title="HERMES STRATEGY PACK" right={<RoleBadge>WRAPPER</RoleBadge>}>
+      <StatePanel state="NO_DATA" message="strategy_pack MISSING" />
+    </Panel>
+  );
+  return (
+    <Panel
+      title={<span style={{ color: T.acc }}>HERMES STRATEGY PACK</span>}
+      right={
+        <>
+          <Chip tone={hp.enabled ? "buy" : "dim"}>{hp.enabled ? "ENABLED" : "DISABLED"}</Chip>
+          <RoleBadge>{hp.mode ?? "—"}</RoleBadge>
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4">
+        <KV label="Last Symbol" value={hp.last_symbol ?? "—"} tone="acc" />
+        <KV label="Decision" value={hp.last_decision ?? "—"} tone={hp.last_decision === "WAIT" ? "warn" : "acc"} />
+        <KV label="Best Internal" value={hp.last_internal ?? hp.best_internal ?? "—"} />
+        <KV label="Rejected Internal" value={hp.rejected_internal_count ?? "—"} />
+        <KV label="Score" value={hp.last_score ?? "—"} />
+        <KV label="Confidence" value={hp.last_confidence ?? "—"} />
+        <KV label="RR" value={hp.last_rr ?? "—"} />
+        <KV label="Grade" value={hp.last_grade ?? "—"} />
+        <KV label="Demo Eligible" value={hp.demo_eligible === true ? "TRUE" : hp.demo_eligible === false ? "FALSE" : "—"} tone={hp.demo_eligible ? "buy" : "warn"} />
+        <div className="col-span-2 md:col-span-3"><KV label="Reason" value={hp.last_reason ?? "—"} /></div>
+      </div>
+    </Panel>
+  );
+}
+
+function BalancedSelectorPanel() {
+  const ds: any = useDashboardStatusPayload();
+  const bs = ds?.balanced_selector;
+  const re = ds?.risk_exposure ?? {};
+  const best = ds?.best_candidate_now ?? ds?.setup_hunter?.best_candidate ?? null;
+  if (!bs) return (
+    <Panel title="BALANCED SELECTOR" right={<RoleBadge>PORTFOLIO ROUTER</RoleBadge>}>
+      <StatePanel state="NO_DATA" message="balanced_selector MISSING" />
+    </Panel>
+  );
+  const allowed: string[] = Array.isArray(bs.allowed_strategies) ? bs.allowed_strategies : [];
+  return (
+    <Panel
+      title={<span style={{ color: T.acc }}>BALANCED SELECTOR</span>}
+      right={<RoleBadge>PORTFOLIO ROUTER · READ-ONLY</RoleBadge>}
+    >
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4">
+        <KV label="Max Total Open" value={bs.max_total_open_demo_trades ?? "—"} />
+        <KV label="Max Per Symbol" value={bs.max_open_per_symbol ?? "—"} />
+        <KV label="Demo Max Lot" value={bs.demo_max_lot ?? "—"} />
+        <KV label="Magic" value={bs.demo_magic_number ?? "—"} />
+        <KV label="Open Now" value={re.open_demo_trades ?? "—"} tone={Number(re.open_demo_trades) >= Number(bs.max_total_open_demo_trades) ? "warn" : "dim"} />
+        <KV label="Floating PnL" value={re.demo_floating_pnl ?? "—"} tone={Number(re.demo_floating_pnl) > 0 ? "buy" : Number(re.demo_floating_pnl) < 0 ? "sell" : "dim"} />
+        <KV label="No D-Grade Routing" value={bs.no_d_grade_routing ? "TRUE" : "FALSE"} tone={bs.no_d_grade_routing ? "buy" : "warn"} />
+        <KV label="No Market-Closed Routing" value={bs.no_market_closed_routing ? "TRUE" : "FALSE"} tone={bs.no_market_closed_routing ? "buy" : "warn"} />
+      </div>
+
+      <div className="mt-2">
+        <div className="text-[10px] uppercase tracking-[0.14em] mb-1" style={{ color: T.dim }}>Allowed Strategies</div>
+        <div className="flex flex-wrap gap-1">
+          {allowed.length === 0 ? <Chip tone="dim">NONE</Chip> : allowed.map((s) => <Chip key={s} tone="acc" outline>{s}</Chip>)}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-x-4" style={{ borderTop: `1px solid ${T.line}`, paddingTop: 8 }}>
+        <KV label="Selector Best" value={best?.strategy ?? "—"} tone="acc" />
+        <KV label="Best Symbol" value={best?.broker_symbol ?? best?.symbol ?? "—"} />
+        <KV label="Best Score" value={best?.score ?? "—"} />
+        <KV label="Best Grade" value={best?.grade ?? "—"} />
+        <div className="col-span-2 md:col-span-4">
+          <KV label="Diversification Reason" value={best?.near_miss_reason ?? ds?.relaxed_reason ?? ds?.last_demo_gate_reason ?? "—"} />
+        </div>
+      </div>
+    </Panel>
+  );
+}
