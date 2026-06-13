@@ -2,6 +2,7 @@ import * as React from "react";
 import { Panel, KV, Chip, T, StatePanel, RoleBadge, DataStateBadge, fmtAge, ageSecFrom } from "../primitives";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useDualHealth } from "../health";
+import { useDashboardStatusPayload } from "@/components/dashboard/DemoCenter";
 
 const SYMBOLS = ["BTCUSD#", "GOLD#", "EURUSD", "US100Cash#"] as const;
 
@@ -49,6 +50,9 @@ export function SetupHunterTab() {
 
   return (
     <div className="flex flex-col gap-3">
+      <SelectedCandidatePanel />
+      <PerSymbolFunnel decisions={decisions} />
+
       <Panel
         title="Pipeline Stages"
         right={
@@ -67,6 +71,7 @@ export function SetupHunterTab() {
           ))}
         </div>
       </Panel>
+
 
       <Panel
         title="Candidate Pipeline · per Symbol × Strategy"
@@ -203,4 +208,101 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-2 py-1.5 align-middle" style={{ color: T.txt }}>{children}</td>;
+}
+
+const SYMS = ["BTCUSD#", "GOLD#", "EURUSD", "US100Cash#"] as const;
+
+function SelectedCandidatePanel() {
+  const ds: any = useDashboardStatusPayload();
+  const sh = ds?.setup_hunter ?? {};
+  const best = sh.best_candidate ?? {};
+  const hasBest = best && (best.symbol || best.strategy || best.score != null || best.grade);
+
+  return (
+    <Panel
+      title="Selected Candidate"
+      right={
+        <>
+          <RoleBadge>SETUP HUNTER · best_candidate</RoleBadge>
+          {!hasBest && <Chip tone="dim">NO SELECTION</Chip>}
+        </>
+      }
+    >
+      {!hasBest ? (
+        <StatePanel state="NO_DATA" message="NO BEST CANDIDATE" hint="setup_hunter.best_candidate fields are null" />
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4">
+          <KV label="Symbol" value={best.broker_symbol ?? best.symbol ?? "—"} tone="acc" />
+          <KV label="Strategy" value={best.strategy ?? "—"} />
+          <KV label="Direction" value={best.direction ?? "—"} tone={best.direction === "BUY" ? "buy" : best.direction === "SELL" ? "sell" : "dim"} />
+          <KV label="Grade" value={best.grade ?? "—"} tone={best.grade === "A" || best.grade === "B" ? "buy" : best.grade === "D" ? "sell" : "warn"} />
+          <KV label="Score" value={best.score ?? "—"} />
+          <KV label="RR" value={best.rr ?? "—"} />
+          <KV label="Entry" value={best.entry ?? "—"} />
+          <KV label="SL / TP" value={`${best.sl ?? "—"} / ${best.tp ?? "—"}`} />
+          <KV label="SMC" value={best.smc_score ?? "—"} />
+          <KV label="MTFA" value={best.mtfa_score ?? "—"} />
+          <KV label="Demo Eligible" value={best.demo_eligible === true ? "TRUE" : best.demo_eligible === false ? "FALSE" : "—"} tone={best.demo_eligible ? "buy" : "warn"} />
+          <KV label="Near Miss" value={best.near_miss_reason ?? "—"} />
+          {Array.isArray(best.failed_gates) && best.failed_gates.length > 0 && (
+            <div className="col-span-2 md:col-span-4 mt-1 flex flex-wrap gap-1">
+              {best.failed_gates.map((g: any, i: number) => <Chip key={i} tone="warn">{String(g)}</Chip>)}
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function PerSymbolFunnel({ decisions }: { decisions: any[] }) {
+  const ds: any = useDashboardStatusPayload();
+  const sh = ds?.setup_hunter ?? {};
+  const recent: any[] = Array.isArray(sh.latest_by_symbol_strategy) ? sh.latest_by_symbol_strategy : [];
+
+  // Build per-symbol counts from latest_by_symbol_strategy if present, else from ai_decisions
+  const source = recent.length > 0
+    ? recent.map((r) => ({
+        symbol: normalizeSymbol(r.symbol ?? r.broker_symbol),
+        decision: r.decision ?? r.status,
+        reason: r.reason ?? r.reject_reason,
+      }))
+    : decisions.map((d) => ({
+        symbol: normalizeSymbol(d.symbol),
+        decision: d.decision,
+        reason: d.reason,
+      }));
+
+  return (
+    <Panel
+      title="Per-Symbol Funnel"
+      right={<DataStateBadge state={source.length === 0 ? "NO_DATA" : "LIVE"} />}
+    >
+      {source.length === 0 ? (
+        <StatePanel state="NO_DATA" message="NO CANDIDATE STREAM" hint="setup_hunter.latest_by_symbol_strategy empty and ai_decisions empty" />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+          {SYMS.map((sym) => {
+            const items = source.filter((s) => s.symbol === sym);
+            const accepted = items.filter((s) => /ROUTE|ENTER|ACCEPT/i.test(String(s.decision ?? "")));
+            const rejected = items.filter((s) => /REJECT|BLOCK|FAIL/i.test(String(s.decision ?? "")));
+            const waits = items.filter((s) => /WAIT/i.test(String(s.decision ?? "")));
+            const lastReject = rejected[0]?.reason ?? items.find((s) => s.reason)?.reason ?? null;
+            return (
+              <div key={sym} className="p-2 flex flex-col gap-1" style={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: 6 }}>
+                <div className="flex items-center justify-between">
+                  <Chip tone="acc">{sym}</Chip>
+                  <span className="text-[10px]" style={{ color: T.dim }}>{items.length} candidates</span>
+                </div>
+                <KV label="Accepted" value={accepted.length} tone={accepted.length > 0 ? "buy" : "dim"} />
+                <KV label="WAIT" value={waits.length} tone={waits.length > 0 ? "warn" : "dim"} />
+                <KV label="Rejected" value={rejected.length} tone={rejected.length > 0 ? "sell" : "dim"} />
+                <KV label="Last Reject Reason" value={lastReject ?? "—"} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Panel>
+  );
 }

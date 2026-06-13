@@ -94,11 +94,77 @@ export function OverviewTab() {
         <LatestDecisionCard decisions={decisions} />
       </Panel>
 
+      <Panel title="Safety & Routing Config" className="col-span-12 lg:col-span-7">
+        <SafetyConfigPanel />
+      </Panel>
+
+      <Panel title="Cycle Status" className="col-span-12 lg:col-span-5">
+        <CycleStatusPanel />
+      </Panel>
+
       <Panel title="Alerts" className="col-span-12">
         <AlertsRow />
       </Panel>
     </div>
   );
+}
+
+function SafetyConfigPanel() {
+  const ds: any = useDashboardStatusPayload();
+  const acct = ds?.account ?? {};
+  const bs = ds?.balanced_selector ?? {};
+  const re = ds?.risk_exposure ?? {};
+
+  const demoOnly = acct.demo_only ?? ds?.demo_only;
+  const allowLive = acct.allow_live_trading ?? ds?.allow_live_trading;
+  const maxLot = acct.demo_max_lot ?? bs?.demo_max_lot ?? ds?.demo_max_lot ?? re?.max_lot;
+  const maxTotal = bs?.max_total_open_demo_trades ?? re?.max_total_open ?? ds?.demo_max_open_trades;
+  const maxPerSym = bs?.max_open_per_symbol ?? re?.max_per_symbol;
+  const fibOn = bs?.fib_confluence_enabled ?? ds?.fib_confluence?.enabled;
+  const packOn = bs?.strategy_pack_enabled ?? ds?.strategy_pack?.enabled;
+  const noD = bs?.no_d_grade_routing;
+  const noMC = bs?.no_market_closed_routing;
+
+  const has = Object.keys(ds ?? {}).length > 0;
+  if (!has) return <StatePanel state="NO_DATA" message="DASHBOARD_STATUS NOT EMITTED" />;
+
+  return (
+    <div className="grid grid-cols-2 gap-x-4">
+      <KV label="demo_only" value={renderBool(demoOnly)} tone={demoOnly === true ? "buy" : "warn"} />
+      <KV label="allow_live_trading" value={renderBool(allowLive)} tone={allowLive === false ? "buy" : "sell"} />
+      <KV label="demo_max_lot" value={maxLot ?? "—"} />
+      <KV label="max_total_open_demo_trades" value={maxTotal ?? "—"} />
+      <KV label="max_open_per_symbol" value={maxPerSym ?? "—"} />
+      <KV label="fib_confluence_enabled" value={renderBool(fibOn)} tone={fibOn ? "buy" : "dim"} />
+      <KV label="hermes_pack_enabled" value={renderBool(packOn)} tone={packOn ? "buy" : "dim"} />
+      <KV label="no_d_grade_routing" value={renderBool(noD)} tone={noD ? "buy" : "warn"} />
+      <KV label="no_market_closed_routing" value={renderBool(noMC)} tone={noMC ? "buy" : "warn"} />
+    </div>
+  );
+}
+
+function CycleStatusPanel() {
+  const ds: any = useDashboardStatusPayload();
+  const c = ds?.cycle_status;
+  if (!c) return <StatePanel state="NO_DATA" message="cycle_status MISSING" />;
+  const startAge = ageSecFrom(c.last_cycle_start_utc);
+  const endAge = ageSecFrom(c.last_cycle_end_utc);
+  return (
+    <div className="grid grid-cols-2 gap-x-4">
+      <KV label="Last Status" value={c.last_status ?? "—"} tone={c.last_status === "RUNNING" ? "acc" : "dim"} />
+      <KV label="Analyzed" value={c.analyzed ?? "—"} />
+      <KV label="Skipped" value={c.skipped ?? "—"} />
+      <KV label="Demo Orders" value={c.demo_orders ?? "—"} />
+      <KV label="Cycle Start" value={startAge != null ? fmtAge(startAge) + " ago" : "—"} />
+      <KV label="Cycle End" value={endAge != null ? fmtAge(endAge) + " ago" : c.last_cycle_end_utc == null ? "IN PROGRESS" : "—"} tone={c.last_cycle_end_utc == null ? "acc" : undefined} />
+    </div>
+  );
+}
+
+function renderBool(v: any) {
+  if (v === true) return "TRUE";
+  if (v === false) return "FALSE";
+  return "—";
 }
 
 function SymbolMiniCard({ symbol, decisions }: { symbol: string; decisions: any[] }) {
