@@ -2,6 +2,7 @@ import * as React from "react";
 import { Panel, KV, Chip, T, StatePanel, RoleBadge, DataStateBadge, fmtAge, ageSecFrom } from "../primitives";
 import { useLiveTable } from "@/hooks/useLiveTable";
 import { useDualHealth } from "../health";
+import { useDashboardStatusPayload } from "@/components/dashboard/DemoCenter";
 
 const SYMBOLS = ["BTCUSD#", "GOLD#", "EURUSD", "US100Cash#"] as const;
 
