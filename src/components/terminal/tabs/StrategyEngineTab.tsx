@@ -72,6 +72,10 @@ export function StrategyEngineTab() {
 
   return (
     <div className="flex flex-col gap-3">
+      <FibConfluencePanel />
+      <HermesPackPanel />
+      <BalancedSelectorPanel />
+
       <Section
         title="ACTIVE EXECUTION STRATEGY"
         subtitle="Eligible to route candidates to the backend DemoRouter"
