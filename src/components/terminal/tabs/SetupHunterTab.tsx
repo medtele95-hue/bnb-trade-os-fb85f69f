@@ -50,6 +50,9 @@ export function SetupHunterTab() {
 
   return (
     <div className="flex flex-col gap-3">
+      <SelectedCandidatePanel />
+      <PerSymbolFunnel decisions={decisions} />
+
       <Panel
         title="Pipeline Stages"
         right={
@@ -68,6 +71,7 @@ export function SetupHunterTab() {
           ))}
         </div>
       </Panel>
+
 
       <Panel
         title="Candidate Pipeline · per Symbol × Strategy"
