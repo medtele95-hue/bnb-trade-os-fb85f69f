@@ -1,5 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Database } from "@/integrations/supabase/types";
+
+type TradeRow = Database["public"]["Tables"]["trades"]["Row"];
+type RawPayloadObj = Record<string, unknown>;
+
+const QuerySchema = z.object({
+  magic_number: z.coerce.number().int().positive().default(909001),
+});
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -14,23 +23,31 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function getMode(t: any): string {
-  const rp = t.raw_payload || {};
-  const inner = rp.raw_payload || {};
-  return String(rp.mode ?? inner.mode ?? t.mode ?? "").toUpperCase();
+function asRawPayload(v: unknown): RawPayloadObj {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  return v as RawPayloadObj;
 }
-function getStatus(t: any): string {
-  const rp = t.raw_payload || {};
-  const inner = rp.raw_payload || {};
+
+function getMode(t: TradeRow): string {
+  const rp = asRawPayload(t.raw_payload);
+  const inner = asRawPayload(rp.raw_payload);
+  return String(rp.mode ?? inner.mode ?? (t as unknown as RawPayloadObj).mode ?? "").toUpperCase();
+}
+
+function getStatus(t: TradeRow): string {
+  const rp = asRawPayload(t.raw_payload);
+  const inner = asRawPayload(rp.raw_payload);
   return String(rp.status ?? inner.status ?? "").toUpperCase();
 }
-function getDir(t: any): string {
-  const rp = t.raw_payload || {};
+
+function getDir(t: TradeRow): string {
+  const rp = asRawPayload(t.raw_payload);
   return String(t.dir ?? rp.dir ?? rp.direction ?? "").toUpperCase();
 }
-function num(v: any): number | null {
+
+function num(v: unknown): number | null {
   if (v == null) return null;
-  const n = typeof v === "number" ? v : parseFloat(v);
+  const n = typeof v === "number" ? v : parseFloat(String(v));
   return Number.isFinite(n) ? n : null;
 }
 
@@ -41,8 +58,10 @@ export const Route = createFileRoute("/api/public/hermes-open-paper-trades")({
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
-          const magicParam = url.searchParams.get("magic_number");
-          const magic = magicParam ? Number(magicParam) : 909001;
+          const qParsed = QuerySchema.safeParse({
+            magic_number: url.searchParams.get("magic_number") ?? "909001",
+          });
+          const magic = qParsed.success ? qParsed.data.magic_number : 909001;
 
           const { data, error } = await supabaseAdmin
             .from("trades")
@@ -56,42 +75,45 @@ export const Route = createFileRoute("/api/public/hermes-open-paper-trades")({
             return json({ ok: false, error: error.message, rows: [] }, 500);
           }
 
-          const rows = (data ?? []).filter((t: any) => {
-            if (t.closed_at != null) return false;
-            const result = t.result;
-            if (result != null && result !== "-" && result !== "") return false;
-            const status = getStatus(t);
-            if (status && status !== "OPEN") return false;
-            const mode = getMode(t);
-            const isPaper = mode === "PAPER" || Number(t.magic_number) === 909001;
-            if (!isPaper) return false;
-            const dir = getDir(t);
-            if (!t.symbol || !dir) return false;
-            const entry = num(t.entry);
-            const sl = num(t.sl);
-            const tp = num(t.tp);
-            if (entry == null || sl == null || tp == null) return false;
-            const lot = num(t.lot_size ?? t.lot);
-            if (lot == null || lot <= 0) return false;
-            return true;
-          }).map((t: any) => ({
-            id: t.id,
-            symbol: t.symbol,
-            dir: getDir(t),
-            entry: num(t.entry),
-            sl: num(t.sl),
-            tp: num(t.tp),
-            lot_size: num(t.lot_size ?? t.lot),
-            magic_number: t.magic_number,
-            opened_at: t.opened_at,
-            closed_at: t.closed_at,
-            result: t.result,
-            raw_payload: t.raw_payload,
-          }));
+          const rows = (data ?? [])
+            .filter((t: TradeRow) => {
+              if (t.closed_at != null) return false;
+              const result = t.result;
+              if (result != null && result !== "-" && result !== "") return false;
+              const status = getStatus(t);
+              if (status && status !== "OPEN") return false;
+              const mode = getMode(t);
+              const isPaper = mode === "PAPER" || Number(t.magic_number) === 909001;
+              if (!isPaper) return false;
+              const dir = getDir(t);
+              if (!t.symbol || !dir) return false;
+              const entry = num(t.entry);
+              const sl = num(t.sl);
+              const tp = num(t.tp);
+              if (entry == null || sl == null || tp == null) return false;
+              const lot = num(t.lot_size ?? t.lot);
+              if (lot == null || lot <= 0) return false;
+              return true;
+            })
+            .map((t: TradeRow) => ({
+              id: t.id,
+              symbol: t.symbol,
+              dir: getDir(t),
+              entry: num(t.entry),
+              sl: num(t.sl),
+              tp: num(t.tp),
+              lot_size: num(t.lot_size ?? t.lot),
+              magic_number: t.magic_number,
+              opened_at: t.opened_at,
+              closed_at: t.closed_at,
+              result: t.result,
+              raw_payload: t.raw_payload,
+            }));
 
           return json({ ok: true, rows });
-        } catch (e: any) {
-          return json({ ok: false, error: String(e?.message || e), rows: [] }, 500);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return json({ ok: false, error: msg, rows: [] }, 500);
         }
       },
     },

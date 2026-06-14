@@ -1,5 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Database } from "@/integrations/supabase/types";
+
+type TradeRow = Database["public"]["Tables"]["trades"]["Row"];
+type ExecutionEventRow = Database["public"]["Tables"]["execution_events"]["Row"];
+type AiDecisionRow = Database["public"]["Tables"]["ai_decisions"]["Row"];
+type KellyRiskRow = Database["public"]["Tables"]["kelly_risk"]["Row"];
+type StrategySignalRow = Database["public"]["Tables"]["strategy_signals"]["Row"];
+type BotLogRow = Database["public"]["Tables"]["bot_logs"]["Row"];
+
+type RawPayloadObj = Record<string, unknown>;
+
+const QuerySchema = z.object({
+  hours: z.coerce
+    .number()
+    .positive()
+    .max(24 * 30)
+    .default(1),
+});
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -8,9 +27,26 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function toNum(v: any): number {
-  const n = typeof v === "number" ? v : parseFloat(v);
+function toNum(v: unknown): number {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
   return Number.isFinite(n) ? n : 0;
+}
+
+function asRawPayload(v: unknown): RawPayloadObj {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  return v as RawPayloadObj;
+}
+
+function getTradeMode(t: TradeRow): string {
+  const rp = asRawPayload(t.raw_payload);
+  const inner = asRawPayload(rp.raw_payload);
+  return String(rp.mode ?? inner.mode ?? "").toUpperCase();
+}
+
+function getTradeStatus(t: TradeRow): string {
+  const rp = asRawPayload(t.raw_payload);
+  const inner = asRawPayload(rp.raw_payload);
+  return String(rp.status ?? inner.status ?? "").toUpperCase();
 }
 
 export const Route = createFileRoute("/api/public/hermes-paper-report")({
@@ -24,8 +60,8 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
         }
 
         const url = new URL(request.url);
-        const hoursRaw = parseFloat(url.searchParams.get("hours") || "1");
-        const hours = Number.isFinite(hoursRaw) && hoursRaw > 0 ? Math.min(hoursRaw, 24 * 30) : 1;
+        const qParsed = QuerySchema.safeParse({ hours: url.searchParams.get("hours") ?? "1" });
+        const hours = qParsed.success ? qParsed.data.hours : 1;
         const sinceIso = new Date(Date.now() - hours * 3600 * 1000).toISOString();
 
         // Fetch in parallel
@@ -82,18 +118,19 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
             .limit(200),
         ]);
 
-        const paperEvents = paperEventsRes.data ?? [];
-        const allEvents = allEventsRes.data ?? [];
-        const trades = tradesRes.data ?? [];
-        const aiDecisions = aiDecisionsRes.data ?? [];
-        const kellyRisk = kellyRiskRes.data ?? [];
-        const strategySignals = strategySignalsRes.data ?? [];
-        const logs = logsRes.data ?? [];
+        const paperEvents: ExecutionEventRow[] = paperEventsRes.data ?? [];
+        const allEvents: Pick<ExecutionEventRow, "mode" | "event_type" | "created_at">[] =
+          allEventsRes.data ?? [];
+        const trades: TradeRow[] = tradesRes.data ?? [];
+        const aiDecisions: AiDecisionRow[] = aiDecisionsRes.data ?? [];
+        const kellyRisk: KellyRiskRow[] = kellyRiskRes.data ?? [];
+        const strategySignals: StrategySignalRow[] = strategySignalsRes.data ?? [];
+        const logs: BotLogRow[] = logsRes.data ?? [];
 
         // Detect demo/live orders
-        const demoOrLiveDetected = allEvents.some((e: any) => {
-          const m = (e.mode || "").toUpperCase();
-          const et = (e.event_type || "").toUpperCase();
+        const demoOrLiveDetected = allEvents.some((e) => {
+          const m = String(e.mode ?? "").toUpperCase();
+          const et = String(e.event_type ?? "").toUpperCase();
           return (
             (m && m !== "PAPER" && m !== "READ_ONLY" && (m === "DEMO" || m === "LIVE")) ||
             et.startsWith("DEMO") ||
@@ -102,34 +139,20 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
         });
 
         // Filter PAPER trades from trades table
-        // mode may live at raw_payload.mode or raw_payload.raw_payload.mode
-        // magic_number 909001 is the Hermes paper magic
-        const getMode = (t: any): string => {
-          const rp = t.raw_payload || {};
-          const inner = rp.raw_payload || {};
-          return String(rp.mode ?? inner.mode ?? "").toUpperCase();
-        };
-        const getStatus = (t: any): string => {
-          const rp = t.raw_payload || {};
-          const inner = rp.raw_payload || {};
-          return String(rp.status ?? inner.status ?? "").toUpperCase();
-        };
-
-        const paperTrades = (trades as any[]).filter((t) => {
+        const sinceMs = new Date(sinceIso).getTime();
+        const paperTrades = trades.filter((t) => {
           if (!t.dir || !t.symbol || t.entry == null) return false;
           const lot = toNum(t.lot_size ?? t.lot);
           if (!(lot > 0)) return false;
-          const mode = getMode(t);
+          const mode = getTradeMode(t);
           const isPaper = mode === "PAPER" || Number(t.magic_number) === 909001;
           if (!isPaper) return false;
-          // ensure within window (opened_at OR created_at)
           const openedAt = t.opened_at ? new Date(t.opened_at).getTime() : 0;
           const createdAt = t.created_at ? new Date(t.created_at).getTime() : 0;
-          const sinceMs = new Date(sinceIso).getTime();
           return Math.max(openedAt, createdAt) >= sinceMs;
         });
 
-        const isClosed = (t: any) => t.closed_at != null || getStatus(t) === "CLOSED";
+        const isClosed = (t: TradeRow) => t.closed_at != null || getTradeStatus(t) === "CLOSED";
         const openTrades = paperTrades.filter((t) => !isClosed(t));
         const closedTrades = paperTrades.filter(isClosed);
 
@@ -149,7 +172,8 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
           else if (pnl < 0) losses++;
           if (pnl > biggestWin) biggestWin = pnl;
           if (pnl < biggestLoss) biggestLoss = pnl;
-          const s = t.strategy || (t.raw_payload && t.raw_payload.strategy) || "unknown";
+          const rp = asRawPayload(t.raw_payload);
+          const s = String(t.strategy ?? rp.strategy ?? "unknown");
           strategyPnl[s] = (strategyPnl[s] || 0) + pnl;
         }
 
@@ -158,27 +182,33 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
         let bestVal = -Infinity;
         let worstVal = Infinity;
         for (const [s, v] of Object.entries(strategyPnl)) {
-          if (v > bestVal) { bestVal = v; bestStrategy = s; }
-          if (v < worstVal) { worstVal = v; worstStrategy = s; }
+          if (v > bestVal) {
+            bestVal = v;
+            bestStrategy = s;
+          }
+          if (v < worstVal) {
+            worstVal = v;
+            worstStrategy = s;
+          }
         }
 
-        const skippedCount = (aiDecisions as any[]).filter((d) => {
-          const dec = (d.decision || "").toUpperCase();
-          const rs = (d.risk_status || "").toUpperCase();
-          return dec === "SKIP" || dec === "BLOCK" || dec === "BLOCKED" || rs === "BLOCKED" || d.blocked_reason;
+        const skippedCount = aiDecisions.filter((d) => {
+          const dec = String(d.decision ?? "").toUpperCase();
+          const rs = String(d.risk_status ?? "").toUpperCase();
+          return (
+            dec === "SKIP" ||
+            dec === "BLOCK" ||
+            dec === "BLOCKED" ||
+            rs === "BLOCKED" ||
+            d.blocked_reason
+          );
         }).length;
 
-        const confidences = (aiDecisions as any[])
-          .map((d) => toNum(d.confidence))
-          .filter((n) => n > 0);
+        const confidences = aiDecisions.map((d) => toNum(d.confidence)).filter((n) => n > 0);
         const avgConfidence =
-          confidences.length > 0
-            ? confidences.reduce((a, b) => a + b, 0) / confidences.length
-            : 0;
+          confidences.length > 0 ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
 
-        const lots = paperTrades
-          .map((t) => toNum(t.lot_size ?? t.lot))
-          .filter((n) => n > 0);
+        const lots = paperTrades.map((t) => toNum(t.lot_size ?? t.lot)).filter((n) => n > 0);
         const avgLot = lots.length > 0 ? lots.reduce((a, b) => a + b, 0) / lots.length : 0;
 
         const winRate = wins + losses > 0 ? wins / (wins + losses) : 0;
@@ -193,10 +223,11 @@ export const Route = createFileRoute("/api/public/hermes-paper-report")({
           strategySignalsRes.error,
           logsRes.error,
         ].filter(Boolean);
-        for (const e of errors) safetyIssues.push(`query_error: ${(e as any).message}`);
+        for (const e of errors)
+          safetyIssues.push(`query_error: ${(e as { message: string }).message}`);
         if (demoOrLiveDetected) safetyIssues.push("demo_or_live_orders_detected");
-        for (const l of logs as any[]) {
-          const lvl = (l.level || "").toUpperCase();
+        for (const l of logs) {
+          const lvl = String(l.level ?? "").toUpperCase();
           if (lvl === "ERROR" || lvl === "CRITICAL" || lvl === "FATAL") {
             safetyIssues.push(`log_${lvl.toLowerCase()}: ${l.message}`);
           }

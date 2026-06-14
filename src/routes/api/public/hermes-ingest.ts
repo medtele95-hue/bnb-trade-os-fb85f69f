@@ -1,5 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Database, Json } from "@/integrations/supabase/types";
+
+type KnownTable = keyof Database["public"]["Tables"];
+type AnyTableInsert = Database["public"]["Tables"][KnownTable]["Insert"];
+type AnyTableUpdate = Database["public"]["Tables"][KnownTable]["Update"];
+type CleanedRow = Record<string, Json | undefined>;
+type FilterValue = string | number | boolean | null;
 
 type TableSpec = {
   mode: "insert" | "upsert";
@@ -288,6 +296,46 @@ const TABLES: Record<string, TableSpec> = {
   },
 };
 
+// ============ RATE LIMITING ============
+// Per-instance in-memory limiter — Cloudflare Worker instances are single-threaded.
+// State does not persist across instances but limits abuse within a single isolate.
+const ipRequests = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 120;
+
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get("CF-Connecting-IP") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown"
+  );
+}
+
+function checkRateLimit(ip: string): { limited: boolean; remaining: number; resetAt: number } {
+  const now = Date.now();
+  const entry = ipRequests.get(ip);
+
+  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    ipRequests.set(ip, { count: 1, windowStart: now });
+    return { limited: false, remaining: RATE_LIMIT_MAX - 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+  }
+
+  entry.count += 1;
+  const remaining = Math.max(0, RATE_LIMIT_MAX - entry.count);
+  const resetAt = entry.windowStart + RATE_LIMIT_WINDOW_MS;
+
+  return { limited: entry.count > RATE_LIMIT_MAX, remaining, resetAt };
+}
+
+// ============ ZOD SCHEMA ============
+const HermesPayloadSchema = z.object({
+  table: z.string().min(1, "table is required"),
+  data: z.union([z.array(z.record(z.unknown())), z.record(z.unknown())]),
+  action: z.enum(["insert", "upsert", "update"]).optional(),
+  match: z.record(z.unknown()).optional(),
+});
+
+// ============ CORS & HELPERS ============
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -333,7 +381,7 @@ function cleanRow(
   return out;
 }
 
-function applyTableDefaults(table: string, row: Record<string, unknown>) {
+function applyTableDefaults(table: KnownTable, row: Record<string, unknown>) {
   const next = { ...row };
 
   if (
@@ -375,16 +423,21 @@ function dedupeUpsertRows(rows: Record<string, unknown>[], spec: TableSpec) {
   const conflictKeys = spec.conflict.split(",").map((key) => key.trim());
   const byConflictKey = new Map<string, Record<string, unknown>>();
   for (const row of rows) {
-    const key = conflictKeys.map((column) => String(row[column] ?? "")).join("\u0000");
+    const key = conflictKeys.map((column) => String(row[column] ?? "")).join(" ");
     byConflictKey.set(key, row);
   }
   return [...byConflictKey.values()];
 }
 
-async function getLiveColumns(table: string, spec: TableSpec) {
-  const { data, error } = await (supabaseAdmin as any).rpc("hermes_table_columns", {
-    _table_name: table,
-  });
+// Typed RPC helper — avoids casting the entire supabaseAdmin client as any.
+type RpcResult = { data: string[] | null; error: { message: string } | null };
+type TypedRpcFn = (fn: string, params: Record<string, unknown>) => Promise<RpcResult>;
+
+async function getLiveColumns(table: KnownTable, spec: TableSpec): Promise<string[]> {
+  const { data, error } = await (supabaseAdmin.rpc as unknown as TypedRpcFn)(
+    "hermes_table_columns",
+    { _table_name: table },
+  );
 
   if (error || !Array.isArray(data) || data.length === 0) {
     console.log(
@@ -393,11 +446,11 @@ async function getLiveColumns(table: string, spec: TableSpec) {
     return spec.columns;
   }
 
-  return data as string[];
+  return data;
 }
 
 function prepareRows(
-  table: string,
+  table: KnownTable,
   spec: TableSpec,
   rawRows: Record<string, unknown>[],
   allowedColumns: string[],
@@ -409,15 +462,15 @@ function prepareRows(
   return dedupeUpsertRows(cleanedRows, spec);
 }
 
-async function writeRows(table: string, spec: TableSpec, rows: Record<string, unknown>[]) {
-  const query = supabaseAdmin.from(table as any);
+async function writeRows(table: KnownTable, spec: TableSpec, rows: CleanedRow[]) {
+  const query = supabaseAdmin.from(table);
   const op =
     spec.mode === "upsert"
-      ? query.upsert(rows as any, {
+      ? query.upsert(rows as unknown as AnyTableInsert[], {
           onConflict: spec.conflict,
           ignoreDuplicates: false,
         })
-      : query.insert(rows as any);
+      : query.insert(rows as unknown as AnyTableInsert[]);
   return op.select();
 }
 
@@ -479,269 +532,298 @@ function errorBody(args: {
   };
 }
 
+// ============ HANDLER ============
+// Exported so tests can import and call it directly with a mocked supabaseAdmin.
+export async function handleHermesPost({ request }: { request: Request }): Promise<Response> {
+  // 1. Rate limit — checked BEFORE secret validation
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(ip);
+
+  if (rl.limited) {
+    const retryAfterSecs = Math.ceil((rl.resetAt - Date.now()) / 1000);
+    return new Response(
+      JSON.stringify({ ok: false, error: "rate_limit_exceeded", retry_after: retryAfterSecs }),
+      {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          ...corsHeaders,
+          "Retry-After": String(retryAfterSecs),
+          "X-RateLimit-Limit": String(RATE_LIMIT_MAX),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(Math.ceil(rl.resetAt / 1000)),
+        },
+      },
+    );
+  }
+
+  // 2. Secret check
+  const secret = process.env.HERMES_INGEST_SECRET;
+  const provided = request.headers.get("x-hermes-secret");
+  if (!secret || !provided || provided !== secret) {
+    return json(401, {
+      ok: false,
+      table: null,
+      error: "unauthorized",
+      details: "missing or invalid x-hermes-secret header",
+    });
+  }
+
+  // 3. Parse JSON body
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch (e: unknown) {
+    return json(400, {
+      ok: false,
+      table: null,
+      error: "invalid_json",
+      details: (e instanceof Error ? e.message : null) ?? "could not parse JSON body",
+    });
+  }
+
+  // 4. Zod schema validation
+  const parsed = HermesPayloadSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return json(400, {
+      ok: false,
+      table: null,
+      error: "validation_error",
+      details: parsed.error.issues
+        .map((i) => `${i.path.join(".") || "root"}: ${i.message}`)
+        .join("; "),
+    });
+  }
+
+  const { table, data, action = "insert", match } = parsed.data;
+
+  // 5. Table allowlist check
+  const spec = TABLES[table];
+  if (!spec) {
+    return json(400, {
+      ok: false,
+      table,
+      error: "invalid_table",
+      details: `table '${table}' is not allowed`,
+    });
+  }
+
+  // table is a valid key of TABLES which equals KnownTable
+  const knownTable = table as KnownTable;
+
+  if (data === undefined || data === null) {
+    return json(400, {
+      ok: false,
+      table,
+      error: "missing_data",
+      details: "payload.data is required",
+    });
+  }
+
+  // 6. UPDATE path
+  if (action === "update") {
+    if (!match || typeof match !== "object" || Array.isArray(match)) {
+      return json(400, {
+        ok: false,
+        table,
+        error: "missing_match",
+        details: "payload.match object is required for action=update",
+      });
+    }
+    const matchEntries = Object.entries(match as Record<string, unknown>).filter(
+      ([, v]) => v !== undefined && v !== null,
+    );
+    if (matchEntries.length === 0) {
+      return json(400, {
+        ok: false,
+        table,
+        error: "empty_match",
+        details: "payload.match must contain at least one filter",
+      });
+    }
+
+    const updateRaw = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
+    if (!updateRaw || typeof updateRaw !== "object" || Array.isArray(updateRaw)) {
+      return json(400, {
+        ok: false,
+        table,
+        error: "invalid_row",
+        details: "payload.data must be an object for action=update",
+      });
+    }
+
+    const liveColumns = await getLiveColumns(knownTable, spec);
+    const allowed = new Set(liveColumns);
+    const updateRow: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(updateRaw)) {
+      if (!allowed.has(k)) continue;
+      const normalized = normalizeValue(v);
+      if (normalized === undefined) continue;
+      updateRow[k] = normalized;
+    }
+    if (allowed.has("raw_payload")) {
+      updateRow.raw_payload = updateRaw;
+    }
+
+    if (Object.keys(updateRow).length === 0) {
+      return json(400, {
+        ok: false,
+        table,
+        error: "empty_update",
+        details: "no allowed columns in payload.data",
+      });
+    }
+
+    try {
+      let q = supabaseAdmin.from(knownTable).update(updateRow as unknown as AnyTableUpdate);
+      for (const [col, val] of matchEntries) {
+        q = q.eq(col, val as FilterValue);
+      }
+      const { data: updated, error } = await q.select();
+
+      if (error) {
+        console.log(
+          `[hermes-ingest] update_db_error table=${table} match=${JSON.stringify(match)} message=${error.message} code=${error.code ?? ""}`,
+        );
+        return json(400, {
+          ok: false,
+          table,
+          action: "update",
+          error: error.message,
+          code: error.code ?? null,
+          hint: error.hint ?? null,
+        });
+      }
+
+      const count = updated?.length ?? 0;
+      if (count === 0) {
+        console.log(
+          `[hermes-ingest] update_no_match table=${table} match=${JSON.stringify(match)}`,
+        );
+        return json(404, {
+          ok: false,
+          table,
+          action: "update",
+          error: "NO_MATCHING_ROW",
+          match,
+        });
+      }
+
+      const result = { ok: true, table, action: "update", updated: count };
+      console.log(`[hermes-ingest] update_success ${JSON.stringify(result)}`);
+      return json(200, result);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.log(`[hermes-ingest] update_exception table=${table} message=${msg}`);
+      return json(400, { ok: false, table, action: "update", error: msg });
+    }
+  }
+
+  // 7. INSERT / UPSERT path
+  const rawRows = Array.isArray(data) ? data : [data];
+  for (const r of rawRows) {
+    if (!r || typeof r !== "object" || Array.isArray(r)) {
+      return json(400, {
+        ok: false,
+        table,
+        error: "invalid_row",
+        details: "each data row must be an object",
+      });
+    }
+  }
+
+  const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
+  const liveColumns = await getLiveColumns(knownTable, spec);
+  let allowedKeys = [...liveColumns].sort();
+  let rows = prepareRows(knownTable, spec, rawRows as Record<string, unknown>[], liveColumns);
+  let allowed = new Set(liveColumns);
+  const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
+
+  console.log(
+    `[hermes-ingest] table=${table} rows=${rows.length} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} write_keys=${JSON.stringify(rows.map((r) => Object.keys(r)))}`,
+  );
+
+  try {
+    let { data: inserted, error } = await writeRows(knownTable, spec, rows as CleanedRow[]);
+
+    if (error) {
+      console.log(
+        `[hermes-ingest] db_error table=${table} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
+      );
+
+      const missingColumn = extractMissingColumn(error);
+      if (missingColumn) {
+        const retryColumns = liveColumns.filter((column) => column !== missingColumn);
+        allowedKeys = [...retryColumns].sort();
+        allowed = new Set(retryColumns);
+        rows = prepareRows(knownTable, spec, rawRows as Record<string, unknown>[], retryColumns);
+        console.log(
+          `[hermes-ingest] retry_without_missing_column table=${table} column=${missingColumn} allowed_keys=${JSON.stringify(allowedKeys)} write_keys=${JSON.stringify(rows.map((r) => Object.keys(r)))}`,
+        );
+        const retry = await writeRows(knownTable, spec, rows as CleanedRow[]);
+        inserted = retry.data;
+        error = retry.error;
+      }
+
+      if (error && isDuplicateCandleOk(table, error)) {
+        const result = duplicateConflictResult(table);
+        console.log(`[hermes-ingest] duplicate_ok ${JSON.stringify(result)}`);
+        return json(200, result);
+      }
+
+      if (error) {
+        return json(
+          400,
+          errorBody({
+            table,
+            error,
+            receivedKeys,
+            allowedKeys,
+            strippedKeys: receivedKeys.filter((key) => !allowed.has(key)),
+          }),
+        );
+      }
+    }
+
+    const result = {
+      ok: true,
+      table,
+      inserted: inserted?.length ?? rows.length,
+    };
+    console.log(`[hermes-ingest] success ${JSON.stringify(result)}`);
+    return json(200, result);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`[hermes-ingest] exception table=${table} message=${msg}`);
+    const error: DbWriteError = {
+      message: msg,
+      details: (e as DbWriteError)?.details,
+      hint: (e as DbWriteError)?.hint,
+      code: (e as DbWriteError)?.code,
+    };
+    if (isDuplicateCandleOk(table, error)) {
+      const result = duplicateConflictResult(table);
+      console.log(`[hermes-ingest] duplicate_exception_ok ${JSON.stringify(result)}`);
+      return json(200, result);
+    }
+    return json(
+      400,
+      errorBody({
+        table,
+        error,
+        receivedKeys,
+        allowedKeys,
+        strippedKeys: receivedKeys.filter((key) => !allowed.has(key)),
+      }),
+    );
+  }
+}
+
 export const Route = createFileRoute("/api/public/hermes-ingest")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders }),
-      POST: async ({ request }) => {
-        const secret = process.env.HERMES_INGEST_SECRET;
-        const provided = request.headers.get("x-hermes-secret");
-        if (!secret || !provided || provided !== secret) {
-          return json(401, {
-            ok: false,
-            table: null,
-            error: "unauthorized",
-            details: "missing or invalid x-hermes-secret header",
-          });
-        }
-
-        let payload: any;
-        try {
-          payload = await request.json();
-        } catch (e: any) {
-          return json(400, {
-            ok: false,
-            table: null,
-            error: "invalid_json",
-            details: e?.message ?? "could not parse JSON body",
-          });
-        }
-
-        const table = payload?.table as string | undefined;
-        const data = payload?.data;
-        const action = (payload?.action as string | undefined) ?? "insert";
-        const match = payload?.match;
-
-        if (!table || typeof table !== "string") {
-          return json(400, {
-            ok: false,
-            table: table ?? null,
-            error: "missing_table",
-            details: "payload.table is required",
-          });
-        }
-
-        const spec = TABLES[table];
-        if (!spec) {
-          return json(400, {
-            ok: false,
-            table,
-            error: "invalid_table",
-            details: `table '${table}' is not allowed`,
-          });
-        }
-
-        if (data === undefined || data === null) {
-          return json(400, {
-            ok: false,
-            table,
-            error: "missing_data",
-            details: "payload.data is required",
-          });
-        }
-
-        // Real UPDATE path — never insert/upsert when action=="update"
-        if (action === "update") {
-          if (!match || typeof match !== "object" || Array.isArray(match)) {
-            return json(400, {
-              ok: false,
-              table,
-              error: "missing_match",
-              details: "payload.match object is required for action=update",
-            });
-          }
-          const matchEntries = Object.entries(match as Record<string, unknown>).filter(
-            ([, v]) => v !== undefined && v !== null,
-          );
-          if (matchEntries.length === 0) {
-            return json(400, {
-              ok: false,
-              table,
-              error: "empty_match",
-              details: "payload.match must contain at least one filter",
-            });
-          }
-
-          const updateRaw = (Array.isArray(data) ? data[0] : data) as Record<string, unknown>;
-          if (!updateRaw || typeof updateRaw !== "object" || Array.isArray(updateRaw)) {
-            return json(400, {
-              ok: false,
-              table,
-              error: "invalid_row",
-              details: "payload.data must be an object for action=update",
-            });
-          }
-
-          const liveColumns = await getLiveColumns(table, spec);
-          const allowed = new Set(liveColumns);
-          const updateRow: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(updateRaw)) {
-            if (!allowed.has(k)) continue;
-            const normalized = normalizeValue(v);
-            if (normalized === undefined) continue;
-            updateRow[k] = normalized;
-          }
-          if (allowed.has("raw_payload")) {
-            updateRow.raw_payload = updateRaw;
-          }
-
-          if (Object.keys(updateRow).length === 0) {
-            return json(400, {
-              ok: false,
-              table,
-              error: "empty_update",
-              details: "no allowed columns in payload.data",
-            });
-          }
-
-          try {
-            let q = supabaseAdmin.from(table as any).update(updateRow as any);
-            for (const [col, val] of matchEntries) {
-              q = q.eq(col, val as any);
-            }
-            const { data: updated, error } = await q.select();
-
-            if (error) {
-              console.log(
-                `[hermes-ingest] update_db_error table=${table} match=${JSON.stringify(match)} message=${error.message} code=${error.code ?? ""}`,
-              );
-              return json(400, {
-                ok: false,
-                table,
-                action: "update",
-                error: error.message,
-                code: error.code ?? null,
-                hint: error.hint ?? null,
-              });
-            }
-
-            const count = updated?.length ?? 0;
-            if (count === 0) {
-              console.log(
-                `[hermes-ingest] update_no_match table=${table} match=${JSON.stringify(match)}`,
-              );
-              return json(404, {
-                ok: false,
-                table,
-                action: "update",
-                error: "NO_MATCHING_ROW",
-                match,
-              });
-            }
-
-            const result = { ok: true, table, action: "update", updated: count };
-            console.log(`[hermes-ingest] update_success ${JSON.stringify(result)}`);
-            return json(200, result);
-          } catch (e: any) {
-            console.log(
-              `[hermes-ingest] update_exception table=${table} message=${e?.message}`,
-            );
-            return json(400, {
-              ok: false,
-              table,
-              action: "update",
-              error: e?.message ?? String(e),
-            });
-          }
-        }
-
-        const rawRows = Array.isArray(data) ? data : [data];
-        for (const r of rawRows) {
-          if (!r || typeof r !== "object" || Array.isArray(r)) {
-            return json(400, {
-              ok: false,
-              table,
-              error: "invalid_row",
-              details: "each data row must be an object",
-            });
-          }
-        }
-
-        const receivedKeys = rowKeys(rawRows as Record<string, unknown>[]);
-        const liveColumns = await getLiveColumns(table, spec);
-        let allowedKeys = [...liveColumns].sort();
-        let rows = prepareRows(table, spec, rawRows as Record<string, unknown>[], liveColumns);
-        let allowed = new Set(liveColumns);
-        const strippedKeys = receivedKeys.filter((key) => !allowed.has(key));
-
-        console.log(
-          `[hermes-ingest] table=${table} rows=${rows.length} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} write_keys=${JSON.stringify(rows.map((r) => Object.keys(r)))}`,
-        );
-
-        try {
-          let { data: inserted, error } = await writeRows(table, spec, rows);
-
-          if (error) {
-            console.log(
-              `[hermes-ingest] db_error table=${table} received_keys=${JSON.stringify(receivedKeys)} allowed_keys=${JSON.stringify(allowedKeys)} stripped_keys=${JSON.stringify(strippedKeys)} message=${error.message} details=${error.details ?? ""} hint=${error.hint ?? ""} code=${error.code ?? ""}`,
-            );
-
-            const missingColumn = extractMissingColumn(error);
-            if (missingColumn) {
-              const retryColumns = liveColumns.filter((column) => column !== missingColumn);
-              allowedKeys = [...retryColumns].sort();
-              allowed = new Set(retryColumns);
-              rows = prepareRows(table, spec, rawRows as Record<string, unknown>[], retryColumns);
-              console.log(
-                `[hermes-ingest] retry_without_missing_column table=${table} column=${missingColumn} allowed_keys=${JSON.stringify(allowedKeys)} write_keys=${JSON.stringify(rows.map((r) => Object.keys(r)))}`,
-              );
-              const retry = await writeRows(table, spec, rows);
-              inserted = retry.data;
-              error = retry.error;
-            }
-
-            if (error && isDuplicateCandleOk(table, error)) {
-              const result = duplicateConflictResult(table);
-              console.log(`[hermes-ingest] duplicate_ok ${JSON.stringify(result)}`);
-              return json(200, result);
-            }
-
-            if (error) {
-              return json(
-                400,
-                errorBody({
-                  table,
-                  error,
-                  receivedKeys,
-                  allowedKeys,
-                  strippedKeys: receivedKeys.filter((key) => !allowed.has(key)),
-                }),
-              );
-            }
-          }
-
-          const result = {
-            ok: true,
-            table,
-            inserted: inserted?.length ?? rows.length,
-          };
-          console.log(`[hermes-ingest] success ${JSON.stringify(result)}`);
-          return json(200, result);
-        } catch (e: any) {
-          console.log(`[hermes-ingest] exception table=${table} message=${e?.message}`);
-          const error = {
-            message: e?.message ?? String(e),
-            details: e?.details,
-            hint: e?.hint,
-            code: e?.code,
-          };
-          if (isDuplicateCandleOk(table, error)) {
-            const result = duplicateConflictResult(table);
-            console.log(`[hermes-ingest] duplicate_exception_ok ${JSON.stringify(result)}`);
-            return json(200, result);
-          }
-          return json(
-            400,
-            errorBody({
-              table,
-              error,
-              receivedKeys,
-              allowedKeys,
-              strippedKeys: receivedKeys.filter((key) => !allowed.has(key)),
-            }),
-          );
-        }
-      },
+      POST: handleHermesPost,
     },
   },
 });
