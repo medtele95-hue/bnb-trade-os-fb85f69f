@@ -31,11 +31,22 @@ function SymbolTile({ broker }: { broker: string }) {
   const lastUpdate = node?.last_update_utc;
   const ageS = ageSecFrom(lastUpdate, tick);
 
-  // Market closed → BLOCK / MARKET_CLOSED takes precedence over price freshness
-  const marketClosed = marketOpen === false;
+  const isCrypto = /^BTC|CRYPTO/i.test(broker);
+  const reason = String(node?.latest_reason ?? gate?.reason ?? "").toUpperCase();
+
+  // Crypto-specific reason handling overrides MARKET_CLOSED
+  const cryptoOpen = isCrypto && (reason === "BTC_24_7_ALLOWED" || reason === "CRYPTO_24_7_ALLOWED");
+  const cryptoAnalysisOnly = isCrypto && reason === "BTC_WEEKEND_ANALYSIS_ONLY";
+  const cryptoBrokerClosed = isCrypto && reason === "BROKER_SESSION_CLOSED";
+  const cryptoTradeDisabled = isCrypto && reason === "SYMBOL_TRADE_DISABLED";
+  const cryptoNoTick = isCrypto && reason === "NO_RECENT_TICK";
+
+  // For crypto: never show MARKET_CLOSED — backend decides via reason.
+  const marketClosed = !isCrypto && marketOpen === false;
   const noData = !node;
   const stale = backendStaleFlag || (ageS != null && ageS > 120);
-  const state = noData ? "NO_DATA" : marketClosed ? "DEGRADED" : stale ? "STALE" : "LIVE";
+  const dimmed = stale || marketClosed || cryptoBrokerClosed || cryptoTradeDisabled || cryptoNoTick || cryptoAnalysisOnly;
+  const state = noData ? "NO_DATA" : marketClosed || cryptoBrokerClosed || cryptoTradeDisabled ? "DEGRADED" : stale ? "STALE" : "LIVE";
 
   return (
     <Panel
@@ -50,7 +61,7 @@ function SymbolTile({ broker }: { broker: string }) {
       {noData ? (
         <StatePanel state="NO_DATA" message="NO SYMBOL PAYLOAD" hint={`payload.symbols.${broker} absent`} />
       ) : (
-        <div className="grid grid-cols-2 gap-x-4" style={{ opacity: stale || marketClosed ? 0.7 : 1 }}>
+        <div className="grid grid-cols-2 gap-x-4" style={{ opacity: dimmed && !cryptoOpen ? 0.7 : 1 }}>
           <KV label="Enabled" value={renderBool(enabled)} tone={enabled ? "buy" : "warn"} />
           <KV label="Available" value={renderBool(available)} tone={available ? "buy" : "warn"} />
           <KV label="In Main Cycle" value={renderBool(inMainCycle)} tone={inMainCycle ? "acc" : "dim"} />
@@ -95,13 +106,18 @@ function SymbolTile({ broker }: { broker: string }) {
                 marketClosed ? "MARKET_CLOSED" :
                 (node?.latest_reason ?? (gate?.reason ?? "—"))
               }
-              tone={marketClosed ? "sell" : "dim"}
+              tone={marketClosed || cryptoBrokerClosed || cryptoTradeDisabled || cryptoNoTick ? "sell" : cryptoOpen ? "buy" : "dim"}
             />
           </div>
 
           <div className="col-span-2 mt-2 flex flex-wrap gap-1">
+            {cryptoOpen && <Chip tone="buy">OPEN · CRYPTO 24/7</Chip>}
+            {cryptoAnalysisOnly && <Chip tone="warn">ANALYSIS ONLY · BTC_WEEKEND_ANALYSIS_ONLY</Chip>}
+            {cryptoBrokerClosed && <Chip tone="sell">BLOCK · BROKER_SESSION_CLOSED</Chip>}
+            {cryptoTradeDisabled && <Chip tone="sell">BLOCK · SYMBOL_TRADE_DISABLED</Chip>}
+            {cryptoNoTick && <Chip tone="sell">BLOCK · NO_RECENT_TICK</Chip>}
             {marketClosed && <Chip tone="sell">BLOCK · MARKET_CLOSED</Chip>}
-            {!marketClosed && node?.latest_reason && String(node.latest_reason).toUpperCase().includes("FINAL_CONFLUENCE_TOO_LOW") && (
+            {!marketClosed && !isCrypto && reason.includes("FINAL_CONFLUENCE_TOO_LOW") && (
               <Chip tone="sell">BLOCK · FINAL_CONFLUENCE_TOO_LOW</Chip>
             )}
             {stale && !marketClosed && <Chip tone="warn">BACKEND STALE</Chip>}
@@ -111,6 +127,7 @@ function SymbolTile({ broker }: { broker: string }) {
     </Panel>
   );
 }
+
 
 function renderBool(v: any) {
   if (v === true) return "TRUE";
