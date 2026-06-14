@@ -677,7 +677,7 @@ export async function handleHermesPost({ request }: { request: Request }): Promi
     try {
       let q = supabaseAdmin.from(knownTable).update(updateRow as unknown as AnyTableUpdate);
       for (const [col, val] of matchEntries) {
-        q = q.eq(col, val as FilterValue);
+        q = q.eq(col, val as never);
       }
       const { data: updated, error } = await q.select();
 
