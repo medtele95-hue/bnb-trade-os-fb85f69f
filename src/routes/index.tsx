@@ -66,6 +66,7 @@ function Terminal() {
         <div className="ml-auto pr-2 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em]" style={{ color: T.dim }}>
           <ReconnectIndicator />
           <a href="/quad-terminal" style={{ color: T.acc }}>↗ Quad Terminal</a>
+          <a href="/export" style={{ color: T.dim }}>↓ Export</a>
           <a href="/legacy" style={{ color: T.dim }}>↗ Legacy Dashboard</a>
         </div>
       </nav>

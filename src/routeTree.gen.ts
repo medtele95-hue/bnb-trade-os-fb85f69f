@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as QuadTerminalRouteImport } from './routes/quad-terminal'
 import { Route as LegacyRouteImport } from './routes/legacy'
+import { Route as ExportRouteImport } from './routes/export'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicHermesPaperReportRouteImport } from './routes/api/public/hermes-paper-report'
 import { Route as ApiPublicHermesOpenPaperTradesRouteImport } from './routes/api/public/hermes-open-paper-trades'
@@ -30,6 +31,11 @@ const QuadTerminalRoute = QuadTerminalRouteImport.update({
 const LegacyRoute = LegacyRouteImport.update({
   id: '/legacy',
   path: '/legacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -57,6 +63,7 @@ const ApiPublicHermesIngestRoute = ApiPublicHermesIngestRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/export': typeof ExportRoute
   '/legacy': typeof LegacyRoute
   '/quad-terminal': typeof QuadTerminalRoute
   '/settings': typeof SettingsRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/export': typeof ExportRoute
   '/legacy': typeof LegacyRoute
   '/quad-terminal': typeof QuadTerminalRoute
   '/settings': typeof SettingsRoute
@@ -76,6 +84,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/export': typeof ExportRoute
   '/legacy': typeof LegacyRoute
   '/quad-terminal': typeof QuadTerminalRoute
   '/settings': typeof SettingsRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/export'
     | '/legacy'
     | '/quad-terminal'
     | '/settings'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/export'
     | '/legacy'
     | '/quad-terminal'
     | '/settings'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/export'
     | '/legacy'
     | '/quad-terminal'
     | '/settings'
@@ -115,6 +127,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ExportRoute: typeof ExportRoute
   LegacyRoute: typeof LegacyRoute
   QuadTerminalRoute: typeof QuadTerminalRoute
   SettingsRoute: typeof SettingsRoute
@@ -144,6 +157,13 @@ declare module '@tanstack/react-router' {
       path: '/legacy'
       fullPath: '/legacy'
       preLoaderRoute: typeof LegacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -179,6 +199,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ExportRoute: ExportRoute,
   LegacyRoute: LegacyRoute,
   QuadTerminalRoute: QuadTerminalRoute,
   SettingsRoute: SettingsRoute,
