@@ -4,15 +4,17 @@ import { useDashboardStatusPayload } from "@/components/dashboard/DemoCenter";
 export function TopBar() {
   const ds: any = useDashboardStatusPayload();
   const t = useTick(1000);
-  const d = new Date(t);
-  const utc = d.toISOString().slice(11, 19);
-  const cas = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Casablanca",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(d);
+  const d = t ? new Date(t) : null;
+  const utc = d ? d.toISOString().slice(11, 19) : "--:--:--";
+  const cas = d
+    ? new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Africa/Casablanca",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).format(d)
+    : "--:--:--";
 
   const mode = String(ds?.mode ?? "DEMO_PILOT_48H").replace(/_/g, " ");
   const account = String(ds?.account_type ?? "DEMO").toUpperCase();

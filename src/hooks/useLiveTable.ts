@@ -40,12 +40,20 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
     const channelKey = `live:${table}:${filter?.column ?? ""}:${filter?.value ?? ""}:${Math.random().toString(36).slice(2)}`;
 
     const load = async () => {
-      let q = supabase.from(table as any).select("*").order(orderBy, { ascending }).limit(limit);
-      if (filter) q = q.eq(filter.column, filter.value);
-      const { data, error } = await q;
+      let data: unknown[] | null = null;
+      let queryError: { message?: string } | null = null;
+      try {
+        let q = supabase.from(table as any).select("*").order(orderBy, { ascending }).limit(limit);
+        if (filter) q = q.eq(filter.column, filter.value);
+        const result = await q;
+        data = result.data as unknown[] | null;
+        queryError = result.error;
+      } catch (err) {
+        queryError = { message: err instanceof Error ? err.message : String(err) };
+      }
       if (cancelled) return;
-      if (error) {
-        setError(error.message);
+      if (queryError) {
+        setError(queryError.message ?? "Backend read unavailable");
         // keep previous rows to avoid UI flicker; only set [] if first load
         setRows((prev) => prev ?? []);
       } else {
@@ -57,22 +65,28 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
 
     load();
 
-    const channel = supabase
-      .channel(channelKey)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table },
-        () => {
-          if (DEV) console.debug(`[live:${table}] realtime event → invalidate`);
-          load();
-        },
-      )
-      .subscribe((status) => {
-        if (DEV) console.debug(`[live:${table}] channel status: ${status}`);
-        if (status === "SUBSCRIBED") reportChannelStatus(channelKey, "CONNECTED");
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reportChannelStatus(channelKey, "RECONNECTING");
-        else if (status === "CLOSED") reportChannelStatus(channelKey, "OFFLINE");
-      });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(channelKey)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table },
+          () => {
+            if (DEV) console.debug(`[live:${table}] realtime event → invalidate`);
+            load();
+          },
+        )
+        .subscribe((status) => {
+          if (DEV) console.debug(`[live:${table}] channel status: ${status}`);
+          if (status === "SUBSCRIBED") reportChannelStatus(channelKey, "CONNECTED");
+          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reportChannelStatus(channelKey, "RECONNECTING");
+          else if (status === "CLOSED") reportChannelStatus(channelKey, "OFFLINE");
+        });
+    } catch (err) {
+      reportChannelStatus(channelKey, "OFFLINE");
+      if (DEV) console.debug(`[live:${table}] realtime unavailable`, err);
+    }
 
     // Light fallback polling
     const interval = pollMs ?? DEFAULT_POLL_BY_TABLE[table] ?? 30000;
@@ -86,7 +100,11 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {}
+      }
       clearChannelStatus(channelKey);
       window.clearInterval(poll);
       window.removeEventListener("focus", onFocus);
