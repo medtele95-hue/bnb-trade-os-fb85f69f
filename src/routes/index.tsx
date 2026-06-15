@@ -62,7 +62,8 @@ function Terminal() {
             {t.label}
           </button>
         ))}
-        <div className="ml-auto pr-2 text-[10px] uppercase tracking-[0.16em]" style={{ color: T.dim }}>
+        <div className="ml-auto pr-2 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em]" style={{ color: T.dim }}>
+          <a href="/quad-terminal" style={{ color: T.acc }}>↗ Quad Terminal</a>
           <a href="/legacy" style={{ color: T.dim }}>↗ Legacy Dashboard</a>
         </div>
       </nav>
