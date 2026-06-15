@@ -39,6 +39,7 @@ export function useBackendHealth() {
   const channelConnected = rt === "CONNECTED";
   // Channel-level "alive" — recent trade activity OR channel connected.
   const channelAlive = channelConnected || (tradesAge != null && tradesAge < 60);
+  const hasDashboardHeartbeat = ageSec != null;
   const readReachable =
     (!tradesLive.loading && !tradesLive.error) ||
     (!decisionsLive.loading && !decisionsLive.error) ||
@@ -49,7 +50,6 @@ export function useBackendHealth() {
 
   // OFFLINE only when every backend signal is unavailable.
   // If REST reads are succeeding but realtime/heartbeat is lagging, this is STALE_DEGRADED, not OFFLINE.
-  const hasDashboardHeartbeat = ageSec != null;
   const offline =
     !channelAlive &&
     !readReachable &&
