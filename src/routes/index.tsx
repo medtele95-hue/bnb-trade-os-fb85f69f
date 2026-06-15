@@ -13,6 +13,7 @@ import { TradesTab } from "@/components/terminal/tabs/TradesTab";
 import { AuditTab } from "@/components/terminal/tabs/AuditTab";
 import { LogsTab } from "@/components/terminal/tabs/LogsTab";
 import { T } from "@/components/terminal/primitives";
+import { ReconnectIndicator } from "@/components/terminal/ReconnectIndicator";
 
 export const Route = createFileRoute("/")({ component: Terminal });
 
@@ -63,6 +64,7 @@ function Terminal() {
           </button>
         ))}
         <div className="ml-auto pr-2 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em]" style={{ color: T.dim }}>
+          <ReconnectIndicator />
           <a href="/quad-terminal" style={{ color: T.acc }}>↗ Quad Terminal</a>
           <a href="/legacy" style={{ color: T.dim }}>↗ Legacy Dashboard</a>
         </div>

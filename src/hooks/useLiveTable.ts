@@ -94,8 +94,10 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
 
     const onFocus = () => load();
     const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    const onReconnect = () => load();
     window.addEventListener("focus", onFocus);
     window.addEventListener("online", onFocus);
+    window.addEventListener("health:reconnect", onReconnect as EventListener);
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
@@ -109,6 +111,7 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
       window.clearInterval(poll);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", onFocus);
+      window.removeEventListener("health:reconnect", onReconnect as EventListener);
       document.removeEventListener("visibilitychange", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
