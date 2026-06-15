@@ -58,6 +58,7 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
         setRows((prev) => prev ?? []);
       } else {
         setRows((data ?? []) as T[]);
+        setError(null);
         if (DEV) console.debug(`[live:${table}] refetch ok (${(data ?? []).length})`);
       }
     };

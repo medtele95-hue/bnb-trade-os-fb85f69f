@@ -101,8 +101,9 @@ export function useDashboardStatusPayload(): Record<string, any> {
     (rp.status_json as Record<string, any> | undefined) ??
     (rp.raw_payload as Record<string, any> | undefined) ??
     {};
-  // Top-level rp wins first, then inner payload fields override/extend.
-  return { ...rp, ...inner };
+  // Keep row metadata (updated_at/status/component) available for health checks,
+  // then let raw payload and inner payload fields override/extend it.
+  return { ...row, ...rp, ...inner };
 }
 
 function formatMode(raw: any): string {
