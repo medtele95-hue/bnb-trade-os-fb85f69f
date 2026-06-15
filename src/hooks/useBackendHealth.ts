@@ -24,7 +24,12 @@ export function useBackendHealth() {
     return () => window.clearInterval(i);
   }, []);
 
-  const hb = ds?.utc_time ?? ds?.updated_at ?? ds?.last_heartbeat ?? null;
+  const hb =
+    ds?.backend_utc_time ??
+    ds?.utc_time ??
+    ds?.updated_at ??
+    ds?.last_heartbeat ??
+    null;
   const ageSec = parseAge(hb, now);
   const tradesAge = parseAge(trades[0]?.opened_at ?? trades[0]?.created_at, now);
   const decisionsAge = parseAge(decisions[0]?.created_at, now);
@@ -38,9 +43,10 @@ export function useBackendHealth() {
 
   // OFFLINE only when channel truly down AND no recent activity.
   // If channel is CONNECTED and a trade landed recently, this is STALE_DEGRADED, not OFFLINE.
+  const hasDashboardHeartbeat = ageSec != null;
   const offline =
     !channelAlive &&
-    (rt === "OFFLINE" || (ageSec != null && ageSec > 120) || ageSec == null);
+    (rt === "OFFLINE" || !hasDashboardHeartbeat);
 
   const verdict: HealthVerdict = offline ? "OFFLINE" : stale || degraded ? "STALE_DEGRADED" : "ONLINE";
   const tradeReady = verdict === "ONLINE";
