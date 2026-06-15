@@ -261,8 +261,9 @@ export function fmtMoney(v: any, digits = 2): string {
 }
 
 export function useTick(intervalMs = 1000) {
-  const [t, setT] = React.useState(() => Date.now());
+  const [t, setT] = React.useState(0);
   React.useEffect(() => {
+    setT(Date.now());
     const i = window.setInterval(() => setT(Date.now()), intervalMs);
     return () => window.clearInterval(i);
   }, [intervalMs]);
