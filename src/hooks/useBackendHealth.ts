@@ -15,8 +15,10 @@ function parseAge(iso: any, now: number): number | null {
 export function useBackendHealth() {
   const ds: any = useDashboardStatusPayload();
   const rt = useRealtimeStatus();
-  const { rows: trades } = useLiveTable<any>("trades", { limit: 1 });
-  const { rows: decisions } = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const tradesLive = useLiveTable<any>("trades", { limit: 1 });
+  const decisionsLive = useLiveTable<any>("ai_decisions", { limit: 1 });
+  const trades = tradesLive.rows;
+  const decisions = decisionsLive.rows;
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -37,15 +39,20 @@ export function useBackendHealth() {
   const channelConnected = rt === "CONNECTED";
   // Channel-level "alive" — recent trade activity OR channel connected.
   const channelAlive = channelConnected || (tradesAge != null && tradesAge < 60);
+  const hasDashboardHeartbeat = ageSec != null;
+  const readReachable =
+    (!tradesLive.loading && !tradesLive.error) ||
+    (!decisionsLive.loading && !decisionsLive.error) ||
+    hasDashboardHeartbeat;
 
   const stale = ageSec != null && ageSec > 60;
   const degraded = (ageSec != null && ageSec > 15) || rt === "RECONNECTING";
 
-  // OFFLINE only when channel truly down AND no recent activity.
-  // If channel is CONNECTED and a trade landed recently, this is STALE_DEGRADED, not OFFLINE.
-  const hasDashboardHeartbeat = ageSec != null;
+  // OFFLINE only when every backend signal is unavailable.
+  // If REST reads are succeeding but realtime/heartbeat is lagging, this is STALE_DEGRADED, not OFFLINE.
   const offline =
     !channelAlive &&
+    !readReachable &&
     (rt === "OFFLINE" || !hasDashboardHeartbeat);
 
   const verdict: HealthVerdict = offline ? "OFFLINE" : stale || degraded ? "STALE_DEGRADED" : "ONLINE";
