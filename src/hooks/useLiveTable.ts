@@ -94,8 +94,10 @@ export function useLiveTable<T = any>(table: string, opts: Options = {}) {
 
     const onFocus = () => load();
     const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    const onReconnect = () => load();
     window.addEventListener("focus", onFocus);
     window.addEventListener("online", onFocus);
+    window.addEventListener("health:reconnect", onReconnect as EventListener);
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
